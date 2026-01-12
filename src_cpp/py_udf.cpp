@@ -5,10 +5,10 @@
 #include "cached_import/py_cached_import.h"
 #include "common/exception/not_implemented.h"
 #include "common/exception/runtime.h"
-#include "common/string_format.h"
 #include "function/scalar_function.h"
 #include "py_connection.h"
 #include "py_query_result.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug;
@@ -116,8 +116,8 @@ static LogicalType getLogicalTypeNonNested(const py::handle& ele) {
     } else if (ele.is(py::type::of(py::dict()))) {
         throw RuntimeException("Map annotations must specify child types");
     } else {
-        throw RuntimeException(common::stringFormat("Unsupported annotation of type {}",
-            py::cast<std::string>(py::str(ele))));
+        throw RuntimeException(
+            std::format("Unsupported annotation of type {}", py::cast<std::string>(py::str(ele))));
     }
 }
 

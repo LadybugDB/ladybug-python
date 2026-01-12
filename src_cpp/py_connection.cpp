@@ -6,7 +6,6 @@
 #include "common/constants.h"
 #include "common/exception/not_implemented.h"
 #include "common/exception/runtime.h"
-#include "common/string_format.h"
 #include "common/types/uuid.h"
 #include "common/utils.h"
 #include "datetime.h" // from Python
@@ -17,6 +16,7 @@
 #include "pandas/pandas_scan.h"
 #include "processor/result/factorized_table.h"
 #include "pyarrow/pyarrow_scan.h"
+#include <format>
 
 using namespace lbug::common;
 using namespace lbug;
@@ -203,10 +203,10 @@ void PyConnection::getAllEdgesForTorchGeometric(py::array_t<int64_t>& npArray,
     // Set the number of threads to 1 for fetching edges to ensure ordering.
     auto numThreadsForExec = conn->getMaxNumThreadForExec();
     conn->setMaxNumThreadForExec(1);
-    // Run queries in batch to fetch edges.
-    auto queryString = "MATCH (a:{})-[:{}]->(b:{}) WHERE offset(id(b)) >= $s AND offset(id(b)) < "
-                       "$e RETURN offset(id(a)), offset(id(b))";
-    auto query = stringFormat(queryString, srcTableName, relName, dstTableName);
+    auto query =
+        std::format("MATCH (a:{})-[:{}]->(b:{}) WHERE offset(id(b)) >= $s AND offset(id(b)) < "
+                    "$e RETURN offset(id(a)), offset(id(b))",
+            srcTableName, relName, dstTableName);
     auto preparedStatement = conn->prepare(query);
     auto srcBuffer = buffer;
     auto dstBuffer = buffer + numRels;
@@ -378,8 +378,8 @@ static LogicalType pyLogicalType(const py::handle& val) {
         }
         if (precision > common::DECIMAL_PRECISION_LIMIT) {
             throw common::NotImplementedException(
-                stringFormat("Decimal precision cannot be greater than {}"
-                             "Note: positive exponents contribute to precision",
+                std::format("Decimal precision cannot be greater than {}"
+                            "Note: positive exponents contribute to precision",
                     common::DECIMAL_PRECISION_LIMIT));
         }
         return LogicalType::DECIMAL(precision, -exponent);
@@ -403,13 +403,13 @@ static LogicalType pyLogicalType(const py::handle& val) {
                  curChildValueType = pyLogicalType(child.second);
             LogicalType resultKey, resultValue;
             if (!LogicalTypeUtils::tryGetMaxLogicalType(childKeyType, curChildKeyType, resultKey)) {
-                throw RuntimeException(stringFormat(
+                throw RuntimeException(std::format(
                     "Cannot convert Python object to Lbug value : {}  is incompatible with {}",
                     childKeyType.toString(), curChildKeyType.toString()));
             }
             if (!LogicalTypeUtils::tryGetMaxLogicalType(childValueType, curChildValueType,
                     resultValue)) {
-                throw RuntimeException(stringFormat(
+                throw RuntimeException(std::format(
                     "Cannot convert Python object to Lbug value : {}  is incompatible with {}",
                     childValueType.toString(), curChildValueType.toString()));
             }
@@ -424,7 +424,7 @@ static LogicalType pyLogicalType(const py::handle& val) {
             auto curChildType = pyLogicalType(child);
             LogicalType result;
             if (!LogicalTypeUtils::tryGetMaxLogicalType(childType, curChildType, result)) {
-                throw RuntimeException(stringFormat(
+                throw RuntimeException(std::format(
                     "Cannot convert Python object to Lbug value : {}  is incompatible with {}",
                     childType.toString(), curChildType.toString()));
             }
@@ -520,7 +520,7 @@ static LogicalType pyLogicalTypeFromParameter(const py::handle& val) {
             auto curChildType = pyLogicalTypeFromParameter(child);
             LogicalType result;
             if (!LogicalTypeUtils::tryGetMaxLogicalType(childType, curChildType, result)) {
-                throw RuntimeException(stringFormat(
+                throw RuntimeException(std::format(
                     "Cannot convert Python object to Lbug value : {}  is incompatible with {}",
                     childType.toString(), curChildType.toString()));
             }
