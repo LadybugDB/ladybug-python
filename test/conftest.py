@@ -91,67 +91,52 @@ def init_long_str(conn: lb.Connection) -> None:
     conn.execute("CREATE REL TABLE knowsLongString (FROM personLongString TO personLongString, MANY_MANY)")
     conn.execute(f'COPY knowsLongString FROM "{LBUG_ROOT}/dataset/long-string-pk-tests/eKnows.csv"')
 
+import re
+
+data_file_extentions = ["csv", "parquet", "npy", "ttl", "nq", "json", "lbug_extension"]
+data_file_pattern = "|".join(data_file_extentions)
+data_file_regex = re.compile(rf'"([^"]+\.({data_file_pattern}))"', re.IGNORECASE)
 
 def init_tinysnb(conn: lb.Connection) -> None:
-    tiny_snb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/tinysnb").resolve()
-    schema_path = tiny_snb_path / "schema.cypher"
+    tinysnb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/tinysnb").resolve()
+
+    schema_path = tinysnb_path / "schema.cypher"
     with schema_path.open(mode="r") as f:
         for line in f.readlines():
             line = line.strip()
             if line:
                 conn.execute(line)
 
-    copy_path = tiny_snb_path / "copy.cypher"
+    copy_path = tinysnb_path / "copy.cypher"
     with copy_path.open(mode="r") as f:
         for line in f.readlines():
             line = line.strip()
 
-            let index = 0;
+            # handle multiple file paths in one COPY statement
+            line = data_file_regex.sub(f'"{tinysnb_path}/\\1"', line)
 
-    // handle multiple files in one line
-    while (true) {
-        const start = line.indexOf('"', index);
-        if (start === -1) {
-            break;
-        }
-        const end = line.indexOf('"', start + 1);
-        if (end === -1) {
-            break;
-        }
-        const substr = line.substring(start + 1, end);
-        const substrLower = substr.toLowerCase();
-        if ((substrLower.includes(".csv") ||
-            substrLower.includes(".parquet") ||
-            substrLower.includes(".npy") ||
-            substrLower.includes(".ttl") ||
-            substrLower.includes(".nq") ||
-            substrLower.includes(".json") ||
-            substrLower.includes(".lbug_extension"))
-        ) {
-            line = line.slice(0, start + 1) + relRootDir + line.slice(start+1);
-        }
-        index = relRootDir.length + end + 1;
-    }
-
-            line = line.replace("dataset/tinysnb", f"{LBUG_ROOT}/dataset/tinysnb")
             if line:
                 conn.execute(line)
 
 
 def init_demo(conn: lb.Connection) -> None:
-    tiny_snb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/demo-db/csv").resolve()
-    schema_path = tiny_snb_path / "schema.cypher"
+    demodb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/demo-db/csv").resolve()
+
+    schema_path = demodb_path / "schema.cypher"
     with schema_path.open(mode="r") as f:
         for line in f.readlines():
             line = line.strip()
             if line:
                 conn.execute(line)
 
-    copy_path = tiny_snb_path / "copy.cypher"
+    copy_path = demodb_path / "copy.cypher"
     with copy_path.open(mode="r") as f:
         for line in f.readlines():
             line = line.strip()
-            line = line.replace("dataset/demo-db/csv", f"{LBUG_ROOT}/dataset/demo-db/csv")
+
+            # handle multiple file paths in one COPY statement
+            line = data_file_regex.sub(f'"{demodb_path}/\\1"', line)
+
             if line:
                 conn.execute(line)
 
