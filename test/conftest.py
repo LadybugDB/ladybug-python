@@ -105,6 +105,34 @@ def init_tinysnb(conn: lb.Connection) -> None:
     with copy_path.open(mode="r") as f:
         for line in f.readlines():
             line = line.strip()
+
+            let index = 0;
+
+    // handle multiple files in one line
+    while (true) {
+        const start = line.indexOf('"', index);
+        if (start === -1) {
+            break;
+        }
+        const end = line.indexOf('"', start + 1);
+        if (end === -1) {
+            break;
+        }
+        const substr = line.substring(start + 1, end);
+        const substrLower = substr.toLowerCase();
+        if ((substrLower.includes(".csv") ||
+            substrLower.includes(".parquet") ||
+            substrLower.includes(".npy") ||
+            substrLower.includes(".ttl") ||
+            substrLower.includes(".nq") ||
+            substrLower.includes(".json") ||
+            substrLower.includes(".lbug_extension"))
+        ) {
+            line = line.slice(0, start + 1) + relRootDir + line.slice(start+1);
+        }
+        index = relRootDir.length + end + 1;
+    }
+
             line = line.replace("dataset/tinysnb", f"{LBUG_ROOT}/dataset/tinysnb")
             if line:
                 conn.execute(line)
