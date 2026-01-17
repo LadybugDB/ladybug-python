@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+import re
 from test_helper import LBUG_ROOT
 
 python_build_dir = Path(__file__).parent.parent / "build"
@@ -90,8 +91,6 @@ def init_long_str(conn: lb.Connection) -> None:
     conn.execute(f'COPY personLongString FROM "{LBUG_ROOT}/dataset/long-string-pk-tests/vPerson.csv"')
     conn.execute("CREATE REL TABLE knowsLongString (FROM personLongString TO personLongString, MANY_MANY)")
     conn.execute(f'COPY knowsLongString FROM "{LBUG_ROOT}/dataset/long-string-pk-tests/eKnows.csv"')
-
-import re
 
 data_file_extentions = ["csv", "parquet", "npy", "ttl", "nq", "json", "lbug_extension"]
 data_file_pattern = "|".join(data_file_extentions)
