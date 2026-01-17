@@ -92,9 +92,11 @@ def init_long_str(conn: lb.Connection) -> None:
     conn.execute("CREATE REL TABLE knowsLongString (FROM personLongString TO personLongString, MANY_MANY)")
     conn.execute(f'COPY knowsLongString FROM "{LBUG_ROOT}/dataset/long-string-pk-tests/eKnows.csv"')
 
+
 data_file_extentions = ["csv", "parquet", "npy", "ttl", "nq", "json", "lbug_extension"]
 data_file_pattern = "|".join(data_file_extentions)
 data_file_regex = re.compile(rf'"([^"]+\.({data_file_pattern}))"', re.IGNORECASE)
+
 
 def init_tinysnb(conn: lb.Connection) -> None:
     tinysnb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/tinysnb").resolve()
