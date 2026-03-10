@@ -22,6 +22,10 @@ jobs:
           fetch-depth: 1
           path: ladybug
 
+      - name: Update submodules
+        working-directory: ladybug
+        run: git submodule update --init --recursive dataset
+
       - name: Checkout ladybug-python into ladybug/tools/python_api
         uses: actions/checkout@v4
         with:
