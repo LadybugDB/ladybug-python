@@ -6,6 +6,8 @@
 #include "common/constants.h"
 #include "common/exception/not_implemented.h"
 #include "common/exception/runtime.h"
+#include "common/json_utils.h"
+#include "common/types/json_type.h"
 #include "common/types/uuid.h"
 #include "common/utils.h"
 #include "datetime.h" // from Python
@@ -391,6 +393,14 @@ static LogicalType pyLogicalType(const py::handle& val) {
         }
         return LogicalType::DECIMAL(precision, -exponent);
     } else if (py::isinstance<py::str>(val)) {
+        auto strVal = py::cast<std::string>(val);
+        if (!strVal.empty() && (strVal.front() == '{' || strVal.front() == '[')) {
+            auto jsonModule = py::module_::import("json");
+            try {
+                auto parsed = jsonModule.attr("loads")(val);
+                return pyLogicalType(parsed);
+            } catch (...) {}
+        }
         return LogicalType::STRING();
     } else if (py::isinstance<py::bytes>(val)) {
         return LogicalType::BLOB();
@@ -525,6 +535,15 @@ static LogicalType pyLogicalTypeFromParameter(const py::handle& val) {
         auto childType = LogicalType::ANY();
         for (auto child : lst) {
             auto curChildType = pyLogicalTypeFromParameter(child);
+            if (childType.getLogicalTypeID() != LogicalTypeID::ANY &&
+                childType.getLogicalTypeID() != curChildType.getLogicalTypeID()) {
+                if ((LogicalTypeUtils::isNested(childType.getLogicalTypeID()) &&
+                        !LogicalTypeUtils::isNested(curChildType.getLogicalTypeID())) ||
+                    (!LogicalTypeUtils::isNested(childType.getLogicalTypeID()) &&
+                        LogicalTypeUtils::isNested(curChildType.getLogicalTypeID()))) {
+                    return LogicalType::JSON();
+                }
+            }
             LogicalType result;
             if (!LogicalTypeUtils::tryGetMaxLogicalType(childType, curChildType, result)) {
                 throw RuntimeException(std::format(
@@ -537,6 +556,12 @@ static LogicalType pyLogicalTypeFromParameter(const py::handle& val) {
     } else {
         return pyLogicalType(val);
     }
+}
+
+static std::string pythonObjectToJsonString(const py::handle& val) {
+    auto jsonModule = py::module_::import("json");
+    auto jsonStr = jsonModule.attr("dumps")(val);
+    return py::cast<std::string>(jsonStr);
 }
 
 Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalType& type) {
@@ -578,7 +603,15 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
     }
     case LogicalTypeID::STRING:
         if (py::isinstance<py::str>(val)) {
-            return Value::createValue<std::string>(val.cast<std::string>());
+            auto strVal = val.cast<std::string>();
+            if (!strVal.empty() && (strVal.front() == '{' || strVal.front() == '[')) {
+                auto jsonModule = py::module_::import("json");
+                try {
+                    auto parsed = jsonModule.attr("loads")(val);
+                    return transformPythonValue(parsed);
+                } catch (...) {}
+            }
+            return Value::createValue<std::string>(strVal);
         } else {
             return Value::createValue<std::string>(py::str(val));
         }
@@ -694,8 +727,22 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
 
 Value PyConnection::transformPythonValueFromParameterAs(const py::handle& val,
     const LogicalType& type) {
+    if (py::isinstance<py::str>(val)) {
+        auto strVal = py::cast<std::string>(val);
+        if (!strVal.empty() && (strVal.front() == '{' || strVal.front() == '[')) {
+            auto jsonModule = py::module_::import("json");
+            try {
+                auto parsed = jsonModule.attr("loads")(val);
+                return transformPythonValueFromParameter(parsed);
+            } catch (...) {}
+        }
+    }
     switch (type.getLogicalTypeID()) {
     case LogicalTypeID::LIST: {
+        if (ListType::getChildType(type).getLogicalTypeID() == LogicalTypeID::JSON) {
+            auto jsonStr = pythonObjectToJsonString(val);
+            return Value::createValue<std::string>(jsonStr);
+        }
         py::list lst = py::reinterpret_borrow<py::list>(val);
         std::vector<std::unique_ptr<Value>> children;
         for (auto child : lst) {
@@ -736,6 +783,10 @@ Value PyConnection::transformPythonValueFromParameterAs(const py::handle& val,
                 transformPythonValueFromParameterAs(field.second, fieldType)));
         }
         return Value(type.copy(), std::move(children));
+    }
+    case LogicalTypeID::JSON: {
+        auto jsonStr = pythonObjectToJsonString(val);
+        return Value::createValue<std::string>(jsonStr);
     }
     case LogicalTypeID::POINTER: {
         return Value::createValue(reinterpret_cast<uint8_t*>(val.ptr()));
