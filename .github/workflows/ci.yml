@@ -73,7 +73,7 @@ jobs:
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
         run: |
           make python
-          cp tools/python_api/src_py/*.py build/real_ladybug/
+          cp tools/python_api/src_py/*.py tools/python_api/build/real_ladybug/
 
       - name: Run pytest
         working-directory: ladybug/tools/python_api
