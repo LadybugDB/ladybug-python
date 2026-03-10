@@ -1,15 +1,17 @@
 from pathlib import Path
 
-import real_ladybug as lb
 import pytest
-from test_helper import LBUG_ROOT
+import real_ladybug as lb
 from conftest import get_db_file_path
+from test_helper import LBUG_ROOT
 
 
 def get_used_page_ranges(conn, table, column=None):
     used_pages = []
     if column is None:
-        storage_info = conn.execute(f'call storage_info("{table}") return start_page_idx, num_pages')
+        storage_info = conn.execute(
+            f'call storage_info("{table}") return start_page_idx, num_pages'
+        )
     else:
         storage_info = conn.execute(
             f'call storage_info("{table}") where prefix(column_name, "{column}") return start_page_idx, num_pages'
@@ -57,7 +59,9 @@ def compare_page_range_lists(used_list, free_list):
     free_list.sort()
     # used pages should be subset of new free pages
     for entry in combine_adjacent_page_ranges(used_list):
-        assert any(entry[0] >= i[0] and entry[0] + entry[1] <= i[0] + i[1] for i in free_list)
+        assert any(
+            entry[0] >= i[0] and entry[0] + entry[1] <= i[0] + i[1] for i in free_list
+        )
 
 
 def prevent_data_file_truncation(conn):
@@ -99,13 +103,23 @@ def fsm_rel_group_setup(tmp_path: Path):
     conn = lb.Connection(db)
     conn.execute("call threads=1")
     conn.execute("call auto_checkpoint=false")
-    conn.execute("create node table personA (ID INt64, fName StRING, PRIMARY KEY (ID));")
-    conn.execute("create node table personB (ID INt64, fName StRING, PRIMARY KEY (ID));")
-    conn.execute("create rel table likes (FROM personA TO personB, FROM personB To personA, date DATE);")
+    conn.execute(
+        "create node table personA (ID INt64, fName StRING, PRIMARY KEY (ID));"
+    )
+    conn.execute(
+        "create node table personB (ID INt64, fName StRING, PRIMARY KEY (ID));"
+    )
+    conn.execute(
+        "create rel table likes (FROM personA TO personB, FROM personB To personA, date DATE);"
+    )
     conn.execute(f'COPY personA FROM "{LBUG_ROOT}/dataset/rel-group/node.csv";')
     conn.execute(f'COPY personB FROM "{LBUG_ROOT}/dataset/rel-group/node.csv";')
-    conn.execute(f'COPY likes FROM "{LBUG_ROOT}/dataset/rel-group/edge.csv" (FROM="personA", TO="personB");')
-    conn.execute(f'COPY likes FROM "{LBUG_ROOT}/dataset/rel-group/edge.csv" (FROM="personB", TO="personA");')
+    conn.execute(
+        f'COPY likes FROM "{LBUG_ROOT}/dataset/rel-group/edge.csv" (FROM="personA", TO="personB");'
+    )
+    conn.execute(
+        f'COPY likes FROM "{LBUG_ROOT}/dataset/rel-group/edge.csv" (FROM="personB", TO="personA");'
+    )
     return db, conn
 
 
@@ -197,9 +211,9 @@ def test_fsm_reclaim_rel_table_delete(fsm_node_table_setup) -> None:
 
 def test_fsm_reclaim_struct(fsm_rel_table_setup) -> None:
     _, conn = fsm_rel_table_setup
-    used_pages = get_used_page_ranges(conn, "knows", "fwd_summary") + get_used_page_ranges(
-        conn, "knows", "bwd_summary"
-    )
+    used_pages = get_used_page_ranges(
+        conn, "knows", "fwd_summary"
+    ) + get_used_page_ranges(conn, "knows", "bwd_summary")
     conn.execute("alter table knows drop summary")
     prevent_data_file_truncation(conn)
     conn.execute("checkpoint")
@@ -219,7 +233,9 @@ def test_fsm_reclaim_rel_group(fsm_rel_group_setup) -> None:
 
 def test_fsm_reclaim_rel_group_column(fsm_rel_group_setup) -> None:
     _, conn = fsm_rel_group_setup
-    used_pages = get_used_page_ranges(conn, "likes", "fwd_date") + get_used_page_ranges(conn, "likes", "bwd_date")
+    used_pages = get_used_page_ranges(conn, "likes", "fwd_date") + get_used_page_ranges(
+        conn, "likes", "bwd_date"
+    )
     conn.execute("alter table likes drop date")
     prevent_data_file_truncation(conn)
     conn.execute("checkpoint")

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from . import _lbug
 from .prepared_statement import PreparedStatement
@@ -130,8 +131,12 @@ class Connection:
         if len(parameters) == 0 and isinstance(query, str):
             query_result_internal = self._connection.query(query)
         else:
-            prepared_statement = self._prepare(query, parameters) if isinstance(query, str) else query
-            query_result_internal = self._connection.execute(prepared_statement._prepared_statement, parameters)
+            prepared_statement = (
+                self._prepare(query, parameters) if isinstance(query, str) else query
+            )
+            query_result_internal = self._connection.execute(
+                prepared_statement._prepared_statement, parameters
+            )
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         current_query_result = QueryResult(self, query_result_internal)
@@ -234,7 +239,9 @@ class Connection:
             row = tables_result.get_next()
             if row[2] == "REL":
                 name = row[1]
-                connections_result = self.execute(f"CALL show_connection({name!r}) RETURN *;")
+                connections_result = self.execute(
+                    f"CALL show_connection({name!r}) RETURN *;"
+                )
                 src_dst_row = connections_result.get_next()
                 src_node = src_dst_row[0]
                 dst_node = src_dst_row[1]
@@ -345,7 +352,9 @@ class Connection:
 
         """
         self.init_connection()
-        query_result_internal = self._connection.create_arrow_table(table_name, dataframe)
+        query_result_internal = self._connection.create_arrow_table(
+            table_name, dataframe
+        )
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         return QueryResult(self, query_result_internal)

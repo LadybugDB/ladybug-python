@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 from uuid import UUID
+
 from real_ladybug.constants import ID, LABEL
 
 TINY_SNB_PERSONS_GROUND_TRUTH = {
@@ -175,7 +176,11 @@ TINY_SNB_ORGANISATIONS_GROUND_TRUTH = {
         "history": "10 years 5 months 13 hours 24 us",
         "licenseValidInterval": timedelta(days=1085),
         "rating": 1.0,
-        "state": {"revenue": 138, "location": ["toronto", "montr,eal"], "stock": {"price": [96, 56], "volume": 1000}},
+        "state": {
+            "revenue": 138,
+            "location": ["toronto", "montr,eal"],
+            "stock": {"price": [96, 56], "volume": 1000},
+        },
         "info": 3.12,
         LABEL: "organisation",
         ID: {"offset": 0, "table": 1},
@@ -253,7 +258,10 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
         "meetTime": datetime(2012, 12, 11, 20, 7, 22),
         "validInterval": timedelta(days=10),
         "comments": ["ioji232", "jifhe8w99u43434"],
-        "summary": {"locations": ["'shanghai'"], "transfer": {"day": date(1990, 9, 10), "amount": [10]}},
+        "summary": {
+            "locations": ["'shanghai'"],
+            "transfer": {"day": date(1990, 9, 10), "amount": [10]},
+        },
         "notes": "nice weather",
         "someMap": None,
     },
@@ -262,7 +270,10 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
         "meetTime": datetime(1946, 8, 25, 19, 7, 22),
         "validInterval": timedelta(days=3750, seconds=46800, microseconds=24),
         "comments": ["2huh9y89fsfw23", "23nsihufhw723"],
-        "summary": {"locations": ["'paris'"], "transfer": {"day": date(2000, 1, 1), "amount": [20, 5000]}},
+        "summary": {
+            "locations": ["'paris'"],
+            "transfer": {"day": date(2000, 1, 1), "amount": [20, 5000]},
+        },
         "notes": 4,
         "someMap": None,
     },
@@ -271,7 +282,10 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
         "meetTime": datetime(1946, 8, 25, 19, 7, 22),
         "validInterval": timedelta(seconds=1380),
         "comments": ["fwehu9h9832wewew", "23u9h989sdfsss"],
-        "summary": {"locations": ["'paris'"], "transfer": {"day": date(2011, 5, 1), "amount": [2000, 5340]}},
+        "summary": {
+            "locations": ["'paris'"],
+            "transfer": {"day": date(2011, 5, 1), "amount": [2000, 5340]},
+        },
         "notes": "cool stuff found",
         "someMap": None,
     },
@@ -280,7 +294,10 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
         "meetTime": datetime(2012, 12, 11, 20, 7, 22),
         "validInterval": timedelta(days=7232),
         "comments": ["fwh9y81232uisuiehuf", "ewnuihxy8dyf232"],
-        "summary": {"locations": ["'vancouver'"], "transfer": {"day": date(2020, 1, 1), "amount": [120, 50]}},
+        "summary": {
+            "locations": ["'vancouver'"],
+            "transfer": {"day": date(2020, 1, 1), "amount": [120, 50]},
+        },
         "notes": "matthew perry",
         "someMap": None,
     },
@@ -313,7 +330,10 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
         "meetTime": datetime(1998, 10, 2, 13, 9, 22, 423000),
         "validInterval": timedelta(microseconds=300000),
         "comments": ["psh989823oaaioe", "nuiuah1nosndfisf"],
-        "summary": {"locations": [], "transfer": {"day": date(1980, 11, 21), "amount": [20, 5]}},
+        "summary": {
+            "locations": [],
+            "transfer": {"day": date(1980, 11, 21), "amount": [20, 5]},
+        },
         "notes": 2,
         "someMap": None,
     },
@@ -333,8 +353,16 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
         "date": date(1950, 5, 14),
         "meetTime": datetime(1982, 11, 11, 13, 12, 5, 123000),
         "validInterval": timedelta(seconds=1380),
-        "comments": ["fewh9182912e3", "h9y8y89soidfsf", "nuhudf78w78efw", "hioshe0f9023sdsd"],
-        "summary": {"locations": ["'paris'"], "transfer": {"day": date(2000, 1, 1), "amount": [20, 5000]}},
+        "comments": [
+            "fewh9182912e3",
+            "h9y8y89soidfsf",
+            "nuhudf78w78efw",
+            "hioshe0f9023sdsd",
+        ],
+        "summary": {
+            "locations": ["'paris'"],
+            "transfer": {"day": date(2000, 1, 1), "amount": [20, 5000]},
+        },
         "notes": "happy new year",
         "someMap": None,
     },
@@ -343,7 +371,10 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
         "meetTime": datetime(1999, 4, 21, 15, 12, 11, 420000),
         "validInterval": timedelta(days=2, microseconds=52000),
         "comments": ["23h9sdslnfowhu2932", "shuhf98922323sf"],
-        "summary": {"locations": ["'paris'"], "transfer": {"day": date(2000, 1, 1), "amount": [20, 5000]}},
+        "summary": {
+            "locations": ["'paris'"],
+            "transfer": {"day": date(2000, 1, 1), "amount": [20, 5000]},
+        },
         "notes": 4,
         "someMap": None,
     },
@@ -379,7 +410,11 @@ TINY_SNB_WORKS_AT_GROUND_TRUTH = {
     7: [6],
 }
 
-TINY_SNB_WORKS_AT_PROPERTIES_GROUND_TRUTH = {(3, 4): {"year": 2015}, (5, 6): {"year": 2010}, (7, 6): {"year": 2015}}
+TINY_SNB_WORKS_AT_PROPERTIES_GROUND_TRUTH = {
+    (3, 4): {"year": 2015},
+    (5, 6): {"year": 2010},
+    (7, 6): {"year": 2015},
+}
 
 TENSOR_LIST_GROUND_TRUTH = {
     0: {

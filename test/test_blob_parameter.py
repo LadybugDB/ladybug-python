@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-import pytest
 from type_aliases import ConnDB
 
 
@@ -12,7 +11,9 @@ def test_bytes_param(conn_db_empty: ConnDB) -> None:
 
     data_0 = b"\x00\x01\x02\x03\xff"
     data_1 = b"testing"
-    data_2 = b"A" * 4096  # max size: 4KB, see https://docs.ladybugdb.com/cypher/data-types/#blob
+    data_2 = (
+        b"A" * 4096
+    )  # max size: 4KB, see https://docs.ladybugdb.com/cypher/data-types/#blob
     data_3 = b""  # empty
     data_4 = None  # null
     data_5 = "Hello 🌍"  # str
@@ -65,7 +66,9 @@ def test_bytes_param_where_clause(conn_db_empty: ConnDB) -> None:
     conn.execute("CREATE (t:tab {id: 1, data: $data})", {"data": data})
     conn.execute("CREATE (t:tab {id: 2, data: $data})", {"data": b"some other data"})
 
-    result = conn.execute("MATCH (t:tab) WHERE t.data = $search RETURN t.id", {"search": data})
+    result = conn.execute(
+        "MATCH (t:tab) WHERE t.data = $search RETURN t.id", {"search": data}
+    )
     assert result.get_next() == [1]
     assert not result.has_next()
     result.close()
@@ -88,7 +91,9 @@ def test_bytes_param_update(conn_db_empty: ConnDB) -> None:
 
 def test_bytes_param_mixed_types(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    conn.execute("CREATE NODE TABLE tab(id SERIAL PRIMARY KEY, data BLOB, name STRING, value DOUBLE)")
+    conn.execute(
+        "CREATE NODE TABLE tab(id SERIAL PRIMARY KEY, data BLOB, name STRING, value DOUBLE)"
+    )
 
     data = b"data"
     name = "name"

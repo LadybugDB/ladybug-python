@@ -1,6 +1,5 @@
 import datetime
 import re
-from pathlib import Path
 from uuid import UUID
 
 import numpy as np
@@ -144,37 +143,49 @@ def test_scan_pandas(conn_db_empty: ConnDB) -> None:
             [-0.5199999809265137, float("nan"), -3.299999952316284, 4.400000095367432],
             dtype=np.float32,
         ),
-        "FLOAT_64": np.array([5132.12321, 24.222, float("nan"), 4.444], dtype=np.float64),
-        "datetime_microseconds": np.array([
-            np.datetime64("1996-04-01T12:00:11.500001000"),
-            np.datetime64("1981-11-13T22:02:52.000002000"),
-            np.datetime64("1972-12-21T12:05:44.500003000"),
-            np.datetime64("2008-01-11T22:10:03.000004000"),
-        ]).astype("datetime64[us]"),
-        "datetime_microseconds_tz": np.array([
-            np.datetime64("1996-04-01T12:00:11.500001000"),
-            np.datetime64("1981-11-13T22:02:52.000002000"),
-            np.datetime64("1972-12-21T12:05:44.500003000"),
-            np.datetime64("2008-01-11T22:10:03.000004000"),
-        ]).astype("datetime64[us]"),
-        "datetime_nanoseconds": np.array([
-            np.datetime64("1996-04-01T12:00:11.500001"),
-            np.datetime64("1981-11-13T22:02:52.000002"),
-            np.datetime64("1972-12-21T12:05:44.500003"),
-            np.datetime64("2008-01-11T22:10:03.000004"),
-        ]).astype("datetime64[ns]"),
-        "datetime_milliseconds": np.array([
-            np.datetime64("1996-04-01T12:00:11.500001"),
-            np.datetime64("1981-11-13T22:02:52.000002"),
-            np.datetime64("1972-12-21T12:05:44.500003"),
-            np.datetime64("2008-01-11T22:10:03.000004"),
-        ]).astype("datetime64[ms]"),
-        "datetime_seconds": np.array([
-            np.datetime64("1996-04-01T12:00:11"),
-            np.datetime64("1981-11-13T22:02:52"),
-            np.datetime64("1972-12-21T12:05:44"),
-            np.datetime64("2008-01-11T22:10:03"),
-        ]).astype("datetime64[s]"),
+        "FLOAT_64": np.array(
+            [5132.12321, 24.222, float("nan"), 4.444], dtype=np.float64
+        ),
+        "datetime_microseconds": np.array(
+            [
+                np.datetime64("1996-04-01T12:00:11.500001000"),
+                np.datetime64("1981-11-13T22:02:52.000002000"),
+                np.datetime64("1972-12-21T12:05:44.500003000"),
+                np.datetime64("2008-01-11T22:10:03.000004000"),
+            ]
+        ).astype("datetime64[us]"),
+        "datetime_microseconds_tz": np.array(
+            [
+                np.datetime64("1996-04-01T12:00:11.500001000"),
+                np.datetime64("1981-11-13T22:02:52.000002000"),
+                np.datetime64("1972-12-21T12:05:44.500003000"),
+                np.datetime64("2008-01-11T22:10:03.000004000"),
+            ]
+        ).astype("datetime64[us]"),
+        "datetime_nanoseconds": np.array(
+            [
+                np.datetime64("1996-04-01T12:00:11.500001"),
+                np.datetime64("1981-11-13T22:02:52.000002"),
+                np.datetime64("1972-12-21T12:05:44.500003"),
+                np.datetime64("2008-01-11T22:10:03.000004"),
+            ]
+        ).astype("datetime64[ns]"),
+        "datetime_milliseconds": np.array(
+            [
+                np.datetime64("1996-04-01T12:00:11.500001"),
+                np.datetime64("1981-11-13T22:02:52.000002"),
+                np.datetime64("1972-12-21T12:05:44.500003"),
+                np.datetime64("2008-01-11T22:10:03.000004"),
+            ]
+        ).astype("datetime64[ms]"),
+        "datetime_seconds": np.array(
+            [
+                np.datetime64("1996-04-01T12:00:11"),
+                np.datetime64("1981-11-13T22:02:52"),
+                np.datetime64("1972-12-21T12:05:44"),
+                np.datetime64("2008-01-11T22:10:03"),
+            ]
+        ).astype("datetime64[s]"),
         "timedelta_nanoseconds": [
             np.timedelta64(500000, "ns"),
             np.timedelta64(1000000000, "ns"),
@@ -185,7 +196,9 @@ def test_scan_pandas(conn_db_empty: ConnDB) -> None:
         "worked_hours": [[], [40, 20, 10], [30, None], None],
         "int_object": np.array([528, -9999, None, 56677], dtype=object),
         "float_object": np.array([3.562, 4.213, None, 67.13], dtype=object),
-        "used_names": np.array([["Alice", None], [], None, ["Dan, Ella", "George"]], dtype=object),
+        "used_names": np.array(
+            [["Alice", None], [], None, ["Dan, Ella", "George"]], dtype=object
+        ),
         "past_date": np.array(
             [
                 datetime.date(1996, 2, 15),
@@ -204,7 +217,9 @@ def test_scan_pandas(conn_db_empty: ConnDB) -> None:
         ],
     }
     df = pd.DataFrame(data)
-    df["datetime_microseconds_tz"] = df["datetime_microseconds_tz"].dt.tz_localize("US/Eastern")
+    df["datetime_microseconds_tz"] = df["datetime_microseconds_tz"].dt.tz_localize(
+        "US/Eastern"
+    )
     results = conn.execute("LOAD FROM df RETURN *")
     validate_scan_pandas_results(results)
 
@@ -227,7 +242,9 @@ def test_scan_pandas_timestamp(conn_db_empty: ConnDB) -> None:
     # Pandas automatically converts the column from object to timestamp, so we need to manually cast back to object.
     df = df.astype({"timestamp": "object"}, copy=False)
     results = conn.execute("LOAD FROM df RETURN *")
-    assert results.get_next() == [datetime.datetime(1996, 2, 15, hour=12, minute=22, second=54)]
+    assert results.get_next() == [
+        datetime.datetime(1996, 2, 15, hour=12, minute=22, second=54)
+    ]
     assert results.get_next() == [datetime.datetime(2011, 3, 11, minute=11, hour=5)]
     assert results.get_next() == [None]
     assert results.get_next() == [datetime.datetime(2033, 2, 11, microsecond=55)]
@@ -236,7 +253,9 @@ def test_scan_pandas_timestamp(conn_db_empty: ConnDB) -> None:
 def test_replace_failure(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
 
-    with pytest.raises(RuntimeError, match=re.escape("Binder exception: Variable x is not in scope.")):
+    with pytest.raises(
+        RuntimeError, match=re.escape("Binder exception: Variable x is not in scope.")
+    ):
         conn.execute("LOAD FROM x RETURN *;")
 
     with pytest.raises(
@@ -283,10 +302,12 @@ def test_large_pd(conn_db_empty: ConnDB) -> None:
     num_rows = 40000
     odd_numbers = [2 * i + 1 for i in range(num_rows)]
     even_numbers = [2 * i for i in range(num_rows)]
-    df = pd.DataFrame({
-        "odd": np.array(odd_numbers, dtype=np.int64),
-        "even": np.array(even_numbers, dtype=np.int64),
-    })
+    df = pd.DataFrame(
+        {
+            "odd": np.array(odd_numbers, dtype=np.int64),
+            "even": np.array(even_numbers, dtype=np.int64),
+        }
+    )
     result = conn.execute("LOAD FROM df RETURN *").get_as_df()
     assert result["odd"].to_list() == odd_numbers
     assert result["even"].to_list() == even_numbers
@@ -305,7 +326,9 @@ def test_pandas_scan_demo(conn_db_empty: ConnDB) -> None:
     age = np.array([42, 23, 33, 57, 67, 39, 11], dtype=np.uint16)
     height_in_cm = np.array([167, 172, 183, 199, 149, 154, 165], dtype=np.uint32)
     is_student = np.array([False, True, False, False, False, False, True], dtype=bool)
-    person = pd.DataFrame({"id": id, "age": age, "height": height_in_cm, "is_student": is_student})
+    person = pd.DataFrame(
+        {"id": id, "age": age, "height": height_in_cm, "is_student": is_student}
+    )
 
     result = conn.execute(
         "LOAD FROM person with avg(height / 2.54) as height_in_inch MATCH (s:student) WHERE s.height > "
@@ -325,8 +348,12 @@ def test_pandas_scan_demo(conn_db_empty: ConnDB) -> None:
         "height": 67,
     }
 
-    conn.execute("CREATE NODE TABLE person(ID INT64, age UINT16, height UINT32, is_student BOOLean, PRIMARY KEY(ID))")
-    conn.execute("LOAD FROM person CREATE (p:person {ID: id, age: age, height: height, is_student: is_student})")
+    conn.execute(
+        "CREATE NODE TABLE person(ID INT64, age UINT16, height UINT32, is_student BOOLean, PRIMARY KEY(ID))"
+    )
+    conn.execute(
+        "LOAD FROM person CREATE (p:person {ID: id, age: age, height: height, is_student: is_student})"
+    )
     result = conn.execute("MATCH (p:person) return p.*").get_as_df()
     assert np.all(result["p.ID"].to_list() == id)
     assert np.all(result["p.age"].to_list() == age)
@@ -357,8 +384,12 @@ def test_scan_all_null(conn_db_empty: ConnDB) -> None:
 
 def test_copy_from_scan_pandas_result(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
-    conn.execute("CREATE NODE TABLE Person(name STRING, age INT64, PRIMARY KEY (name));")
+    df = pd.DataFrame(
+        {"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}
+    )
+    conn.execute(
+        "CREATE NODE TABLE Person(name STRING, age INT64, PRIMARY KEY (name));"
+    )
     conn.execute("COPY Person FROM (LOAD FROM df WHERE age < 30 RETURN *);")
     result = conn.execute("match (p:Person) return p.*")
     assert result.get_next() == ["Noura", 25]
@@ -367,9 +398,9 @@ def test_copy_from_scan_pandas_result(conn_db_empty: ConnDB) -> None:
 
 def test_scan_from_py_arrow_pandas(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}).convert_dtypes(
-        dtype_backend="pyarrow"
-    )
+    df = pd.DataFrame(
+        {"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}
+    ).convert_dtypes(dtype_backend="pyarrow")
     result = conn.execute("LOAD FROM df RETURN *;")
     assert result.get_next() == ["Adam", 30]
     assert result.get_next() == ["Karissa", 40]
@@ -388,8 +419,12 @@ def test_scan_long_utf8_string(conn_db_empty: ConnDB) -> None:
 
 def test_copy_from_pandas_object(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
-    conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
+    df = pd.DataFrame(
+        {"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}
+    )
+    conn.execute(
+        "CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));"
+    )
     conn.execute("COPY Person FROM df;")
     result = conn.execute("match (p:Person) return p.*")
     assert result.get_next() == ["Adam", "30"]
@@ -408,8 +443,12 @@ def test_copy_from_pandas_object(conn_db_empty: ConnDB) -> None:
 
 def test_copy_from_pandas_object_skip(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
-    conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
+    df = pd.DataFrame(
+        {"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}
+    )
+    conn.execute(
+        "CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));"
+    )
     conn.execute("COPY Person FROM df(SKIP=2);")
     result = conn.execute("match (p:Person) return p.*")
     assert result.get_next() == ["Zhang", "50"]
@@ -425,8 +464,12 @@ def test_copy_from_pandas_object_skip(conn_db_empty: ConnDB) -> None:
 
 def test_copy_from_pandas_object_limit(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
-    conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
+    df = pd.DataFrame(
+        {"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}
+    )
+    conn.execute(
+        "CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));"
+    )
     conn.execute("COPY Person FROM df(LIMIT=2);")
     result = conn.execute("match (p:Person) return p.*")
     assert result.get_next() == ["Adam", "30"]
@@ -442,8 +485,12 @@ def test_copy_from_pandas_object_limit(conn_db_empty: ConnDB) -> None:
 
 def test_copy_from_pandas_object_skip_and_limit(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
-    conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
+    df = pd.DataFrame(
+        {"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}
+    )
+    conn.execute(
+        "CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));"
+    )
     conn.execute("COPY Person FROM df(SKIP=1, LIMIT=2);")
     result = conn.execute("match (p:Person) return p.*")
     assert result.get_next() == ["Karissa", "40"]
@@ -453,8 +500,12 @@ def test_copy_from_pandas_object_skip_and_limit(conn_db_empty: ConnDB) -> None:
 
 def test_copy_from_pandas_object_skip_bounds_check(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
-    conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
+    df = pd.DataFrame(
+        {"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}
+    )
+    conn.execute(
+        "CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));"
+    )
     conn.execute("COPY Person FROM df(SKIP=10);")
     result = conn.execute("match (p:Person) return p.*")
     assert result.has_next() is False
@@ -462,8 +513,12 @@ def test_copy_from_pandas_object_skip_bounds_check(conn_db_empty: ConnDB) -> Non
 
 def test_copy_from_pandas_object_limit_bounds_check(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]})
-    conn.execute("CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));")
+    df = pd.DataFrame(
+        {"name": ["Adam", "Karissa", "Zhang", "Noura"], "age": [30, 40, 50, 25]}
+    )
+    conn.execute(
+        "CREATE NODE TABLE Person(name STRING, age STRING, PRIMARY KEY (name));"
+    )
     conn.execute("COPY Person FROM df(LIMIT=10);")
     result = conn.execute("match (p:Person) return p.*")
     assert result.get_next() == ["Adam", "30"]
@@ -475,7 +530,9 @@ def test_copy_from_pandas_object_limit_bounds_check(conn_db_empty: ConnDB) -> No
 
 def test_copy_from_pandas_date(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"id": [1, 2], "date": [pd.Timestamp("2024-01-03"), pd.Timestamp("2023-10-10")]})
+    df = pd.DataFrame(
+        {"id": [1, 2], "date": [pd.Timestamp("2024-01-03"), pd.Timestamp("2023-10-10")]}
+    )
     conn.execute("CREATE NODE TABLE Person(id INT16, d TIMESTAMP, PRIMARY KEY (id));")
     conn.execute("COPY Person FROM df;")
     result = conn.execute("match (p:Person) return p.*")
@@ -486,13 +543,15 @@ def test_copy_from_pandas_date(conn_db_empty: ConnDB) -> None:
 
 def test_scan_string_to_nested(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({
-        "id": ["1"],
-        "lstcol": ["[1,2,3]"],
-        "mapcol": ["{'a'=1,'b'=2}"],
-        "structcol": ["{a:1,b:2}"],
-        "lstlstcol": ["[[],[1,2,3],[4,5,6]]"],
-    })
+    df = pd.DataFrame(
+        {
+            "id": ["1"],
+            "lstcol": ["[1,2,3]"],
+            "mapcol": ["{'a'=1,'b'=2}"],
+            "structcol": ["{a:1,b:2}"],
+            "lstlstcol": ["[[],[1,2,3],[4,5,6]]"],
+        }
+    )
     conn.execute(
         "CREATE NODE TABLE tab(id INT64, lstcol INT64[], mapcol MAP(STRING, INT64), structcol STRUCT(a INT64, b INT64), lstlstcol INT64[][], PRIMARY KEY(id))"
     )
@@ -547,7 +606,9 @@ def test_copy_from_pandas_multi_pairs(conn_db_empty: ConnDB) -> None:
     conn.execute("CREATE (p:person {id: 4});")
     conn.execute("CREATE NODE TABLE student(id INT64, PRIMARY KEY(id))")
     conn.execute("CREATE (p:student {id: 2});")
-    conn.execute("CREATE REL TABLE knows(from person to person, from person to student, length int64)")
+    conn.execute(
+        "CREATE REL TABLE knows(from person to person, from person to student, length int64)"
+    )
     df = pd.DataFrame({"from": [3], "to": [4], "length": [252]})
     conn.execute("COPY knows from df (from = 'person', to = 'person');")
     result = conn.execute("match (:person)-[e:knows]->(:person) return e.*")
@@ -563,14 +624,18 @@ def test_scan_pandas_with_exists(conn_db_empty: ConnDB) -> None:
     conn.execute("CREATE (p:person {id: 2})")
     conn.execute("CREATE (p:person {id: 3})")
     conn.execute("CREATE REL TABLE knows(from person to person)")
-    df = pd.DataFrame({
-        "from": [1, 2, 3],
-        "to": [3, 2, 1],
-    })
+    df = pd.DataFrame(
+        {
+            "from": [1, 2, 3],
+            "to": [3, 2, 1],
+        }
+    )
     conn.execute(
         "COPY knows from (load from df where not exists {MATCH (p:person)-[:knows]->(p1:person) WHERE p.id = from AND p1.id = to} return from + 1 - 1, to)"
     )
-    res = conn.execute("MATCH (p:person)-[:knows]->(p1:person) return p.id, p1.id order by p.id, p1.id")
+    res = conn.execute(
+        "MATCH (p:person)-[:knows]->(p1:person) return p.id, p1.id order by p.id, p1.id"
+    )
     assert res.has_next()
     tp = res.get_next()
     assert tp[0] == 1
@@ -595,7 +660,12 @@ def test_scan_empty_list(conn_db_empty: ConnDB) -> None:
 
 def test_scan_py_dict_struct_format(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({"id": [1, 3, 4], "dt": [{"key1": 5, "key3": 4}, {"key1": 10, "key3": 25}, None]})
+    df = pd.DataFrame(
+        {
+            "id": [1, 3, 4],
+            "dt": [{"key1": 5, "key3": 4}, {"key1": 10, "key3": 25}, None],
+        }
+    )
     res = conn.execute("LOAD FROM df RETURN *")
     tp = res.get_next()
     assert tp[0] == 1
@@ -610,14 +680,16 @@ def test_scan_py_dict_struct_format(conn_db_empty: ConnDB) -> None:
 
 def test_scan_py_dict_map_format(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pd.DataFrame({
-        "id": [1, 3, 4],
-        "dt": [
-            {"key": ["Alice", "Bob"], "value": [32, 41]},
-            {"key": ["Carol"], "value": [2]},
-            {"key": ["zoo", "ela", "dan"], "value": [44, 52, 88]},
-        ],
-    })
+    df = pd.DataFrame(
+        {
+            "id": [1, 3, 4],
+            "dt": [
+                {"key": ["Alice", "Bob"], "value": [32, 41]},
+                {"key": ["Carol"], "value": [2]},
+                {"key": ["zoo", "ela", "dan"], "value": [44, 52, 88]},
+            ],
+        }
+    )
     res = conn.execute("LOAD FROM df RETURN *")
     tp = res.get_next()
     assert tp[0] == 1
@@ -646,7 +718,9 @@ def test_scan_py_dict_empty(conn_db_empty: ConnDB) -> None:
 
 def test_df_with_struct_cast(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    df = pd.DataFrame({"test": [{"a": 1}, {"a": 2}, {"a": 3}, {"b": "abc"}], "qwe": [1, 2, 3, False]})
+    df = pd.DataFrame(
+        {"test": [{"a": 1}, {"a": 2}, {"a": 3}, {"b": "abc"}], "qwe": [1, 2, 3, False]}
+    )
     res = conn.execute("load from df return test, qwe")
     tup = res.get_next()
     assert tup[0] == "{'a': 1}"

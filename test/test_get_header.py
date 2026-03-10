@@ -5,7 +5,9 @@ from type_aliases import ConnDB
 
 def test_get_column_names(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    with conn.execute("MATCH (a:person)-[e:knows]->(b:person) RETURN a.fName, e.date, b.ID;") as result:
+    with conn.execute(
+        "MATCH (a:person)-[e:knows]->(b:person) RETURN a.fName, e.date, b.ID;"
+    ) as result:
         column_names = result.get_column_names()
         assert column_names[0] == "a.fName"
         assert column_names[1] == "e.date"

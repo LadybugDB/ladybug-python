@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
     from .query_result import QueryResult
 
-from .constants import ID, LABEL, SRC, DST
+from .constants import DST, ID, LABEL, SRC
 
 
 class TorchGeometricResultConverter:
@@ -54,7 +54,9 @@ class TorchGeometricResultConverter:
 
                     node_property_names = self.__get_node_property_names(label)
 
-                    pos, primary_key = self.__extract_properties_from_node(node, label, node_property_names)
+                    pos, primary_key = self.__extract_properties_from_node(
+                        node, label, node_property_names
+                    )
 
                     self.internal_id_to_pos_dict[nid["table"], nid["offset"]] = pos
                     if label not in self.pos_to_primary_key_dict:
@@ -64,7 +66,9 @@ class TorchGeometricResultConverter:
                 elif column_type == Type.REL.value:
                     src = row[i][SRC]
                     dst = row[i][DST]
-                    self.rels[src["table"], src["offset"], dst["table"], dst["offset"]] = row[i]
+                    self.rels[
+                        src["table"], src["offset"], dst["table"], dst["offset"]
+                    ] = row[i]
 
     def __extract_properties_from_node(
         self,
@@ -81,12 +85,19 @@ class TorchGeometricResultConverter:
                 primary_key = node[prop_name]
 
             # If property is already marked as unconverted, then add it directly without further checks
-            if label in self.unconverted_properties and prop_name in self.unconverted_properties[label]:
+            if (
+                label in self.unconverted_properties
+                and prop_name in self.unconverted_properties[label]
+            ):
                 pos = self.__add_unconverted_property(node, label, prop_name)
                 continue
 
             # Mark properties that are not supported by torch_geometric as unconverted
-            if node_property_names[prop_name]["type"] not in [Type.INT64.value, Type.DOUBLE.value, Type.BOOL.value]:
+            if node_property_names[prop_name]["type"] not in [
+                Type.INT64.value,
+                Type.DOUBLE.value,
+                Type.BOOL.value,
+            ]:
                 self.warning_messages.add(
                     "Property {}.{} of type {} is not supported by torch_geometric. The property is marked as unconverted.".format(
                         label, prop_name, node_property_names[prop_name]["type"]
@@ -122,7 +133,9 @@ class TorchGeometricResultConverter:
                     continue
 
                 # Check if the shape of the property is consistent
-                if label in self.nodes_dict and prop_name in self.nodes_dict[label]:  # noqa: SIM102
+                if (
+                    label in self.nodes_dict and prop_name in self.nodes_dict[label]
+                ):
                     # If the shape is inconsistent, then mark the property as unconverted
                     if curr_value.shape != self.nodes_dict[label][prop_name][0].shape:
                         self.warning_messages.add(
@@ -146,7 +159,9 @@ class TorchGeometricResultConverter:
             pos = len(self.nodes_dict[label][prop_name]) - 1
         return pos, primary_key
 
-    def __add_unconverted_property(self, node: dict[str, Any], label: str, prop_name: str) -> int:
+    def __add_unconverted_property(
+        self, node: dict[str, Any], label: str, prop_name: str
+    ) -> int:
         self.unconverted_properties[label][prop_name].append(node[prop_name])
         return len(self.unconverted_properties[label][prop_name]) - 1
 
@@ -157,16 +172,18 @@ class TorchGeometricResultConverter:
             self.unconverted_properties[label] = {}
         if prop_name not in self.unconverted_properties[label]:
             if label in self.nodes_dict and prop_name in self.nodes_dict[label]:
-                self.unconverted_properties[label][prop_name] = self.nodes_dict[label][prop_name]
+                self.unconverted_properties[label][prop_name] = self.nodes_dict[label][
+                    prop_name
+                ]
                 del self.nodes_dict[label][prop_name]
                 if len(self.nodes_dict[label]) == 0:
                     del self.nodes_dict[label]
                 for i in range(len(self.unconverted_properties[label][prop_name])):
                     # If the property is a tensor, convert it back to list (consistent with the original type)
                     if torch.is_tensor(self.unconverted_properties[label][prop_name][i]):  # type: ignore[no-untyped-call]
-                        self.unconverted_properties[label][prop_name][i] = self.unconverted_properties[label][
-                            prop_name
-                        ][i].tolist()
+                        self.unconverted_properties[label][prop_name][i] = (
+                            self.unconverted_properties[label][prop_name][i].tolist()
+                        )
             else:
                 self.unconverted_properties[label][prop_name] = []
 
@@ -190,7 +207,9 @@ class TorchGeometricResultConverter:
                     continue
                 if prop_name not in self.edges_properties[src_label, dst_label]:
                     self.edges_properties[src_label, dst_label][prop_name] = []
-                self.edges_properties[src_label, dst_label][prop_name].append(curr_edge_properties[prop_name])
+                self.edges_properties[src_label, dst_label][prop_name].append(
+                    curr_edge_properties[prop_name]
+                )
 
     def __print_warnings(self) -> None:
         for message in self.warning_messages:
@@ -208,7 +227,9 @@ class TorchGeometricResultConverter:
         import torch_geometric
 
         if len(self.nodes_dict) == 0:
-            self.warning_messages.add("No nodes found or all node properties are not converted.")
+            self.warning_messages.add(
+                "No nodes found or all node properties are not converted."
+            )
 
         # If there is only one node type, then convert to torch_geometric.data.Data
         # Otherwise, convert to torch_geometric.data.HeteroData
@@ -224,7 +245,9 @@ class TorchGeometricResultConverter:
         for label in self.nodes_dict:
             for prop_name in self.nodes_dict[label]:
                 prop_type = self.nodes_property_names_dict[label][prop_name]["type"]
-                prop_dimension = self.nodes_property_names_dict[label][prop_name]["dimension"]
+                prop_dimension = self.nodes_property_names_dict[label][prop_name][
+                    "dimension"
+                ]
                 if prop_dimension == 0:
                     if prop_type == Type.INT64.value:
                         converted = torch.LongTensor(self.nodes_dict[label][prop_name])
@@ -242,14 +265,22 @@ class TorchGeometricResultConverter:
         # Convert edges to tensors
         for src_label in self.edges_dict:
             for dst_label in self.edges_dict[src_label]:
-                edge_idx = torch.tensor(self.edges_dict[src_label][dst_label], dtype=torch.long).t().contiguous()
+                edge_idx = (
+                    torch.tensor(
+                        self.edges_dict[src_label][dst_label], dtype=torch.long
+                    )
+                    .t()
+                    .contiguous()
+                )
                 if is_hetero:
                     data[src_label, dst_label].edge_index = edge_idx
                 else:
                     data.edge_index = edge_idx
 
         pos_to_primary_key_dict: dict[str, Any] = (
-            self.pos_to_primary_key_dict[label] if not is_hetero else self.pos_to_primary_key_dict
+            self.pos_to_primary_key_dict[label]
+            if not is_hetero
+            else self.pos_to_primary_key_dict
         )
 
         if is_hetero:
@@ -259,7 +290,9 @@ class TorchGeometricResultConverter:
             if len(self.unconverted_properties) == 0:
                 unconverted_properties = {}
             else:
-                unconverted_properties = self.unconverted_properties[next(iter(self.unconverted_properties))]
+                unconverted_properties = self.unconverted_properties[
+                    next(iter(self.unconverted_properties))
+                ]
             if len(self.edges_properties) == 0:
                 edge_properties = {}
             else:

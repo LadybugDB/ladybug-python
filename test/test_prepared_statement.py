@@ -9,7 +9,9 @@ from type_aliases import ConnDB
 
 def test_read(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    prepared_query = "MATCH (a:person) WHERE a.isStudent = $1 AND a.isWorker = $k RETURN COUNT(*)"
+    prepared_query = (
+        "MATCH (a:person) WHERE a.isStudent = $1 AND a.isWorker = $k RETURN COUNT(*)"
+    )
 
     result = conn.execute(prepared_query, {"1": False, "k": False})
     assert result.has_next()
@@ -100,18 +102,26 @@ def test_write(conn_db_readwrite: ConnDB) -> None:
                 break
 
     conn.execute("CREATE NODE TABLE uuid_table (id UUID, PRIMARY KEY(id));")
-    conn.execute("CREATE (:uuid_table {id: $1});", {"1": uuid.uuid5(uuid.NAMESPACE_DNS, "lbug")})
+    conn.execute(
+        "CREATE (:uuid_table {id: $1});", {"1": uuid.uuid5(uuid.NAMESPACE_DNS, "lbug")}
+    )
     result = conn.execute("MATCH (n:uuid_table) RETURN n.id;")
     assert result.get_next() == [uuid.uuid5(uuid.NAMESPACE_DNS, "lbug")]
 
 
 def test_error(conn_db_readonly: ConnDB) -> None:
-    with pytest.raises(RuntimeError, match=r"Binder exception: Table dog does not exist."):
-        conn_db_readonly[0].execute("MATCH (d:dog) WHERE d.isServiceDog = $1 RETURN COUNT(*)")
+    with pytest.raises(
+        RuntimeError, match=r"Binder exception: Table dog does not exist."
+    ):
+        conn_db_readonly[0].execute(
+            "MATCH (d:dog) WHERE d.isServiceDog = $1 RETURN COUNT(*)"
+        )
 
 
 def test_prepare_limit(conn_db_readonly: ConnDB) -> None:
-    result = conn_db_readonly[0].execute("MATCH (p:person) return p.ID limit $lt", {"lt": 3})
+    result = conn_db_readonly[0].execute(
+        "MATCH (p:person) return p.ID limit $lt", {"lt": 3}
+    )
     assert result.get_next() == [0]
     assert result.get_next() == [2]
     assert result.get_next() == [3]

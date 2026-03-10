@@ -10,13 +10,11 @@ if TYPE_CHECKING:
 def test_to_json_string_param_roundtrip(conn_db_empty: ConnDB) -> None:
     """to_json() with a JSON string parameter should store the parsed object, not a string literal."""
     conn, _ = conn_db_empty
-    conn.execute(
-        """
+    conn.execute("""
         INSTALL json;
         LOAD json;
         CREATE NODE TABLE User (id SERIAL PRIMARY KEY, meta JSON);
-        """
-    )
+        """)
 
     data = {
         "id": "http://localhost:8000/actors/testuser",

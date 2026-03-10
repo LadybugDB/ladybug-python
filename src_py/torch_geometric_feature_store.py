@@ -68,12 +68,16 @@ class LbugFeatureStore(FeatureStore):  # type: ignore[misc]
             if indices.step is None or indices.step == 1:
                 indices = np.arange(indices.start, indices.stop, dtype=np.uint64)
             else:
-                indices = np.arange(indices.start, indices.stop, indices.step, dtype=np.uint64)
+                indices = np.arange(
+                    indices.start, indices.stop, indices.step, dtype=np.uint64
+                )
         elif isinstance(indices, int):
             indices = np.array([indices])
 
         if table_name not in self.node_properties_cache:
-            self.node_properties_cache[table_name] = self.connection._get_node_property_names(table_name)
+            self.node_properties_cache[table_name] = (
+                self.connection._get_node_property_names(table_name)
+            )
         attr_info = self.node_properties_cache[table_name][attr_name]
 
         flat_dim = 1
@@ -81,7 +85,12 @@ class LbugFeatureStore(FeatureStore):  # type: ignore[misc]
             for i in range(attr_info["dimension"]):
                 flat_dim *= attr_info["shape"][i]
         scan_result = self.connection.database._scan_node_table(
-            table_name, attr_name, attr_info["type"], flat_dim, indices, self.num_threads
+            table_name,
+            attr_name,
+            attr_info["type"],
+            flat_dim,
+            indices,
+            self.num_threads,
         )
 
         if attr_info["dimension"] > 0 and "shape" in attr_info:
@@ -151,11 +160,16 @@ class LbugFeatureStore(FeatureStore):  # type: ignore[misc]
             return (length,) + attr_info["shape"]
 
     def __get_node_property(self, table_name: str, attr_name: str) -> dict[str, Any]:
-        if table_name in self.node_properties_cache and attr_name in self.node_properties_cache[table_name]:
+        if (
+            table_name in self.node_properties_cache
+            and attr_name in self.node_properties_cache[table_name]
+        ):
             return self.node_properties_cache[table_name][attr_name]
         self.__get_connection()
         if table_name not in self.node_properties_cache:
-            self.node_properties_cache[table_name] = self.connection._get_node_property_names(table_name)
+            self.node_properties_cache[table_name] = (
+                self.connection._get_node_property_names(table_name)
+            )
         if attr_name not in self.node_properties_cache[table_name]:
             msg = f"Attribute {attr_name} not found in group {table_name}"
             raise ValueError(msg)
@@ -168,7 +182,9 @@ class LbugFeatureStore(FeatureStore):  # type: ignore[misc]
         self.__get_connection()
         for table_name in self.connection._get_node_table_names():
             if table_name not in self.node_properties_cache:
-                self.node_properties_cache[table_name] = self.connection._get_node_property_names(table_name)
+                self.node_properties_cache[table_name] = (
+                    self.connection._get_node_property_names(table_name)
+                )
             for attr_name in self.node_properties_cache[table_name]:
                 if self.node_properties_cache[table_name][attr_name]["type"] in [
                     Type.INT64.value,

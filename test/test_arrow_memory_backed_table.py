@@ -8,18 +8,22 @@ def test_arrow_memory_backed_table_basic(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
 
     # Create a polars DataFrame
-    df = pl.DataFrame({
-        "id": [1, 2, 3, 4, 5],
-        "name": ["Alice", "Bob", "Charlie", "Diana", "Eve"],
-        "age": [25, 30, 35, 40, 45],
-        "salary": [50000.0, 60000.0, 75000.0, 90000.0, 100000.0],
-    })
+    df = pl.DataFrame(
+        {
+            "id": [1, 2, 3, 4, 5],
+            "name": ["Alice", "Bob", "Charlie", "Diana", "Eve"],
+            "age": [25, 30, 35, 40, 45],
+            "salary": [50000.0, 60000.0, 75000.0, 90000.0, 100000.0],
+        }
+    )
 
     # Register the Arrow table
     conn.create_arrow_table("employees", df)
 
     # Query all data
-    result = conn.execute("MATCH (n:employees) RETURN n.id, n.name, n.age, n.salary ORDER BY n.id")
+    result = conn.execute(
+        "MATCH (n:employees) RETURN n.id, n.name, n.age, n.salary ORDER BY n.id"
+    )
     rows = []
     while result.has_next():
         rows.append(result.get_next())
@@ -40,21 +44,56 @@ def test_arrow_memory_backed_table_filtering(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
 
     # Create a polars DataFrame with more data
-    df = pl.DataFrame({
-        "id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        "name": ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace", "Henry", "Ivy", "Jack"],
-        "age": [25, 30, 35, 40, 45, 28, 33, 38, 42, 50],
-        "department": ["Engineering", "Sales", "Engineering", "HR", "Sales",
-                       "Engineering", "HR", "Sales", "Engineering", "HR"],
-        "salary": [50000.0, 60000.0, 75000.0, 55000.0, 70000.0,
-                   52000.0, 58000.0, 65000.0, 80000.0, 60000.0],
-    })
+    df = pl.DataFrame(
+        {
+            "id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "name": [
+                "Alice",
+                "Bob",
+                "Charlie",
+                "Diana",
+                "Eve",
+                "Frank",
+                "Grace",
+                "Henry",
+                "Ivy",
+                "Jack",
+            ],
+            "age": [25, 30, 35, 40, 45, 28, 33, 38, 42, 50],
+            "department": [
+                "Engineering",
+                "Sales",
+                "Engineering",
+                "HR",
+                "Sales",
+                "Engineering",
+                "HR",
+                "Sales",
+                "Engineering",
+                "HR",
+            ],
+            "salary": [
+                50000.0,
+                60000.0,
+                75000.0,
+                55000.0,
+                70000.0,
+                52000.0,
+                58000.0,
+                65000.0,
+                80000.0,
+                60000.0,
+            ],
+        }
+    )
 
     # Register the Arrow table
     conn.create_arrow_table("staff", df)
 
     # Test 1: Filter by age > 35
-    result = conn.execute("MATCH (n:staff) WHERE n.age > 35 RETURN n.name, n.age ORDER BY n.age")
+    result = conn.execute(
+        "MATCH (n:staff) WHERE n.age > 35 RETURN n.name, n.age ORDER BY n.age"
+    )
     rows = []
     while result.has_next():
         rows.append(result.get_next())
@@ -121,12 +160,14 @@ def test_arrow_memory_backed_table_with_pandas(conn_db_empty: ConnDB) -> None:
     pd = pytest.importorskip("pandas")
 
     # Create a pandas DataFrame
-    df = pd.DataFrame({
-        "product_id": [101, 102, 103, 104, 105],
-        "product_name": ["Widget A", "Widget B", "Gadget X", "Gadget Y", "Tool Z"],
-        "price": [9.99, 14.99, 29.99, 34.99, 49.99],
-        "in_stock": [True, True, False, True, False],
-    })
+    df = pd.DataFrame(
+        {
+            "product_id": [101, 102, 103, 104, 105],
+            "product_name": ["Widget A", "Widget B", "Gadget X", "Gadget Y", "Tool Z"],
+            "price": [9.99, 14.99, 29.99, 34.99, 49.99],
+            "in_stock": [True, True, False, True, False],
+        }
+    )
 
     # Register the Arrow table
     conn.create_arrow_table("products", df)
@@ -155,11 +196,13 @@ def test_arrow_memory_backed_table_with_pyarrow(conn_db_empty: ConnDB) -> None:
     import pyarrow as pa
 
     # Create a PyArrow table directly
-    table = pa.table({
-        "city": ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix"],
-        "population": [8419000, 3980000, 2716000, 2328000, 1690000],
-        "area_sq_miles": [302.6, 468.7, 227.3, 637.5, 517.6],
-    })
+    table = pa.table(
+        {
+            "city": ["New York", "Los Angeles", "Chicago", "Houston", "Phoenix"],
+            "population": [8419000, 3980000, 2716000, 2328000, 1690000],
+            "area_sq_miles": [302.6, 468.7, 227.3, 637.5, 517.6],
+        }
+    )
 
     # Register the Arrow table
     conn.create_arrow_table("cities", table)
@@ -185,10 +228,12 @@ def test_arrow_memory_backed_table_empty_result(conn_db_empty: ConnDB) -> None:
     """Test filtering that returns no results."""
     conn, _ = conn_db_empty
 
-    df = pl.DataFrame({
-        "id": [1, 2, 3],
-        "value": [10, 20, 30],
-    })
+    df = pl.DataFrame(
+        {
+            "id": [1, 2, 3],
+            "value": [10, 20, 30],
+        }
+    )
 
     conn.create_arrow_table("data", df)
 
@@ -204,10 +249,12 @@ def test_arrow_memory_backed_table_count(conn_db_empty: ConnDB) -> None:
     """Test aggregation on Arrow memory-backed table."""
     conn, _ = conn_db_empty
 
-    df = pl.DataFrame({
-        "category": ["A", "B", "A", "C", "B", "A", "C", "B"],
-        "amount": [100, 200, 150, 300, 250, 120, 280, 180],
-    })
+    df = pl.DataFrame(
+        {
+            "category": ["A", "B", "A", "C", "B", "A", "C", "B"],
+            "amount": [100, 200, 150, 300, 250, 120, 280, 180],
+        }
+    )
 
     conn.create_arrow_table("transactions", df)
 

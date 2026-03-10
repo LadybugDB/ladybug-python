@@ -4,25 +4,24 @@ import subprocess
 import sys
 from pathlib import Path
 from textwrap import dedent
-from typing import TYPE_CHECKING
 
-import real_ladybug as lb
 import pytest
+import real_ladybug as lb
 from conftest import get_db_file_path
 
 
 def open_database_on_subprocess(tmp_path: Path, build_dir: Path) -> None:
-    code = dedent(
-        f"""
+    code = dedent(f"""
         import sys
         sys.path.append(r"{build_dir!s}")
 
         import real_ladybug as lb
         db = lb.Database(r"{tmp_path!s}")
         print(r"{tmp_path!s}")
-    """
+    """)
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True
     )
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(result.stderr)
 
@@ -111,7 +110,9 @@ def test_in_mem_database_no_db_path() -> None:
 
         # Open the database on a subprocess. It should raise an exception.
         conn = lb.Connection(db)
-        conn.execute("CREATE NODE TABLE person(name STRING, age INT64, PRIMARY KEY(name));")
+        conn.execute(
+            "CREATE NODE TABLE person(name STRING, age INT64, PRIMARY KEY(name));"
+        )
         conn.execute("CREATE (:person {name: 'Alice', age: 30});")
         conn.execute("CREATE (:person {name: 'Bob', age: 40});")
         with conn.execute("MATCH (p:person) RETURN p.*") as result:
@@ -119,7 +120,9 @@ def test_in_mem_database_no_db_path() -> None:
 
 
 def test_database_auto_checkpoint_config(tmp_path: Path) -> None:
-    with lb.Database(database_path=get_db_file_path(tmp_path), auto_checkpoint=False) as db:
+    with lb.Database(
+        database_path=get_db_file_path(tmp_path), auto_checkpoint=False
+    ) as db:
         assert not db.is_closed
         assert db._database is not None
 
@@ -130,12 +133,16 @@ def test_database_auto_checkpoint_config(tmp_path: Path) -> None:
 
 
 def test_database_checkpoint_threshold_config(tmp_path: Path) -> None:
-    with lb.Database(database_path=get_db_file_path(tmp_path), checkpoint_threshold=1234) as db:
+    with lb.Database(
+        database_path=get_db_file_path(tmp_path), checkpoint_threshold=1234
+    ) as db:
         assert not db.is_closed
         assert db._database is not None
 
         conn = lb.Connection(db)
-        with conn.execute("CALL current_setting('checkpoint_threshold') RETURN *") as result:
+        with conn.execute(
+            "CALL current_setting('checkpoint_threshold') RETURN *"
+        ) as result:
             assert result.get_num_tuples() == 1
             assert result.get_next()[0] == "1234"
 
@@ -145,7 +152,9 @@ def test_database_throw_on_wal_replay_failure_config(tmp_path: Path) -> None:
     wal_file_path = str(database_path) + ".wal"
     with Path.open(wal_file_path, "w") as wal_file:
         wal_file.write("a" * 28)
-    with lb.Database(database_path=database_path, throw_on_wal_replay_failure=False) as db:
+    with lb.Database(
+        database_path=database_path, throw_on_wal_replay_failure=False
+    ) as db:
         assert not db.is_closed
         assert db._database is not None
 

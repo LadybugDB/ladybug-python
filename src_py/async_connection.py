@@ -168,13 +168,17 @@ class AsyncConnection:
             conn, conn_index = self.__get_connection_with_least_queries()
 
         try:
-            return await loop.run_in_executor(self.executor, conn.execute, query, parameters)
+            return await loop.run_in_executor(
+                self.executor, conn.execute, query, parameters
+            )
         except asyncio.CancelledError:
             conn.interrupt()
         finally:
             self.__decrement_connection_counter(conn_index)
 
-    async def _prepare(self, query: str, parameters: dict[str, Any] | None = None) -> PreparedStatement:
+    async def _prepare(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> PreparedStatement:
         """
         The only parameters supported during prepare are dataframes.
         Any remaining parameters will be ignored and should be passed to execute().
@@ -183,12 +187,16 @@ class AsyncConnection:
         conn, conn_index = self.__get_connection_with_least_queries()
 
         try:
-            preparedStatement = await loop.run_in_executor(self.executor, conn.prepare, query, parameters)
+            preparedStatement = await loop.run_in_executor(
+                self.executor, conn.prepare, query, parameters
+            )
             return preparedStatement
         finally:
             self.__decrement_connection_counter(conn_index)
 
-    async def prepare(self, query: str, parameters: dict[str, Any] | None = None) -> PreparedStatement:
+    async def prepare(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> PreparedStatement:
         """
         Create a prepared statement for a query asynchronously.
 

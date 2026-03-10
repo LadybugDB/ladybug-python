@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import real_ladybug as lb
-
 from type_aliases import ConnDB
 
 

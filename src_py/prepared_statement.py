@@ -12,7 +12,12 @@ class PreparedStatement:
     same query for repeated execution.
     """
 
-    def __init__(self, connection: Connection, query: str, parameters: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        connection: Connection,
+        query: str,
+        parameters: dict[str, Any] | None = None,
+    ):
         """
         Parameters
         ----------

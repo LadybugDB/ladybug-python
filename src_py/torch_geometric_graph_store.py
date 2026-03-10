@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     if sys.version_info >= (3, 10):
         from typing import TypeAlias
     else:
-        from typing_extensions import TypeAlias
+        from typing import TypeAlias
 
 StoreKeyType: TypeAlias = tuple[tuple[str], Any, bool]
 
@@ -61,7 +61,9 @@ class LbugGraphStore(GraphStore):  # type: ignore[misc]
             self.store[key].materialized = True
             self.store[key].size = edge_attr.size
         else:
-            self.store[key] = Rel(key[0], key[1], key[2], edge_attr.size, True, edge_index)
+            self.store[key] = Rel(
+                key[0], key[1], key[2], edge_attr.size, True, edge_index
+            )
 
     def _get_edge_index(self, edge_attr: EdgeAttr) -> EdgeTensorType | None:
         if edge_attr.layout.value == EdgeLayout.COO.value:  # noqa: SIM102
@@ -91,7 +93,10 @@ class LbugGraphStore(GraphStore):  # type: ignore[misc]
 
     def get_all_edge_attrs(self) -> list[EdgeAttr]:
         """Return all EdgeAttr from the store values."""
-        return [EdgeAttr(rel.edge_type, rel.layout, rel.is_sorted, rel.size) for rel in self.store.values()]
+        return [
+            EdgeAttr(rel.edge_type, rel.layout, rel.is_sorted, rel.size)
+            for rel in self.store.values()
+        ]
 
     def __get_edge_coo_from_database(self, key: StoreKeyType) -> None:
         if not self.connection:

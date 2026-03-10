@@ -4,8 +4,8 @@ import warnings
 
 import ground_truth
 import torch
-from type_aliases import ConnDB
 from real_ladybug.constants import LABEL
+from type_aliases import ConnDB
 
 
 def test_to_torch_geometric_nodes_only(conn_db_readonly: ConnDB) -> None:
@@ -14,7 +14,9 @@ def test_to_torch_geometric_nodes_only(conn_db_readonly: ConnDB) -> None:
 
     res = conn.execute(query)
     with warnings.catch_warnings(record=True) as ws:
-        torch_geometric_data, pos_to_idx, unconverted_properties, _ = res.get_as_torch_geometric()
+        torch_geometric_data, pos_to_idx, unconverted_properties, _ = (
+            res.get_as_torch_geometric()
+        )
     warnings_ground_truth = {
         "Property person.courseScoresPerTerm cannot be converted to Tensor (likely due to nested list of variable length). The property is marked as unconverted.",
         "Property person.height of type FLOAT is not supported by torch_geometric. The property is marked as unconverted.",
@@ -33,7 +35,10 @@ def test_to_torch_geometric_nodes_only(conn_db_readonly: ConnDB) -> None:
     assert torch_geometric_data.ID.shape == torch.Size([8])
     assert torch_geometric_data.ID.dtype == torch.int64
     for i in range(8):
-        assert ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["ID"] == torch_geometric_data.ID[i].item()
+        assert (
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["ID"]
+            == torch_geometric_data.ID[i].item()
+        )
 
     assert torch_geometric_data.gender.shape == torch.Size([8])
     assert torch_geometric_data.gender.dtype == torch.int64
@@ -62,7 +67,10 @@ def test_to_torch_geometric_nodes_only(conn_db_readonly: ConnDB) -> None:
     assert torch_geometric_data.age.shape == torch.Size([8])
     assert torch_geometric_data.age.dtype == torch.int64
     for i in range(8):
-        assert ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["age"] == torch_geometric_data.age[i].item()
+        assert (
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["age"]
+            == torch_geometric_data.age[i].item()
+        )
 
     assert torch_geometric_data.eyeSight.shape == torch.Size([8])
     assert torch_geometric_data.eyeSight.dtype == torch.float32
@@ -77,7 +85,9 @@ def test_to_torch_geometric_nodes_only(conn_db_readonly: ConnDB) -> None:
     assert "courseScoresPerTerm" in unconverted_properties
     for i in range(8):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["courseScoresPerTerm"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]][
+                "courseScoresPerTerm"
+            ]
             == unconverted_properties["courseScoresPerTerm"][i]
         )
     assert "lastJobDuration" in unconverted_properties
@@ -100,7 +110,10 @@ def test_to_torch_geometric_nodes_only(conn_db_readonly: ConnDB) -> None:
         )
     assert "fName" in unconverted_properties
     for i in range(8):
-        assert ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["fName"] == unconverted_properties["fName"][i]
+        assert (
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["fName"]
+            == unconverted_properties["fName"][i]
+        )
     assert "usedNames" in unconverted_properties
     for i in range(8):
         assert (
@@ -122,7 +135,9 @@ def test_to_torch_geometric_homogeneous_graph(conn_db_readonly: ConnDB) -> None:
 
     res = conn.execute(query)
     with warnings.catch_warnings(record=True) as ws:
-        torch_geometric_data, pos_to_idx, unconverted_properties, edge_properties = res.get_as_torch_geometric()
+        torch_geometric_data, pos_to_idx, unconverted_properties, edge_properties = (
+            res.get_as_torch_geometric()
+        )
     warnings_ground_truth = {
         "Property person.courseScoresPerTerm cannot be converted to Tensor (likely due to nested list of variable length). The property is marked as unconverted.",
         "Property person.height of type FLOAT is not supported by torch_geometric. The property is marked as unconverted.",
@@ -141,7 +156,10 @@ def test_to_torch_geometric_homogeneous_graph(conn_db_readonly: ConnDB) -> None:
     assert torch_geometric_data.ID.shape == torch.Size([7])
     assert torch_geometric_data.ID.dtype == torch.int64
     for i in range(7):
-        assert ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["ID"] == torch_geometric_data.ID[i].item()
+        assert (
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["ID"]
+            == torch_geometric_data.ID[i].item()
+        )
 
     assert torch_geometric_data.gender.shape == torch.Size([7])
     assert torch_geometric_data.gender.dtype == torch.int64
@@ -170,7 +188,10 @@ def test_to_torch_geometric_homogeneous_graph(conn_db_readonly: ConnDB) -> None:
     assert torch_geometric_data.age.shape == torch.Size([7])
     assert torch_geometric_data.age.dtype == torch.int64
     for i in range(7):
-        assert ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["age"] == torch_geometric_data.age[i].item()
+        assert (
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["age"]
+            == torch_geometric_data.age[i].item()
+        )
 
     assert torch_geometric_data.eyeSight.shape == torch.Size([7])
     assert torch_geometric_data.eyeSight.dtype == torch.float32
@@ -185,7 +206,9 @@ def test_to_torch_geometric_homogeneous_graph(conn_db_readonly: ConnDB) -> None:
     assert "courseScoresPerTerm" in unconverted_properties
     for i in range(7):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["courseScoresPerTerm"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]][
+                "courseScoresPerTerm"
+            ]
             == unconverted_properties["courseScoresPerTerm"][i]
         )
     assert "lastJobDuration" in unconverted_properties
@@ -208,7 +231,10 @@ def test_to_torch_geometric_homogeneous_graph(conn_db_readonly: ConnDB) -> None:
         )
     assert "fName" in unconverted_properties
     for i in range(7):
-        assert ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["fName"] == unconverted_properties["fName"][i]
+        assert (
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx[i]]["fName"]
+            == unconverted_properties["fName"][i]
+        )
     assert "usedNames" in unconverted_properties
     for i in range(7):
         assert (
@@ -225,11 +251,16 @@ def test_to_torch_geometric_homogeneous_graph(conn_db_readonly: ConnDB) -> None:
 
     assert torch_geometric_data.edge_index.shape == torch.Size([2, 14])
     for i in range(14):
-        src, dst = torch_geometric_data.edge_index[0][i].item(), torch_geometric_data.edge_index[1][i].item()
+        src, dst = (
+            torch_geometric_data.edge_index[0][i].item(),
+            torch_geometric_data.edge_index[1][i].item(),
+        )
         assert src in pos_to_idx
         assert dst in pos_to_idx
         assert src != dst
-        assert pos_to_idx[dst] in ground_truth.TINY_SNB_KNOWS_GROUND_TRUTH[pos_to_idx[src]]
+        assert (
+            pos_to_idx[dst] in ground_truth.TINY_SNB_KNOWS_GROUND_TRUTH[pos_to_idx[src]]
+        )
 
     assert len(edge_properties) == 8
     assert "date" in edge_properties
@@ -240,36 +271,56 @@ def test_to_torch_geometric_homogeneous_graph(conn_db_readonly: ConnDB) -> None:
     assert "notes" in edge_properties
 
     for i in range(14):
-        src, dst = torch_geometric_data.edge_index[0][i].item(), torch_geometric_data.edge_index[1][i].item()
+        src, dst = (
+            torch_geometric_data.edge_index[0][i].item(),
+            torch_geometric_data.edge_index[1][i].item(),
+        )
         orginal_src = pos_to_idx[src]
         orginal_dst = pos_to_idx[dst]
-        assert (orginal_src, orginal_dst) in ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[orginal_src, orginal_dst]["date"]
+            orginal_src,
+            orginal_dst,
+        ) in ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH
+        assert (
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                orginal_src, orginal_dst
+            ]["date"]
             == edge_properties["date"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[orginal_src, orginal_dst]["meetTime"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                orginal_src, orginal_dst
+            ]["meetTime"]
             == edge_properties["meetTime"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[orginal_src, orginal_dst]["validInterval"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                orginal_src, orginal_dst
+            ]["validInterval"]
             == edge_properties["validInterval"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[orginal_src, orginal_dst]["comments"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                orginal_src, orginal_dst
+            ]["comments"]
             == edge_properties["comments"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[orginal_src, orginal_dst]["summary"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                orginal_src, orginal_dst
+            ]["summary"]
             == edge_properties["summary"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[orginal_src, orginal_dst]["notes"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                orginal_src, orginal_dst
+            ]["notes"]
             == edge_properties["notes"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[orginal_src, orginal_dst]["someMap"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                orginal_src, orginal_dst
+            ]["someMap"]
             == edge_properties["someMap"][i]
         )
 
@@ -280,7 +331,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
 
     res = conn.execute(query)
     with warnings.catch_warnings(record=True) as ws:
-        torch_geometric_data, pos_to_idx, unconverted_properties, edge_properties = res.get_as_torch_geometric()
+        torch_geometric_data, pos_to_idx, unconverted_properties, edge_properties = (
+            res.get_as_torch_geometric()
+        )
 
     assert len(ws) == 13
     warnings_ground_truth = {
@@ -314,7 +367,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert torch_geometric_data["person"].gender.dtype == torch.int64
     for i in range(4):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]]["gender"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]][
+                "gender"
+            ]
             == torch_geometric_data["person"].gender[i].item()
         )
 
@@ -322,7 +377,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert torch_geometric_data["person"].isStudent.dtype == torch.bool
     for i in range(4):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]]["isStudent"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]][
+                "isStudent"
+            ]
             == torch_geometric_data["person"].isStudent[i].item()
         )
 
@@ -330,7 +387,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert torch_geometric_data["person"].isWorker.dtype == torch.bool
     for i in range(4):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]]["isWorker"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]][
+                "isWorker"
+            ]
             == torch_geometric_data["person"].isWorker[i].item()
         )
 
@@ -346,7 +405,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert torch_geometric_data["person"].eyeSight.dtype == torch.float32
     for i in range(4):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]]["eyeSight"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]][
+                "eyeSight"
+            ]
             - torch_geometric_data["person"].eyeSight[i].item()
             < 1e-6
         )
@@ -356,25 +417,33 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert "courseScoresPerTerm" in unconverted_properties["person"]
     for i in range(4):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]]["courseScoresPerTerm"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]][
+                "courseScoresPerTerm"
+            ]
             == unconverted_properties["person"]["courseScoresPerTerm"][i]
         )
     assert "lastJobDuration" in unconverted_properties["person"]
     for i in range(4):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]]["lastJobDuration"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]][
+                "lastJobDuration"
+            ]
             == unconverted_properties["person"]["lastJobDuration"][i]
         )
     assert "registerTime" in unconverted_properties["person"]
     for i in range(4):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]]["registerTime"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]][
+                "registerTime"
+            ]
             == unconverted_properties["person"]["registerTime"][i]
         )
     assert "birthdate" in unconverted_properties["person"]
     for i in range(4):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]]["birthdate"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]][
+                "birthdate"
+            ]
             == unconverted_properties["person"]["birthdate"][i]
         )
     assert "fName" in unconverted_properties["person"]
@@ -386,11 +455,15 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert "usedNames" in unconverted_properties["person"]
     for i in range(4):
         assert (
-            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]]["usedNames"]
+            ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[pos_to_idx["person"][i]][
+                "usedNames"
+            ]
             == unconverted_properties["person"]["usedNames"][i]
         )
 
-    assert torch_geometric_data["person", "person"].edge_index.shape == torch.Size([2, 6])
+    assert torch_geometric_data["person", "person"].edge_index.shape == torch.Size(
+        [2, 6]
+    )
     for i in range(3):
         src, dst = (
             torch_geometric_data["person", "person"].edge_index[0][i].item(),
@@ -399,7 +472,10 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
         assert src in pos_to_idx["person"]
         assert dst in pos_to_idx["person"]
         assert src != dst
-        assert pos_to_idx["person"][dst] in ground_truth.TINY_SNB_KNOWS_GROUND_TRUTH[pos_to_idx["person"][src]]
+        assert (
+            pos_to_idx["person"][dst]
+            in ground_truth.TINY_SNB_KNOWS_GROUND_TRUTH[pos_to_idx["person"][src]]
+        )
 
     assert len(edge_properties["person", "person"]) == 8
     assert "date" in edge_properties["person", "person"]
@@ -414,30 +490,48 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
             torch_geometric_data["person", "person"].edge_index[0][i].item(),
             torch_geometric_data["person", "person"].edge_index[1][i].item(),
         )
-        original_src, original_dst = pos_to_idx["person"][src], pos_to_idx["person"][dst]
-        assert (original_src, original_dst) in ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH
+        original_src, original_dst = (
+            pos_to_idx["person"][src],
+            pos_to_idx["person"][dst],
+        )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[original_src, original_dst]["date"]
+            original_src,
+            original_dst,
+        ) in ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH
+        assert (
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                original_src, original_dst
+            ]["date"]
             == edge_properties["person", "person"]["date"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[original_src, original_dst]["meetTime"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                original_src, original_dst
+            ]["meetTime"]
             == edge_properties["person", "person"]["meetTime"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[original_src, original_dst]["validInterval"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                original_src, original_dst
+            ]["validInterval"]
             == edge_properties["person", "person"]["validInterval"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[original_src, original_dst]["comments"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                original_src, original_dst
+            ]["comments"]
             == edge_properties["person", "person"]["comments"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[original_src, original_dst]["summary"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                original_src, original_dst
+            ]["summary"]
             == edge_properties["person", "person"]["summary"][i]
         )
         assert (
-            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[original_src, original_dst]["notes"]
+            ground_truth.TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH[
+                original_src, original_dst
+            ]["notes"]
             == edge_properties["person", "person"]["notes"][i]
         )
         assert edge_properties["person", "person"][LABEL][i] == "knows"
@@ -446,7 +540,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert torch_geometric_data["organisation"].ID.dtype == torch.int64
     for i in range(2):
         assert (
-            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[pos_to_idx["organisation"][i]]["ID"]
+            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[
+                pos_to_idx["organisation"][i]
+            ]["ID"]
             == torch_geometric_data["organisation"].ID[i].item()
         )
 
@@ -454,7 +550,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert torch_geometric_data["organisation"].orgCode.dtype == torch.int64
     for i in range(2):
         assert (
-            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[pos_to_idx["organisation"][i]]["orgCode"]
+            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[
+                pos_to_idx["organisation"][i]
+            ]["orgCode"]
             == torch_geometric_data["organisation"].orgCode[i].item()
         )
 
@@ -462,7 +560,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert torch_geometric_data["organisation"].mark.dtype == torch.float32
     for i in range(2):
         assert (
-            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[pos_to_idx["organisation"][i]]["mark"]
+            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[
+                pos_to_idx["organisation"][i]
+            ]["mark"]
             - torch_geometric_data["organisation"].mark[i].item()
             < 1e-6
         )
@@ -471,7 +571,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert torch_geometric_data["organisation"].score.dtype == torch.int64
     for i in range(2):
         assert (
-            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[pos_to_idx["organisation"][i]]["score"]
+            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[
+                pos_to_idx["organisation"][i]
+            ]["score"]
             - torch_geometric_data["organisation"].score[i].item()
             < 1e-6
         )
@@ -480,7 +582,9 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert torch_geometric_data["organisation"].rating.dtype == torch.float32
     for i in range(2):
         assert (
-            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[pos_to_idx["organisation"][i]]["rating"]
+            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[
+                pos_to_idx["organisation"][i]
+            ]["rating"]
             - torch_geometric_data["organisation"].rating[i].item()
             < 1e-6
         )
@@ -490,25 +594,33 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
     assert "name" in unconverted_properties["organisation"]
     for i in range(2):
         assert (
-            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[pos_to_idx["organisation"][i]]["name"]
+            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[
+                pos_to_idx["organisation"][i]
+            ]["name"]
             == unconverted_properties["organisation"]["name"][i]
         )
 
     assert "history" in unconverted_properties["organisation"]
     for i in range(2):
         assert (
-            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[pos_to_idx["organisation"][i]]["history"]
+            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[
+                pos_to_idx["organisation"][i]
+            ]["history"]
             == unconverted_properties["organisation"]["history"][i]
         )
 
     assert "licenseValidInterval" in unconverted_properties["organisation"]
     for i in range(2):
         assert (
-            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[pos_to_idx["organisation"][i]]["licenseValidInterval"]
+            ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[
+                pos_to_idx["organisation"][i]
+            ]["licenseValidInterval"]
             == unconverted_properties["organisation"]["licenseValidInterval"][i]
         )
 
-    assert torch_geometric_data["person", "organisation"].edge_index.shape == torch.Size([2, 2])
+    assert torch_geometric_data[
+        "person", "organisation"
+    ].edge_index.shape == torch.Size([2, 2])
     for i in range(2):
         src, dst = (
             torch_geometric_data["person", "organisation"].edge_index[0][i].item(),
@@ -518,7 +630,8 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
         assert dst in pos_to_idx["organisation"]
         assert src != dst
         assert (
-            pos_to_idx["organisation"][dst] in ground_truth.TINY_SNB_WORKS_AT_GROUND_TRUTH[pos_to_idx["person"][src]]
+            pos_to_idx["organisation"][dst]
+            in ground_truth.TINY_SNB_WORKS_AT_GROUND_TRUTH[pos_to_idx["person"][src]]
         )
     assert len(edge_properties["person", "organisation"]) == 4
     assert "year" in edge_properties["person", "organisation"]
@@ -528,9 +641,14 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
             torch_geometric_data["person", "organisation"].edge_index[0][i].item(),
             torch_geometric_data["person", "organisation"].edge_index[1][i].item(),
         )
-        original_src, original_dst = pos_to_idx["person"][src], pos_to_idx["organisation"][dst]
+        original_src, original_dst = (
+            pos_to_idx["person"][src],
+            pos_to_idx["organisation"][dst],
+        )
         assert (
-            ground_truth.TINY_SNB_WORKS_AT_PROPERTIES_GROUND_TRUTH[original_src, original_dst]["year"]
+            ground_truth.TINY_SNB_WORKS_AT_PROPERTIES_GROUND_TRUTH[
+                original_src, original_dst
+            ]["year"]
             == edge_properties["person", "organisation"]["year"][i]
         )
         assert edge_properties["person", "organisation"][LABEL][i] == "workAt"
@@ -544,7 +662,9 @@ def test_to_torch_geometric_multi_dimensional_lists(
 
     res = conn.execute(query)
     with warnings.catch_warnings(record=True) as ws:
-        torch_geometric_data, pos_to_idx, unconverted_properties, _ = res.get_as_torch_geometric()
+        torch_geometric_data, pos_to_idx, unconverted_properties, _ = (
+            res.get_as_torch_geometric()
+        )
     assert len(ws) == 1
     assert (
         str(ws[0].message)
@@ -596,7 +716,9 @@ def test_to_torch_geometric_no_properties_converted(
 
     res = conn.execute(query)
     with warnings.catch_warnings(record=True) as ws:
-        torch_geometric_data, pos_to_idx, unconverted_properties, _ = res.get_as_torch_geometric()
+        torch_geometric_data, pos_to_idx, unconverted_properties, _ = (
+            res.get_as_torch_geometric()
+        )
     assert len(ws) == 3
     warnings_ground_truth = {
         "Property personLongString.name of type STRING is not supported by torch_geometric. The property is marked as unconverted.",
@@ -606,19 +728,27 @@ def test_to_torch_geometric_no_properties_converted(
     for w in ws:
         assert str(w.message) in warnings_ground_truth
     assert torch_geometric_data["personLongString"] == {}
-    assert torch_geometric_data["personLongString", "personLongString"].edge_index.shape == torch.Size([2, 1])
+    assert torch_geometric_data[
+        "personLongString", "personLongString"
+    ].edge_index.shape == torch.Size([2, 1])
 
     for i in range(1):
         src, dst = (
-            torch_geometric_data["personLongString", "personLongString"].edge_index[0][i].item(),
-            torch_geometric_data["personLongString", "personLongString"].edge_index[1][i].item(),
+            torch_geometric_data["personLongString", "personLongString"]
+            .edge_index[0][i]
+            .item(),
+            torch_geometric_data["personLongString", "personLongString"]
+            .edge_index[1][i]
+            .item(),
         )
         assert src in pos_to_idx["personLongString"]
         assert dst in pos_to_idx["personLongString"]
         assert src != dst
         assert (
             pos_to_idx["personLongString"][dst]
-            in ground_truth.PERSONLONGSTRING_KNOWS_GROUND_TRUTH[pos_to_idx["personLongString"][src]]
+            in ground_truth.PERSONLONGSTRING_KNOWS_GROUND_TRUTH[
+                pos_to_idx["personLongString"][src]
+            ]
         )
 
     assert len(unconverted_properties) == 1
@@ -628,13 +758,17 @@ def test_to_torch_geometric_no_properties_converted(
     assert len(unconverted_properties["personLongString"]["spouse"]) == 2
     for i in range(2):
         assert (
-            ground_truth.PERSONLONGSTRING_GROUND_TRUTH[pos_to_idx["personLongString"][i]]["spouse"]
+            ground_truth.PERSONLONGSTRING_GROUND_TRUTH[
+                pos_to_idx["personLongString"][i]
+            ]["spouse"]
             == unconverted_properties["personLongString"]["spouse"][i]
         )
 
     assert "name" in unconverted_properties["personLongString"]
     for i in range(2):
         assert (
-            ground_truth.PERSONLONGSTRING_GROUND_TRUTH[pos_to_idx["personLongString"][i]]["name"]
+            ground_truth.PERSONLONGSTRING_GROUND_TRUTH[
+                pos_to_idx["personLongString"][i]
+            ]["name"]
             == unconverted_properties["personLongString"]["name"][i]
         )

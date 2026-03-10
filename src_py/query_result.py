@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .constants import DST, ID, LABEL, NODES, RELS, SRC
 from .torch_geometric_result_converter import TorchGeometricResultConverter
 from .types import Type
-
-from .constants import ID, LABEL, SRC, DST, NODES, RELS
 
 if TYPE_CHECKING:
     import sys
@@ -191,7 +190,9 @@ class QueryResult:
             data=self.get_as_arrow(chunk_size=-1, fallbackExtensionTypes=True),
         )
 
-    def get_as_arrow(self, chunk_size: int | None = None, *, fallbackExtensionTypes: bool = False) -> pa.Table:
+    def get_as_arrow(
+        self, chunk_size: int | None = None, *, fallbackExtensionTypes: bool = False
+    ) -> pa.Table:
         """
         Get the query result as a PyArrow Table.
 
@@ -314,7 +315,9 @@ class QueryResult:
         table_to_label_dict = {}
         table_primary_key_dict = {}
 
-        def encode_node_id(node: dict[str, Any], table_primary_key_dict: dict[str, Any]) -> str:
+        def encode_node_id(
+            node: dict[str, Any], table_primary_key_dict: dict[str, Any]
+        ) -> str:
             node_label = node[LABEL]
             return f"{node_label}_{node[table_primary_key_dict[node_label]]!s}"
 

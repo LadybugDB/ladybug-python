@@ -7,12 +7,16 @@ from type_aliases import ConnDB
 
 def test_polars_basic(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pl.DataFrame([
-        pl.Series("col1", [1, 2], dtype=pl.Int64),
-        pl.Series("col2", ["a", "b"], dtype=pl.String),
-        pl.Series("col3", [1.0, 2.0], dtype=pl.Float64),
-        pl.Series("col4", [datetime(2020, 5, 5), datetime(2000, 1, 1)], dtype=pl.Datetime),
-    ])
+    df = pl.DataFrame(
+        [
+            pl.Series("col1", [1, 2], dtype=pl.Int64),
+            pl.Series("col2", ["a", "b"], dtype=pl.String),
+            pl.Series("col3", [1.0, 2.0], dtype=pl.Float64),
+            pl.Series(
+                "col4", [datetime(2020, 5, 5), datetime(2000, 1, 1)], dtype=pl.Datetime
+            ),
+        ]
+    )
     result = conn.execute("LOAD FROM df RETURN *").get_as_pl()
     equivalency = result == df
     assert equivalency["col1"].all()
@@ -44,12 +48,16 @@ def test_polars_basic(conn_db_empty: ConnDB) -> None:
 
 def test_polars_basic_param(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
-    df = pl.DataFrame([
-        pl.Series("col1", [1, 2], dtype=pl.Int64),
-        pl.Series("col2", ["a", "b"], dtype=pl.String),
-        pl.Series("col3", [1.0, 2.0], dtype=pl.Float64),
-        pl.Series("col4", [datetime(2020, 5, 5), datetime(2000, 1, 1)], dtype=pl.Datetime),
-    ])
+    df = pl.DataFrame(
+        [
+            pl.Series("col1", [1, 2], dtype=pl.Int64),
+            pl.Series("col2", ["a", "b"], dtype=pl.String),
+            pl.Series("col3", [1.0, 2.0], dtype=pl.Float64),
+            pl.Series(
+                "col4", [datetime(2020, 5, 5), datetime(2000, 1, 1)], dtype=pl.Datetime
+            ),
+        ]
+    )
     result = conn.execute("LOAD FROM df RETURN *").get_as_pl()
     equivalency = result == df
     assert equivalency["col1"].all()
@@ -81,7 +89,9 @@ def test_polars_basic_param(conn_db_empty: ConnDB) -> None:
 
 def test_polars_error(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    with pytest.raises(RuntimeError, match=r"Binder exception: Variable df is not in scope."):
+    with pytest.raises(
+        RuntimeError, match=r"Binder exception: Variable df is not in scope."
+    ):
         conn.execute("LOAD FROM df RETURN *;")
     df = []
     with pytest.raises(
@@ -115,7 +125,9 @@ def test_copy_from_polars_multi_pairs(conn_db_empty: ConnDB) -> None:
     conn.execute("CREATE (p:prof {id: 4});")
     conn.execute("CREATE NODE TABLE student(id INT64, PRIMARY KEY(id))")
     conn.execute("CREATE (p:student {id: 2});")
-    conn.execute("CREATE REL TABLE teaches(from prof to prof, from prof to student, length int64)")
+    conn.execute(
+        "CREATE REL TABLE teaches(from prof to prof, from prof to student, length int64)"
+    )
     df = pl.DataFrame({"from": [3], "to": [4], "length": [252]})
     conn.execute("COPY teaches from df (from = 'prof', to = 'prof');")
     result = conn.execute("match (:prof)-[e:teaches]->(:prof) return e.*")

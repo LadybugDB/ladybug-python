@@ -6,16 +6,15 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-import pytest
-
 import ground_truth
-import real_ladybug as lb
 import polars as pl
 import pyarrow as pa
+import pytest
 import pytz
+import real_ladybug as lb
 from pandas import Timestamp
+from real_ladybug.constants import DST, ID, LABEL, NODES, SRC
 from type_aliases import ConnDB
-from real_ladybug.constants import ID, LABEL, SRC, DST, NODES
 
 _expected_dtypes = {
     # ------------------------------------------------
@@ -33,8 +32,14 @@ _expected_dtypes = {
     "a.lastJobDuration": {"arrow": pa.duration("us"), "pl": pl.Duration("us")},
     "a.workedHours": {"arrow": pa.list_(pa.int64()), "pl": pl.List(pl.Int64)},
     "a.usedNames": {"arrow": pa.list_(pa.string()), "pl": pl.List(pl.String)},
-    "a.courseScoresPerTerm": {"arrow": pa.list_(pa.list_(pa.int64())), "pl": pl.List(pl.List(pl.Int64))},
-    "a.grades": {"arrow": pa.list_(pa.int64(), 4), "pl": pl.Array(pl.Int64, shape=(4,))},
+    "a.courseScoresPerTerm": {
+        "arrow": pa.list_(pa.list_(pa.int64())),
+        "pl": pl.List(pl.List(pl.Int64)),
+    },
+    "a.grades": {
+        "arrow": pa.list_(pa.int64(), 4),
+        "pl": pl.Array(pl.Int64, shape=(4,)),
+    },
     "a.height": {"arrow": pa.float32(), "pl": pl.Float32},
     "a.u": {"arrow": pa.uuid(), "pl": pl.String},
     # ------------------------------------------------
@@ -43,38 +48,42 @@ _expected_dtypes = {
     "a.length": {"arrow": pa.int32(), "pl": pl.Int32},
     "m.name": {"arrow": pa.string(), "pl": pl.String},
     "a.description": {
-        "arrow": pa.struct([
-            ("rating", pa.float64()),
-            ("stars", pa.int8()),
-            ("views", pa.int64()),
-            ("release", pa.timestamp("us")),
-            ("release_ns", pa.timestamp("ns")),
-            ("release_ms", pa.timestamp("ms")),
-            ("release_sec", pa.timestamp("s")),
-            ("release_tz", pa.timestamp("us", tz="UTC")),
-            ("film", pa.date32()),
-            ("u8", pa.uint8()),
-            ("u16", pa.uint16()),
-            ("u32", pa.uint32()),
-            ("u64", pa.uint64()),
-            ("hugedata", pa.decimal128(38, 0)),
-        ]),
-        "pl": pl.Struct({
-            "rating": pl.Float64,
-            "stars": pl.Int8,
-            "views": pl.Int64,
-            "release": pl.Datetime(time_unit="us"),
-            "release_ns": pl.Datetime(time_unit="ns"),
-            "release_ms": pl.Datetime(time_unit="ms"),
-            "release_sec": pl.Datetime(time_unit="ms"),
-            "release_tz": pl.Datetime(time_unit="us", time_zone="UTC"),
-            "film": pl.Date,
-            "u8": pl.UInt8,
-            "u16": pl.UInt16,
-            "u32": pl.UInt32,
-            "u64": pl.UInt64,
-            "hugedata": pl.Decimal(precision=38, scale=0),
-        }),
+        "arrow": pa.struct(
+            [
+                ("rating", pa.float64()),
+                ("stars", pa.int8()),
+                ("views", pa.int64()),
+                ("release", pa.timestamp("us")),
+                ("release_ns", pa.timestamp("ns")),
+                ("release_ms", pa.timestamp("ms")),
+                ("release_sec", pa.timestamp("s")),
+                ("release_tz", pa.timestamp("us", tz="UTC")),
+                ("film", pa.date32()),
+                ("u8", pa.uint8()),
+                ("u16", pa.uint16()),
+                ("u32", pa.uint32()),
+                ("u64", pa.uint64()),
+                ("hugedata", pa.decimal128(38, 0)),
+            ]
+        ),
+        "pl": pl.Struct(
+            {
+                "rating": pl.Float64,
+                "stars": pl.Int8,
+                "views": pl.Int64,
+                "release": pl.Datetime(time_unit="us"),
+                "release_ns": pl.Datetime(time_unit="ns"),
+                "release_ms": pl.Datetime(time_unit="ms"),
+                "release_sec": pl.Datetime(time_unit="ms"),
+                "release_tz": pl.Datetime(time_unit="us", time_zone="UTC"),
+                "film": pl.Date,
+                "u8": pl.UInt8,
+                "u16": pl.UInt16,
+                "u32": pl.UInt32,
+                "u64": pl.UInt64,
+                "hugedata": pl.Decimal(precision=38, scale=0),
+            }
+        ),
     },
     # ------------------------------------------------
     # miscellaneous
@@ -84,7 +93,9 @@ _expected_dtypes = {
 }
 
 
-def get_result(query_result: lb.QueryResult, result_type: str, chunk_size: int | None) -> Any:
+def get_result(
+    query_result: lb.QueryResult, result_type: str, chunk_size: int | None
+) -> Any:
     sz = [] if (chunk_size is None or result_type == "pl") else [chunk_size]
     res = getattr(query_result, f"get_as_{result_type}")(*sz)
     if result_type == "arrow" and chunk_size:
@@ -92,14 +103,20 @@ def get_result(query_result: lb.QueryResult, result_type: str, chunk_size: int |
     return res
 
 
-def assert_column_equals(data: Any, col_name: str, return_type: str, expected_values: list[Any]) -> None:
+def assert_column_equals(
+    data: Any, col_name: str, return_type: str, expected_values: list[Any]
+) -> None:
     col = data[col_name]
     col_dtype = col.dtype if hasattr(col, "dtype") else col.type
     values = col.to_pylist() if return_type == "arrow" else col.to_list()
 
     assert len(col) == len(expected_values)
-    assert values == expected_values, f"Unexpected values for {col_name} ({return_type!r})"
-    assert col_dtype == _expected_dtypes[col_name][return_type], f"Unexpected dtype for {col_name} ({return_type!r})"
+    assert (
+        values == expected_values
+    ), f"Unexpected values for {col_name} ({return_type!r})"
+    assert (
+        col_dtype == _expected_dtypes[col_name][return_type]
+    ), f"Unexpected dtype for {col_name} ({return_type!r})"
 
 
 def assert_col_names(data: Any, expected_col_names: list[str]) -> None:
@@ -110,7 +127,9 @@ def assert_col_names(data: Any, expected_col_names: list[str]) -> None:
 def test_to_arrow(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
 
-    def _test_person_table(_conn: lb.Connection, return_type: str, chunk_size: int | None = None) -> None:
+    def _test_person_table(
+        _conn: lb.Connection, return_type: str, chunk_size: int | None = None
+    ) -> None:
         query = "MATCH (a:person) RETURN a.* ORDER BY a.ID"
         data = get_result(_conn.execute(query), return_type, chunk_size)
         assert len(data.columns) == 16
@@ -225,7 +244,16 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
             data=data,
             col_name="a.workedHours",
             return_type=return_type,
-            expected_values=[[10, 5], [12, 8], [4, 5], [1, 9], [2], [3, 4, 5, 6, 7], [1], [10, 11, 12, 3, 4, 5, 6, 7]],
+            expected_values=[
+                [10, 5],
+                [12, 8],
+                [4, 5],
+                [1, 9],
+                [2],
+                [3, 4, 5, 6, 7],
+                [1],
+                [10, 11, 12, 3, 4, 5, 6, 7],
+            ],
         )
 
         assert_column_equals(
@@ -294,7 +322,9 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
             ],
         )
 
-    def _test_movies_table(_conn: lb.Connection, return_type: str, chunk_size: int | None = None) -> None:
+    def _test_movies_table(
+        _conn: lb.Connection, return_type: str, chunk_size: int | None = None
+    ) -> None:
         query = "MATCH (a:movies) RETURN a.length, a.description ORDER BY a.length"
         data = get_result(_conn.execute(query), return_type, chunk_size)
 
@@ -316,9 +346,11 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
                     "stars": 2,
                     "views": 152,
                     "release": datetime(2011, 8, 20, 11, 25, 30),
-                    "release_ns": datetime(2011, 8, 20, 11, 25, 30, 123456)
-                    if return_type == "pl"
-                    else Timestamp("2011-08-20 11:25:30.123456"),
+                    "release_ns": (
+                        datetime(2011, 8, 20, 11, 25, 30, 123456)
+                        if return_type == "pl"
+                        else Timestamp("2011-08-20 11:25:30.123456")
+                    ),
                     "release_ms": datetime(2011, 8, 20, 11, 25, 30, 123000),
                     "release_sec": datetime(2011, 8, 20, 11, 25, 30),
                     "release_tz": datetime(2011, 8, 20, 11, 25, 30, 123456, pytz.UTC),
@@ -334,9 +366,11 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
                     "stars": 100,
                     "views": 10003,
                     "release": datetime(2011, 2, 11, 16, 44, 22),
-                    "release_ns": datetime(2011, 2, 11, 16, 44, 22, 123456)
-                    if return_type == "pl"
-                    else Timestamp("2011-02-11 16:44:22.123456"),
+                    "release_ns": (
+                        datetime(2011, 2, 11, 16, 44, 22, 123456)
+                        if return_type == "pl"
+                        else Timestamp("2011-02-11 16:44:22.123456")
+                    ),
                     "release_ms": datetime(2011, 2, 11, 16, 44, 22, 123000),
                     "release_sec": datetime(2011, 2, 11, 16, 44, 22),
                     "release_tz": datetime(2011, 2, 11, 16, 44, 22, 123456, pytz.UTC),
@@ -352,9 +386,11 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
                     "stars": 10,
                     "views": 982,
                     "release": datetime(2018, 11, 13, 13, 33, 11),
-                    "release_ns": datetime(2018, 11, 13, 13, 33, 11, 123456)
-                    if return_type == "pl"
-                    else Timestamp("2018-11-13 13:33:11.123456"),
+                    "release_ns": (
+                        datetime(2018, 11, 13, 13, 33, 11, 123456)
+                        if return_type == "pl"
+                        else Timestamp("2018-11-13 13:33:11.123456")
+                    ),
                     "release_ms": datetime(2018, 11, 13, 13, 33, 11, 123000),
                     "release_sec": datetime(2018, 11, 13, 13, 33, 11),
                     "release_tz": datetime(2018, 11, 13, 13, 33, 11, 123456, pytz.UTC),
@@ -368,7 +404,9 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
             ],
         )
 
-    def _test_utf8_string(_conn: lb.Connection, return_type: str, chunk_size: int | None = None) -> None:
+    def _test_utf8_string(
+        _conn: lb.Connection, return_type: str, chunk_size: int | None = None
+    ) -> None:
         query = "MATCH (m:movies) RETURN m.name"
         data = get_result(_conn.execute(query), return_type, chunk_size)
 
@@ -377,10 +415,16 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
             data=data,
             col_name="m.name",
             return_type=return_type,
-            expected_values=["Sóló cón tu párejâ", "The 😂😃🧘🏻‍♂️🌍🌦️🍞🚗 movie", "Roma"],
+            expected_values=[
+                "Sóló cón tu párejâ",
+                "The 😂😃🧘🏻‍♂️🌍🌦️🍞🚗 movie",
+                "Roma",
+            ],
         )
 
-    def _test_in_small_chunk_size(_conn: lb.Connection, return_type: str, chunk_size: int | None = None) -> None:
+    def _test_in_small_chunk_size(
+        _conn: lb.Connection, return_type: str, chunk_size: int | None = None
+    ) -> None:
         query = "MATCH (a:person) RETURN a.age, a.fName ORDER BY a.ID"
         data = get_result(_conn.execute(query), return_type, chunk_size)
 
@@ -408,7 +452,9 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
             ],
         )
 
-    def _test_with_nulls(_conn: lb.Connection, return_type: str, chunk_size: int | None = None) -> None:
+    def _test_with_nulls(
+        _conn: lb.Connection, return_type: str, chunk_size: int | None = None
+    ) -> None:
         query = "MATCH (a:person:organisation) RETURN label(a) AS `a.lbl`, a.fName, a.orgCode ORDER BY a.ID"
         data = get_result(_conn.execute(query), return_type, chunk_size)
 
@@ -455,7 +501,19 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
             data=data,
             col_name="a.orgCode",
             return_type=return_type,
-            expected_values=[None, 325, None, None, 934, None, 824, None, None, None, None],
+            expected_values=[
+                None,
+                325,
+                None,
+                None,
+                934,
+                None,
+                824,
+                None,
+                None,
+                None,
+                None,
+            ],
         )
 
     _test_person_table(conn, "arrow", 9)
@@ -473,12 +531,18 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
 def test_to_arrow_map(conn_db_readonly: ConnDB) -> None:
     conn = conn_db_readonly[0]
     results = (
-        conn.execute("RETURN map([1, 2, 3], [{a: 1, b: 2, c: '3'}, {a: 2, b: 3, c: '4'}, {a: 3, b: 4, c: '5'}])")
+        conn.execute(
+            "RETURN map([1, 2, 3], [{a: 1, b: 2, c: '3'}, {a: 2, b: 3, c: '4'}, {a: 3, b: 4, c: '5'}])"
+        )
         .get_as_arrow(8)[0]
         .to_pylist()
     )
     assert results == [
-        [(1, {"a": 1, "b": 2, "c": "3"}), (2, {"a": 2, "b": 3, "c": "4"}), (3, {"a": 3, "b": 4, "c": "5"})]
+        [
+            (1, {"a": 1, "b": 2, "c": "3"}),
+            (2, {"a": 2, "b": 3, "c": "4"}),
+            (3, {"a": 3, "b": 4, "c": "5"}),
+        ]
     ]
 
     result = conn.execute("RETURN map(['abc', NULL, 'qwe'], [123, 456, 781527])")
@@ -486,8 +550,12 @@ def test_to_arrow_map(conn_db_readonly: ConnDB) -> None:
     with pytest.raises(RuntimeError, match=error):
         result.get_as_arrow(1)
 
-    result = conn.execute("RETURN map(['abc', 'xyz', 'qwe'], [123, 456, 781527])").get_as_arrow(1)
-    assert result[0].to_pylist(maps_as_pydicts="strict") == [{"abc": 123, "xyz": 456, "qwe": 781527}]
+    result = conn.execute(
+        "RETURN map(['abc', 'xyz', 'qwe'], [123, 456, 781527])"
+    ).get_as_arrow(1)
+    assert result[0].to_pylist(maps_as_pydicts="strict") == [
+        {"abc": 123, "xyz": 456, "qwe": 781527}
+    ]
 
 
 def test_to_arrow_array(conn_db_readwrite: ConnDB) -> None:
@@ -600,7 +668,9 @@ def test_to_arrow_complex(conn_db_readonly: ConnDB) -> None:
             _test_node_helper(a, b)
 
     def _test_marries_table(_conn: lb.Connection) -> None:
-        query = "MATCH (a:person)-[e:marries]->(b:person) RETURN e.* ORDER BY a.ID, b.ID"
+        query = (
+            "MATCH (a:person)-[e:marries]->(b:person) RETURN e.* ORDER BY a.ID, b.ID"
+        )
         arrow_tbl = _conn.execute(query).get_as_arrow(0)
         assert arrow_tbl.num_columns == 3
 
@@ -669,13 +739,17 @@ def test_to_arrow_complex(conn_db_readonly: ConnDB) -> None:
             assert expected == cur_ids
 
     def _test_serial(_conn: lb.Connection) -> None:
-        arrow_tbl = _conn.execute("MATCH (a:moviesSerial) RETURN a.ID AS id").get_as_arrow(0)
+        arrow_tbl = _conn.execute(
+            "MATCH (a:moviesSerial) RETURN a.ID AS id"
+        ).get_as_arrow(0)
         assert arrow_tbl.num_columns == 1
         assert len(arrow_tbl) == 3
         assert arrow_tbl["id"].to_pylist() == [0, 1, 2]
 
     def _test_blob(_conn: lb.Connection) -> None:
-        arrow_tbl = _conn.execute("RETURN BLOB('\\\\xBC\\\\xBD\\\\xBA\\\\xAA') as result").get_as_arrow(1)
+        arrow_tbl = _conn.execute(
+            "RETURN BLOB('\\\\xBC\\\\xBD\\\\xBA\\\\xAA') as result"
+        ).get_as_arrow(1)
         assert arrow_tbl.num_columns == 1
         assert len(arrow_tbl) == 1
         assert arrow_tbl["result"][0].as_py() == b"\xbc\xbd\xba\xaa"
@@ -690,5 +764,7 @@ def test_to_arrow_complex(conn_db_readonly: ConnDB) -> None:
     def test_to_arrow1(conn: lb.Connection) -> None:
         query = "MATCH (a:person)-[e:knows]->(:person) RETURN e.summary"
         res = conn.execute(query)
-        arrow_tbl = conn.execute(query).get_as_arrow(-1)  # what is a chunk size of -1 even supposed to mean?
+        arrow_tbl = conn.execute(query).get_as_arrow(
+            -1
+        )  # what is a chunk size of -1 even supposed to mean?
         assert arrow_tbl == []

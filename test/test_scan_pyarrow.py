@@ -60,19 +60,26 @@ def test_pyarrow_copy_from_parameterized_df(conn_db_readwrite: ConnDB) -> None:
             names=["id", "A", "B"],
         )
 
-    conn.execute("CREATE NODE TABLE pyarrowtab(id INT32, A STRING, B BOOL, PRIMARY KEY(id))")
+    conn.execute(
+        "CREATE NODE TABLE pyarrowtab(id INT32, A STRING, B BOOL, PRIMARY KEY(id))"
+    )
     conn.execute("COPY pyarrowtab FROM $tab", {"tab": get_tab_func()})
-    result = conn.execute("MATCH (t:pyarrowtab) RETURN t.id AS id, t.A AS A, t.B AS B ORDER BY t.id")
+    result = conn.execute(
+        "MATCH (t:pyarrowtab) RETURN t.id AS id, t.A AS A, t.B AS B ORDER BY t.id"
+    )
     assert result.get_next() == [1, "a", True]
     assert result.get_next() == [2, "b", False]
     assert result.get_next() == [3, "c", None]
 
     rels = pa.Table.from_arrays(
-        [pa.array([1, 2, 3], type=pa.int32()), pa.array([2, 3, 1], type=pa.int32())], names=["from", "to"]
+        [pa.array([1, 2, 3], type=pa.int32()), pa.array([2, 3, 1], type=pa.int32())],
+        names=["from", "to"],
     )
     conn.execute("CREATE REL TABLE pyarrowrel(FROM pyarrowtab TO pyarrowtab)")
     conn.execute("COPY pyarrowrel FROM $tab", {"tab": rels})
-    result = conn.execute("MATCH (a:pyarrowtab)-[:pyarrowrel]->(b:pyarrowtab) RETURN a.id, b.id ORDER BY a.id")
+    result = conn.execute(
+        "MATCH (a:pyarrowtab)-[:pyarrowrel]->(b:pyarrowtab) RETURN a.id, b.id ORDER BY a.id"
+    )
     assert result.get_next() == [1, 2]
     assert result.get_next() == [2, 3]
     assert result.get_next() == [3, 1]
@@ -125,7 +132,9 @@ def test_pyarrow_to_filtered_pyarrow_table(conn_db_empty: ConnDB) -> None:
 
 def test_pyarrow_copy_from_invalid_source(conn_db_readwrite: ConnDB) -> None:
     conn, _ = conn_db_readwrite
-    conn.execute("CREATE NODE TABLE pyarrowtab(id INT32, A STRING, B BOOL, PRIMARY KEY(id))")
+    conn.execute(
+        "CREATE NODE TABLE pyarrowtab(id INT32, A STRING, B BOOL, PRIMARY KEY(id))"
+    )
     with pytest.raises(
         RuntimeError,
         match=r"Binder exception: Trying to scan from unsupported data type INT8\[\]. The only parameter types that can be scanned from are pandas/polars dataframes and pyarrow tables.",
@@ -143,19 +152,26 @@ def test_pyarrow_copy_from(conn_db_readwrite: ConnDB) -> None:
         ],
         names=["id", "A", "B"],
     )
-    conn.execute("CREATE NODE TABLE pyarrowtab(id INT32, A STRING, B BOOL, PRIMARY KEY(id))")
+    conn.execute(
+        "CREATE NODE TABLE pyarrowtab(id INT32, A STRING, B BOOL, PRIMARY KEY(id))"
+    )
     conn.execute("COPY pyarrowtab FROM tab")
-    result = conn.execute("MATCH (t:pyarrowtab) RETURN t.id AS id, t.A AS A, t.B AS B ORDER BY t.id")
+    result = conn.execute(
+        "MATCH (t:pyarrowtab) RETURN t.id AS id, t.A AS A, t.B AS B ORDER BY t.id"
+    )
     assert result.get_next() == [1, "a", True]
     assert result.get_next() == [2, "b", False]
     assert result.get_next() == [3, "c", None]
 
     rels = pa.Table.from_arrays(
-        [pa.array([1, 2, 3], type=pa.int32()), pa.array([2, 3, 1], type=pa.int32())], names=["from", "to"]
+        [pa.array([1, 2, 3], type=pa.int32()), pa.array([2, 3, 1], type=pa.int32())],
+        names=["from", "to"],
     )
     conn.execute("CREATE REL TABLE pyarrowrel(FROM pyarrowtab TO pyarrowtab)")
     conn.execute("COPY pyarrowrel FROM rels")
-    result = conn.execute("MATCH (a:pyarrowtab)-[:pyarrowrel]->(b:pyarrowtab) RETURN a.id, b.id ORDER BY a.id")
+    result = conn.execute(
+        "MATCH (a:pyarrowtab)-[:pyarrowrel]->(b:pyarrowtab) RETURN a.id, b.id ORDER BY a.id"
+    )
     assert result.get_next() == [1, 2]
     assert result.get_next() == [2, 3]
     assert result.get_next() == [3, 1]
@@ -171,7 +187,9 @@ def test_pyarrow_copy_from(conn_db_readwrite: ConnDB) -> None:
         names=["foo", "bar", "spongebobmeboy"],
     )
 
-    conn.execute("CREATE REL TABLE pyarrowrel(FROM pyarrowtab TO pyarrowtab, a_distraction STRING)")
+    conn.execute(
+        "CREATE REL TABLE pyarrowrel(FROM pyarrowtab TO pyarrowtab, a_distraction STRING)"
+    )
     conn.execute("COPY pyarrowrel FROM rels")
     result = conn.execute(
         "MATCH (a:pyarrowtab)-[r:pyarrowrel]->(b:pyarrowtab) RETURN a.id, r.a_distraction, b.id ORDER BY a.id"
@@ -224,7 +242,9 @@ def test_copy_from_pyarrow_multi_pairs(conn_db_readwrite: ConnDB) -> None:
     conn.execute("CREATE (p:prof {id: 4});")
     conn.execute("CREATE NODE TABLE student(id INT64, PRIMARY KEY(id))")
     conn.execute("CREATE (p:student {id: 2});")
-    conn.execute("CREATE REL TABLE teaches(from prof to prof, from prof to student, length int64)")
+    conn.execute(
+        "CREATE REL TABLE teaches(from prof to prof, from prof to student, length int64)"
+    )
     df = pa.Table.from_arrays(
         [
             pa.array([3], type=pa.int64()),
@@ -240,7 +260,9 @@ def test_copy_from_pyarrow_multi_pairs(conn_db_readwrite: ConnDB) -> None:
     assert not result.has_next()
 
 
-def test_create_arrow_rel_table_from_pyarrow_table_query_results(conn_db_empty: ConnDB) -> None:
+def test_create_arrow_rel_table_from_pyarrow_table_query_results(
+    conn_db_empty: ConnDB,
+) -> None:
     conn, _ = conn_db_empty
 
     conn.execute("CREATE NODE TABLE person(id INT64, PRIMARY KEY(id))")

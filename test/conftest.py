@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import os
+import re
 import shutil
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-import re
 from test_helper import LBUG_ROOT
 
 python_build_dir = Path(__file__).parent.parent / "build"
@@ -22,8 +21,7 @@ if TYPE_CHECKING:
 
 
 def init_npy(conn: lb.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE NODE TABLE npyoned (
           i64 INT64,
           i32 INT32,
@@ -32,20 +30,16 @@ def init_npy(conn: lb.Connection) -> None:
           f32 FLOAT,
           PRIMARY KEY(i64)
         );
-        """
-    )
-    conn.execute(
-        f"""
+        """)
+    conn.execute(f"""
         COPY npyoned from (
           "{LBUG_ROOT}/dataset/npy-1d/one_dim_int64.npy",
           "{LBUG_ROOT}/dataset/npy-1d/one_dim_int32.npy",
           "{LBUG_ROOT}/dataset/npy-1d/one_dim_int16.npy",
           "{LBUG_ROOT}/dataset/npy-1d/one_dim_double.npy",
           "{LBUG_ROOT}/dataset/npy-1d/one_dim_float.npy") BY COLUMN;
-        """
-    )
-    conn.execute(
-        """
+        """)
+    conn.execute("""
         CREATE NODE TABLE npytwod (
           id INT64,
           i64 INT64[3],
@@ -55,10 +49,8 @@ def init_npy(conn: lb.Connection) -> None:
           f32 FLOAT[3],
           PRIMARY KEY(id)
         );
-        """
-    )
-    conn.execute(
-        f"""
+        """)
+    conn.execute(f"""
         COPY npytwod FROM (
           "{LBUG_ROOT}/dataset/npy-2d/id_int64.npy",
           "{LBUG_ROOT}/dataset/npy-2d/two_dim_int64.npy",
@@ -66,13 +58,11 @@ def init_npy(conn: lb.Connection) -> None:
           "{LBUG_ROOT}/dataset/npy-2d/two_dim_int16.npy",
           "{LBUG_ROOT}/dataset/npy-2d/two_dim_double.npy",
           "{LBUG_ROOT}/dataset/npy-2d/two_dim_float.npy") BY COLUMN;
-        """
-    )
+        """)
 
 
 def init_tensor(conn: lb.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE NODE TABLE tensor (
           ID INT64,
           boolTensor BOOLEAN[],
@@ -81,16 +71,25 @@ def init_tensor(conn: lb.Connection) -> None:
           oneDimInt INT64,
           PRIMARY KEY (ID)
         );
-        """
+        """)
+    conn.execute(
+        f'COPY tensor FROM "{LBUG_ROOT}/dataset/tensor-list/vTensor.csv" (HEADER=true)'
     )
-    conn.execute(f'COPY tensor FROM "{LBUG_ROOT}/dataset/tensor-list/vTensor.csv" (HEADER=true)')
 
 
 def init_long_str(conn: lb.Connection) -> None:
-    conn.execute("CREATE NODE TABLE personLongString (name STRING, spouse STRING, PRIMARY KEY(name))")
-    conn.execute(f'COPY personLongString FROM "{LBUG_ROOT}/dataset/long-string-pk-tests/vPerson.csv"')
-    conn.execute("CREATE REL TABLE knowsLongString (FROM personLongString TO personLongString, MANY_MANY)")
-    conn.execute(f'COPY knowsLongString FROM "{LBUG_ROOT}/dataset/long-string-pk-tests/eKnows.csv"')
+    conn.execute(
+        "CREATE NODE TABLE personLongString (name STRING, spouse STRING, PRIMARY KEY(name))"
+    )
+    conn.execute(
+        f'COPY personLongString FROM "{LBUG_ROOT}/dataset/long-string-pk-tests/vPerson.csv"'
+    )
+    conn.execute(
+        "CREATE REL TABLE knowsLongString (FROM personLongString TO personLongString, MANY_MANY)"
+    )
+    conn.execute(
+        f'COPY knowsLongString FROM "{LBUG_ROOT}/dataset/long-string-pk-tests/eKnows.csv"'
+    )
 
 
 data_file_extentions = ["csv", "parquet", "npy", "ttl", "nq", "json", "lbug_extension"]
@@ -143,17 +142,17 @@ def init_demo(conn: lb.Connection) -> None:
 
 
 def init_movie_serial(conn: lb.Connection) -> None:
-    conn.execute(
-        """
+    conn.execute("""
         CREATE NODE TABLE moviesSerial (
           ID SERIAL,
           name STRING,
           length INT32,
           note STRING,
           PRIMARY KEY (ID)
-        );"""
+        );""")
+    conn.execute(
+        f'COPY moviesSerial from "{LBUG_ROOT}/dataset/tinysnb-serial/vMovies.csv"'
     )
-    conn.execute(f'COPY moviesSerial from "{LBUG_ROOT}/dataset/tinysnb-serial/vMovies.csv"')
 
 
 _POOL_SIZE_: int = 256 * 1024 * 1024
@@ -234,7 +233,9 @@ def conn_db_empty(tmp_path: Path) -> ConnDB:
 @pytest.fixture
 def conn_db_in_mem() -> ConnDB:
     """Return a new in-memory connection and database."""
-    db = lb.Database(database_path=":memory:", buffer_pool_size=_POOL_SIZE_, read_only=False)
+    db = lb.Database(
+        database_path=":memory:", buffer_pool_size=_POOL_SIZE_, read_only=False
+    )
     conn = lb.Connection(db, num_threads=4)
     return conn, db
 

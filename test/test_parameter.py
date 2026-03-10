@@ -1,15 +1,11 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
 
 import pytest
 from type_aliases import ConnDB
 
 # required by python-lint
-if TYPE_CHECKING:
-    from pathlib import Path
-import real_ladybug as lb
 
 
 def test_struct_param_access(conn_db_readwrite: ConnDB) -> None:
@@ -53,7 +49,9 @@ def test_struct_param_access(conn_db_readwrite: ConnDB) -> None:
 
 def test_array_binding(conn_db_readwrite: ConnDB) -> None:
     conn, _ = conn_db_readwrite
-    conn.execute("CREATE NODE TABLE node(id STRING, embedding DOUBLE[3], PRIMARY KEY(id))")
+    conn.execute(
+        "CREATE NODE TABLE node(id STRING, embedding DOUBLE[3], PRIMARY KEY(id))"
+    )
     conn.execute("CREATE (d:node {id: 'test', embedding: $emb})", {"emb": [3, 5, 2]})
     result = conn.execute(
         """
@@ -77,7 +75,8 @@ def test_array_binding(conn_db_readwrite: ConnDB) -> None:
 def test_bool_param(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
     result = conn.execute(
-        "MATCH (a:person) WHERE a.isStudent = $1 AND a.isWorker = $k RETURN COUNT(*)", {"1": False, "k": False}
+        "MATCH (a:person) WHERE a.isStudent = $1 AND a.isWorker = $k RETURN COUNT(*)",
+        {"1": False, "k": False},
     )
     assert result.has_next()
     assert result.get_next() == [1]
@@ -87,7 +86,9 @@ def test_bool_param(conn_db_readonly: ConnDB) -> None:
 
 def test_int_param(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) WHERE a.age < $AGE RETURN COUNT(*)", {"AGE": 1})
+    result = conn.execute(
+        "MATCH (a:person) WHERE a.age < $AGE RETURN COUNT(*)", {"AGE": 1}
+    )
     assert result.has_next()
     assert result.get_next() == [0]
     assert not result.has_next()
@@ -96,7 +97,9 @@ def test_int_param(conn_db_readonly: ConnDB) -> None:
 
 def test_double_param(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) WHERE a.eyeSight = $E RETURN COUNT(*)", {"E": 5.0})
+    result = conn.execute(
+        "MATCH (a:person) WHERE a.eyeSight = $E RETURN COUNT(*)", {"E": 5.0}
+    )
     assert result.has_next()
     assert result.get_next() == [2]
     assert not result.has_next()
@@ -105,7 +108,9 @@ def test_double_param(conn_db_readonly: ConnDB) -> None:
 
 def test_str_param(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) WHERE a.ID = 0 RETURN concat(a.fName, $S);", {"S": "HH"})
+    result = conn.execute(
+        "MATCH (a:person) WHERE a.ID = 0 RETURN concat(a.fName, $S);", {"S": "HH"}
+    )
     assert result.has_next()
     assert result.get_next() == ["AliceHH"]
     assert not result.has_next()
@@ -114,7 +119,10 @@ def test_str_param(conn_db_readonly: ConnDB) -> None:
 
 def test_date_param(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) WHERE a.birthdate = $1 RETURN COUNT(*);", {"1": datetime.date(1900, 1, 1)})
+    result = conn.execute(
+        "MATCH (a:person) WHERE a.birthdate = $1 RETURN COUNT(*);",
+        {"1": datetime.date(1900, 1, 1)},
+    )
     assert result.has_next()
     assert result.get_next() == [2]
     assert not result.has_next()
@@ -135,7 +143,9 @@ def test_timestamp_param(conn_db_readonly: ConnDB) -> None:
 
 def test_int64_list_param(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person {workedHours: $1}) RETURN COUNT(*);", {"1": [3, 4, 5, 6, 7]})
+    result = conn.execute(
+        "MATCH (a:person {workedHours: $1}) RETURN COUNT(*);", {"1": [3, 4, 5, 6, 7]}
+    )
     assert result.has_next()
     assert result.get_next() == [1]
     assert not result.has_next()
@@ -165,7 +175,9 @@ def test_int64_list_list_param(conn_db_readonly: ConnDB) -> None:
 
 def test_string_list_param(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person {usedNames: $1}) RETURN COUNT(*);", {"1": ["Carmen", "Fred"]})
+    result = conn.execute(
+        "MATCH (a:person {usedNames: $1}) RETURN COUNT(*);", {"1": ["Carmen", "Fred"]}
+    )
     assert result.has_next()
     assert result.get_next() == [1]
     assert not result.has_next()
@@ -205,7 +217,10 @@ def test_general_list_param(conn_db_empty: ConnDB) -> None:
     )
     lst1 = [True, False]
     lst2 = [1.0, 2.0]
-    lst3 = [datetime.datetime(2019, 11, 12, 11, 25, 30), datetime.datetime(1987, 2, 15, 3, 0, 2)]
+    lst3 = [
+        datetime.datetime(2019, 11, 12, 11, 25, 30),
+        datetime.datetime(1987, 2, 15, 3, 0, 2),
+    ]
     lst4 = [datetime.date(2019, 11, 12), datetime.date(1987, 2, 15)]
     lst5 = [lst3[0] - lst3[1]]
     lst6 = [1, "2", "3"]
@@ -232,7 +247,10 @@ def test_null_resolution(conn_db_empty: ConnDB) -> None:
         {"key": ["2"], "value": [{"key": ["foo", "bar"], "value": [1, 2]}]},
         {"key": ["1"], "value": [{"key": [], "value": []}]},
     ]
-    result = conn.execute("MERGE (t:tab {lst1: $1, mp1: $2, nest: $3}) RETURN t.*", {"1": lst1, "2": mp1, "3": nest})
+    result = conn.execute(
+        "MERGE (t:tab {lst1: $1, mp1: $2, nest: $3}) RETURN t.*",
+        {"1": lst1, "2": mp1, "3": nest},
+    )
     assert result.has_next()
     assert result.get_next() == [
         0,
@@ -246,20 +264,30 @@ def test_null_resolution(conn_db_empty: ConnDB) -> None:
 
 def test_param_error1(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    with pytest.raises(RuntimeError, match="Parameter name must be of type string but got <class 'int'>"):
-        conn.execute("MATCH (a:person) WHERE a.registerTime = $1 RETURN COUNT(*);", {1: 1})
+    with pytest.raises(
+        RuntimeError,
+        match="Parameter name must be of type string but got <class 'int'>",
+    ):
+        conn.execute(
+            "MATCH (a:person) WHERE a.registerTime = $1 RETURN COUNT(*);", {1: 1}
+        )
 
 
 def test_param_error2(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
     with pytest.raises(RuntimeError, match="Parameters must be a dict"):
-        conn.execute("MATCH (a:person) WHERE a.registerTime = $1 RETURN COUNT(*);", ["asd"])
+        conn.execute(
+            "MATCH (a:person) WHERE a.registerTime = $1 RETURN COUNT(*);", ["asd"]
+        )
 
 
 def test_param_error3(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
     with pytest.raises(RuntimeError, match="Parameters must be a dict"):
-        conn.execute("MATCH (a:person) WHERE a.registerTime = $1 RETURN COUNT(*);", [("asd", 1, 1)])
+        conn.execute(
+            "MATCH (a:person) WHERE a.registerTime = $1 RETURN COUNT(*);",
+            [("asd", 1, 1)],
+        )
 
 
 def test_param(conn_db_readwrite: ConnDB) -> None:
@@ -267,7 +295,9 @@ def test_param(conn_db_readwrite: ConnDB) -> None:
     conn.execute("CREATE NODE TABLE NodeOne(id INT64, name STRING, PRIMARY KEY(id));")
     conn.execute("CREATE NODE TABLE NodeTwo(id INT64, name STRING, PRIMARY KEY(id));")
     conn.execute("CREATE Rel TABLE RelA(from NodeOne to NodeOne);")
-    conn.execute("CREATE Rel TABLE RelB(from NodeTwo to NodeOne, id int64, name String);")
+    conn.execute(
+        "CREATE Rel TABLE RelB(from NodeTwo to NodeOne, id int64, name String);"
+    )
     conn.execute('CREATE (t: NodeOne {id:1, name: "Alice"});')
     conn.execute('CREATE (t: NodeOne {id:2, name: "Jack"});')
     conn.execute('CREATE (t: NodeTwo {id:3, name: "Bob"});')
@@ -293,7 +323,8 @@ def test_param_error4(conn_db_readonly: ConnDB) -> None:
         match="Runtime exception: Cannot convert Python object to Lbug value : INT8  is incompatible with TIMESTAMP",
     ):
         conn.execute(
-            "MATCH (a:person {workedHours: $1}) RETURN COUNT(*);", {"1": [1, 2, datetime.datetime(2023, 3, 25)]}
+            "MATCH (a:person {workedHours: $1}) RETURN COUNT(*);",
+            {"1": [1, 2, datetime.datetime(2023, 3, 25)]},
         )
 
 
@@ -303,7 +334,9 @@ def test_dict_conversion(conn_db_readwrite: ConnDB) -> None:
     result = conn.execute("RETURN $st", {"st": {"key": [1, 2, 3], "value": [3, 7, 98]}})
     assert result.get_next() == [{1: 3, 2: 7, 3: 98}]
     # Interpret as STRUCT since the first field name is not "key".
-    result = conn.execute("RETURN $st", {"st": {"key1": [1, 2, 3], "value": [3, 7, 98]}})
+    result = conn.execute(
+        "RETURN $st", {"st": {"key1": [1, 2, 3], "value": [3, 7, 98]}}
+    )
     assert result.get_next() == [{"key1": [1, 2, 3], "value": [3, 7, 98]}]
     # Interpret as STRUCT since the number of elements in key and value doesn't match.
     result = conn.execute("RETURN $st", {"st": {"key": [1, 2], "value": [3, 7, 98, 4]}})

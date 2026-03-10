@@ -1,9 +1,9 @@
 import asyncio
 import time
 
-import real_ladybug as lb
 import pyarrow as pa
 import pytest
+import real_ladybug as lb
 
 
 @pytest.mark.asyncio
@@ -22,7 +22,12 @@ async def test_async_prepare_and_execute(async_connection_readonly):
 async def test_async_prepare_and_execute_concurrent(async_connection_readonly):
     num_queries = 100
     query = "RETURN $1;"
-    results = await asyncio.gather(*[async_connection_readonly.execute(query, {"1": i}) for i in range(num_queries)])
+    results = await asyncio.gather(
+        *[
+            async_connection_readonly.execute(query, {"1": i})
+            for i in range(num_queries)
+        ]
+    )
     for i, result in enumerate(results):
         assert result.has_next()
         assert result.get_next() == [i]
@@ -64,7 +69,9 @@ async def test_async_scan_df(async_connection_readwrite):
     await async_connection_readwrite.execute(
         "CREATE NODE TABLE pyarrowtab(id INT32, A STRING, B BOOL, PRIMARY KEY(id))"
     )
-    await async_connection_readwrite.execute("COPY pyarrowtab FROM $tab", {"tab": nodes})
+    await async_connection_readwrite.execute(
+        "COPY pyarrowtab FROM $tab", {"tab": nodes}
+    )
 
     result = await async_connection_readwrite.execute(
         "MATCH (t:pyarrowtab) RETURN t.id AS id, t.A AS A, t.B AS B ORDER BY t.id"
@@ -82,7 +89,9 @@ async def test_async_scan_df(async_connection_readwrite):
 async def test_async_query_concurrent(async_connection_readonly):
     num_queries = 100
     queries = [f"RETURN {i};" for i in range(num_queries)]
-    results = await asyncio.gather(*[async_connection_readonly.execute(query) for query in queries])
+    results = await asyncio.gather(
+        *[async_connection_readonly.execute(query) for query in queries]
+    )
     for i, result in enumerate(results):
         assert result.has_next()
         assert result.get_next() == [i]
@@ -124,7 +133,9 @@ async def test_async_connection_create_and_close():
         res.close()
     num_queries = 100
     queries = [f"RETURN {i};" for i in range(num_queries)]
-    results = await asyncio.gather(*[async_connection.execute(query) for query in queries])
+    results = await asyncio.gather(
+        *[async_connection.execute(query) for query in queries]
+    )
     for i, result in enumerate(results):
         assert result.has_next()
         assert result.get_next() == [i]

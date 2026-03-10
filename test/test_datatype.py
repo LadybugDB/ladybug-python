@@ -7,8 +7,8 @@ from uuid import UUID
 import numpy as np
 import pandas as pd
 import pytz
+from real_ladybug.constants import DST, ID, LABEL, NODES, RELS, SRC
 from type_aliases import ConnDB
-from real_ladybug.constants import ID, LABEL, SRC, DST, NODES, RELS
 
 
 def test_bool(conn_db_readonly: ConnDB) -> None:
@@ -31,7 +31,9 @@ def test_int(conn_db_readonly: ConnDB) -> None:
 
 def test_int8(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.level;")
+    result = conn.execute(
+        "MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.level;"
+    )
     assert result.has_next()
     assert result.get_next() == [5]
     assert not result.has_next()
@@ -40,7 +42,9 @@ def test_int8(conn_db_readonly: ConnDB) -> None:
 
 def test_uint8(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.ulevel;")
+    result = conn.execute(
+        "MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.ulevel;"
+    )
     assert result.has_next()
     assert result.get_next() == [250]
     assert not result.has_next()
@@ -49,7 +53,9 @@ def test_uint8(conn_db_readonly: ConnDB) -> None:
 
 def test_uint16(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.ulength;")
+    result = conn.execute(
+        "MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.ulength;"
+    )
     assert result.has_next()
     assert result.get_next() == [33768]
     assert not result.has_next()
@@ -58,7 +64,9 @@ def test_uint16(conn_db_readonly: ConnDB) -> None:
 
 def test_uint32(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.temperature;")
+    result = conn.execute(
+        "MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.temperature;"
+    )
     assert result.has_next()
     assert result.get_next() == [32800]
     assert not result.has_next()
@@ -67,7 +75,9 @@ def test_uint32(conn_db_readonly: ConnDB) -> None:
 
 def test_uint64(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.code;")
+    result = conn.execute(
+        "MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.code;"
+    )
     assert result.has_next()
     assert result.get_next() == [9223372036854775808]
     assert not result.has_next()
@@ -76,7 +86,9 @@ def test_uint64(conn_db_readonly: ConnDB) -> None:
 
 def test_int128(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.hugedata;")
+    result = conn.execute(
+        "MATCH (a:person) -[r:studyAt]-> (b:organisation) WHERE r.length = 5 RETURN r.hugedata;"
+    )
     assert result.has_next()
     assert result.get_next() == [1844674407370955161811111111]
     assert not result.has_next()
@@ -106,31 +118,35 @@ def test_decimal(conn_db_readonly: ConnDB) -> None:
     res = conn.execute(
         "UNWIND [1, 2, 3] AS A UNWIND [5.7, 8.3, 2.9] AS B WITH cast(CAST(A AS DECIMAL) * CAST(B AS DECIMAL) AS DECIMAL(18, 1)) AS PROD RETURN COLLECT(PROD) AS RES"
     )
-    assert sorted(res.get_next()[0]) == sorted([
-        Decimal("5.7"),
-        Decimal("8.3"),
-        Decimal("2.9"),
-        Decimal("11.4"),
-        Decimal("16.6"),
-        Decimal("5.8"),
-        Decimal("17.1"),
-        Decimal("24.9"),
-        Decimal("8.7"),
-    ])
+    assert sorted(res.get_next()[0]) == sorted(
+        [
+            Decimal("5.7"),
+            Decimal("8.3"),
+            Decimal("2.9"),
+            Decimal("11.4"),
+            Decimal("16.6"),
+            Decimal("5.8"),
+            Decimal("17.1"),
+            Decimal("24.9"),
+            Decimal("8.7"),
+        ]
+    )
     res = conn.execute(
         "UNWIND [1, 2, 3] AS A UNWIND [5.7, 8.3, 2.9] AS B WITH CAST(CAST(A AS DECIMAL) * CAST(B AS DECIMAL) AS DECIMAL(4, 1)) AS PROD RETURN COLLECT(PROD) AS RES"
     )
-    assert sorted(res.get_next()[0]) == sorted([
-        Decimal("5.7"),
-        Decimal("8.3"),
-        Decimal("2.9"),
-        Decimal("11.4"),
-        Decimal("16.6"),
-        Decimal("5.8"),
-        Decimal("17.1"),
-        Decimal("24.9"),
-        Decimal("8.7"),
-    ])
+    assert sorted(res.get_next()[0]) == sorted(
+        [
+            Decimal("5.7"),
+            Decimal("8.3"),
+            Decimal("2.9"),
+            Decimal("11.4"),
+            Decimal("16.6"),
+            Decimal("5.8"),
+            Decimal("17.1"),
+            Decimal("24.9"),
+            Decimal("8.7"),
+        ]
+    )
 
 
 def test_string(conn_db_readonly: ConnDB) -> None:
@@ -185,16 +201,22 @@ def test_timestamp(conn_db_readonly: ConnDB) -> None:
 
 def test_timestamp_tz(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:movies) WHERE a.length = 126 RETURN a.description.release_tz;")
+    result = conn.execute(
+        "MATCH (a:movies) WHERE a.length = 126 RETURN a.description.release_tz;"
+    )
     assert result.has_next()
-    assert result.get_next() == [datetime.datetime(2011, 8, 20, 11, 25, 30, 123456, pytz.UTC)]
+    assert result.get_next() == [
+        datetime.datetime(2011, 8, 20, 11, 25, 30, 123456, pytz.UTC)
+    ]
     assert not result.has_next()
     result.close()
 
 
 def test_timestamp_ns(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:movies) WHERE a.length = 126 RETURN a.description.release_ns;")
+    result = conn.execute(
+        "MATCH (a:movies) WHERE a.length = 126 RETURN a.description.release_ns;"
+    )
     assert result.has_next()
     assert result.get_next() == [datetime.datetime(2011, 8, 20, 11, 25, 30, 123456)]
     assert not result.has_next()
@@ -203,7 +225,9 @@ def test_timestamp_ns(conn_db_readonly: ConnDB) -> None:
 
 def test_timestamp_ms(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:movies) WHERE a.length = 126 RETURN a.description.release_ms;")
+    result = conn.execute(
+        "MATCH (a:movies) WHERE a.length = 126 RETURN a.description.release_ms;"
+    )
     assert result.has_next()
     assert result.get_next() == [datetime.datetime(2011, 8, 20, 11, 25, 30, 123000)]
     assert not result.has_next()
@@ -212,7 +236,9 @@ def test_timestamp_ms(conn_db_readonly: ConnDB) -> None:
 
 def test_timestamp_s(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:movies) WHERE a.length = 126 RETURN a.description.release_sec;")
+    result = conn.execute(
+        "MATCH (a:movies) WHERE a.length = 126 RETURN a.description.release_sec;"
+    )
     assert result.has_next()
     assert result.get_next() == [datetime.datetime(2011, 8, 20, 11, 25, 30)]
     assert not result.has_next()
@@ -230,7 +256,9 @@ def test_interval(conn_db_readonly: ConnDB) -> None:
 
 def test_list(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person) WHERE a.ID = 0 RETURN a.courseScoresPerTerm;")
+    result = conn.execute(
+        "MATCH (a:person) WHERE a.ID = 0 RETURN a.courseScoresPerTerm;"
+    )
     assert result.has_next()
     assert result.get_next() == [[[10, 8], [6, 7, 8]]]
     assert not result.has_next()
@@ -279,7 +307,9 @@ def test_node(conn_db_readonly: ConnDB) -> None:
 
 def test_rel(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (p:person)-[r:workAt]->(o:organisation) WHERE p.ID = 5 RETURN p, r, o")
+    result = conn.execute(
+        "MATCH (p:person)-[r:workAt]->(o:organisation) WHERE p.ID = 5 RETURN p, r, o"
+    )
     assert result.has_next()
     n = result.get_next()
     assert len(n) == 3
@@ -309,10 +339,16 @@ def test_struct(conn_db_readonly: ConnDB) -> None:
     assert description["rating"] == 1223
     assert description["views"] == 10003
     assert description["release"] == datetime.datetime(2011, 2, 11, 16, 44, 22)
-    assert description["release_ns"] == datetime.datetime(2011, 2, 11, 16, 44, 22, 123456)
-    assert description["release_ms"] == datetime.datetime(2011, 2, 11, 16, 44, 22, 123000)
+    assert description["release_ns"] == datetime.datetime(
+        2011, 2, 11, 16, 44, 22, 123456
+    )
+    assert description["release_ms"] == datetime.datetime(
+        2011, 2, 11, 16, 44, 22, 123000
+    )
     assert description["release_sec"] == datetime.datetime(2011, 2, 11, 16, 44, 22)
-    assert description["release_tz"] == datetime.datetime(2011, 2, 11, 16, 44, 22, 123456, pytz.UTC)
+    assert description["release_tz"] == datetime.datetime(
+        2011, 2, 11, 16, 44, 22, 123456, pytz.UTC
+    )
     assert description["film"] == datetime.date(2013, 2, 22)
     assert description["stars"] == 100
     assert description["u8"] == 1
@@ -326,7 +362,9 @@ def test_struct(conn_db_readonly: ConnDB) -> None:
 
 def test_recursive_rel(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
-    result = conn.execute("MATCH (a:person)-[e:studyAt*1..1]->(b:organisation) WHERE a.fName = 'Alice' RETURN e;")
+    result = conn.execute(
+        "MATCH (a:person)-[e:studyAt*1..1]->(b:organisation) WHERE a.fName = 'Alice' RETURN e;"
+    )
     assert result.has_next()
     n = result.get_next()
     assert len(n) == 1
@@ -364,9 +402,13 @@ def test_large_array(conn_db_readwrite: ConnDB) -> None:
         data.append({"id": i, "embedding": np.random.rand(1670).tolist()})
 
     df = pd.DataFrame(data)
-    conn.execute("CREATE NODE TABLE _User(id INT64, embedding DOUBLE[1670], PRIMARY KEY (id))")
+    conn.execute(
+        "CREATE NODE TABLE _User(id INT64, embedding DOUBLE[1670], PRIMARY KEY (id))"
+    )
     conn.execute("COPY _User FROM df")
-    db_df = conn.execute("MATCH (u:_User) RETURN u.id as id, u.embedding as embedding ORDER BY u.id").get_as_df()
+    db_df = conn.execute(
+        "MATCH (u:_User) RETURN u.id as id, u.embedding as embedding ORDER BY u.id"
+    ).get_as_df()
     sorted_df = df.sort_values(by="id").reset_index(drop=True)
     sorted_db_df = db_df.sort_values(by="id").reset_index(drop=True)
     assert sorted_df.equals(sorted_db_df)

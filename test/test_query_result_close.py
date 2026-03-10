@@ -3,8 +3,8 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-from test_helper import LBUG_ROOT
 from conftest import get_db_file_path
+from test_helper import LBUG_ROOT
 
 
 def test_query_result_close(tmp_path: Path, build_dir: Path) -> None:

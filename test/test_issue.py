@@ -21,7 +21,10 @@ def test_param_empty(conn_db_readwrite: ConnDB) -> None:
 
 def test_issue_2874(conn_db_readwrite: ConnDB) -> None:
     conn, _ = conn_db_readwrite
-    result = conn.execute("UNWIND $idList as tid MATCH (t:person {ID: tid}) RETURN t.fName;", {"idList": [1, 2, 3]})
+    result = conn.execute(
+        "UNWIND $idList as tid MATCH (t:person {ID: tid}) RETURN t.fName;",
+        {"idList": [1, 2, 3]},
+    )
     assert result.has_next()
     assert result.get_next() == ["Bob"]
     assert result.has_next()
@@ -32,7 +35,9 @@ def test_issue_2874(conn_db_readwrite: ConnDB) -> None:
 
 def test_issue_2906(conn_db_readwrite: ConnDB) -> None:
     conn, _ = conn_db_readwrite
-    result = conn.execute("MATCH (a:person) WHERE $1 > a.ID AND $1 < a.age / 5 RETURN a.fName;", {"1": 6})
+    result = conn.execute(
+        "MATCH (a:person) WHERE $1 > a.ID AND $1 < a.age / 5 RETURN a.fName;", {"1": 6}
+    )
     assert result.has_next()
     assert result.get_next() == ["Alice"]
     assert result.has_next()
@@ -54,8 +59,7 @@ def test_issue_3135(conn_db_readwrite: ConnDB) -> None:
 
 def test_empty_list2(conn_db_readwrite: ConnDB) -> None:
     conn, _ = conn_db_readwrite
-    conn.execute(
-        """
+    conn.execute("""
         CREATE NODE TABLE SnapArtifactScan (
             artifact_name STRING,
             scan_columns STRING[],
@@ -64,8 +68,7 @@ def test_empty_list2(conn_db_readwrite: ConnDB) -> None:
             scan_id STRING,
             PRIMARY KEY(scan_id)
         )
-        """
-    )
+        """)
     result = conn.execute(
         """
         MERGE (n:SnapArtifactScan { scan_id: $scan_id })
@@ -79,23 +82,23 @@ def test_empty_list2(conn_db_readwrite: ConnDB) -> None:
         },
     )
     assert result.has_next()
-    assert result.get_next() == ["896de6b9c7b69fa2598def49e8c61de07949be374d229a82899c9c75994fad20"]
+    assert result.get_next() == [
+        "896de6b9c7b69fa2598def49e8c61de07949be374d229a82899c9c75994fad20"
+    ]
     assert not result.has_next()
     result.close()
 
 
 def test_empty_map(conn_db_readwrite: ConnDB) -> None:
     conn, _ = conn_db_readwrite
-    conn.execute(
-        """
+    conn.execute("""
         CREATE NODE TABLE Test (
             id SERIAL,
             prop1 MAP(STRING, STRING),
             prop2 MAP(STRING, STRING[]),
             PRIMARY KEY(id)
         )
-        """
-    )
+        """)
     result = conn.execute(
         """
             CREATE (n:Test {prop1: $prop1, prop2: $prop2})
