@@ -11,16 +11,11 @@ from torch_geometric.data.graph_store import EdgeAttr, EdgeLayout, GraphStore
 from .connection import Connection
 
 if TYPE_CHECKING:
-    import sys
+    from typing import TypeAlias
 
     from torch_geometric.typing import EdgeTensorType
 
     from .database import Database
-
-    if sys.version_info >= (3, 10):
-        from typing import TypeAlias
-    else:
-        from typing import TypeAlias
 
 StoreKeyType: TypeAlias = tuple[tuple[str], Any, bool]
 

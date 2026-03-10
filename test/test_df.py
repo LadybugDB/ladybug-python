@@ -126,7 +126,7 @@ def test_to_df(conn_db_readonly: ConnDB) -> None:
         assert str(pd["p.grades"].dtype) == "object"
         expected_values = [1.731, 0.99, 1.00, 1.30, 1.463, 1.51, 1.6, 1.323]
         actual_values = pd["p.height"].tolist()
-        for expected, actual in zip(expected_values, actual_values):
+        for expected, actual in zip(expected_values, actual_values, strict=False):
             assert math.isclose(actual, expected, rel_tol=1e-5)
         assert str(pd["p.height"].dtype) == "float32"
 

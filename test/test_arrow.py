@@ -599,7 +599,7 @@ def test_to_arrow_complex(conn_db_readonly: ConnDB) -> None:
                 ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[8],
                 ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[9],
                 ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[10],
-            ],
+            ], strict=False,
         ):
             _test_node_helper(a, b)
 
@@ -620,7 +620,7 @@ def test_to_arrow_complex(conn_db_readonly: ConnDB) -> None:
                 ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[3],
                 ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[5],
                 ground_truth.TINY_SNB_PERSONS_GROUND_TRUTH[7],
-            ],
+            ], strict=False,
         ):
             _test_node_helper(a, b)
         for a, b in zip(
@@ -653,7 +653,7 @@ def test_to_arrow_complex(conn_db_readonly: ConnDB) -> None:
                     "rating": 9.2,
                     "year": 2015,
                 },
-            ],
+            ], strict=False,
         ):
             _test_node_helper(a, b)
 
@@ -663,7 +663,7 @@ def test_to_arrow_complex(conn_db_readonly: ConnDB) -> None:
                 ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[4],
                 ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[6],
                 ground_truth.TINY_SNB_ORGANISATIONS_GROUND_TRUTH[6],
-            ],
+            ], strict=False,
         ):
             _test_node_helper(a, b)
 
@@ -731,7 +731,7 @@ def test_to_arrow_complex(conn_db_readonly: ConnDB) -> None:
             [5, 3, 2],
             [5, 3, 5],
         ]
-        for row, expected in zip(arrow_tbl["path"], expected_nodes):
+        for row, expected in zip(arrow_tbl["path"], expected_nodes, strict=False):
             cur_ids = []
             rel_ids = []
             for node in row[NODES]:

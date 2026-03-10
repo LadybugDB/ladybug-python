@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import warnings
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from . import _lbug
@@ -10,6 +9,7 @@ from .query_result import QueryResult
 
 if TYPE_CHECKING:
     import sys
+    from collections.abc import Callable
     from types import TracebackType
 
     from .database import Database

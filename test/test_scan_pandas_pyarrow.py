@@ -39,7 +39,7 @@ def generate_primitive_df(scale, names, schema):
     return pd.DataFrame(
         {
             name: generate_primitive_series(scale, dtype)
-            for name, dtype in zip(names, schema)
+            for name, dtype in zip(names, schema, strict=False)
         }
     )
 
@@ -180,19 +180,19 @@ def test_pyarrow_time(conn_db_readonly: ConnDB) -> None:
     )
     result = conn.execute("LOAD FROM df RETURN *").get_as_df()
     for colname in ["col1", "col2", "col3"]:
-        for expected, actual in zip(df[colname], result[colname]):
+        for expected, actual in zip(df[colname], result[colname], strict=False):
             tmp1 = (
                 expected if type(expected) is timedelta else expected.to_pytimedelta()
             )
             tmp2 = actual if type(actual) is timedelta else actual.to_pytimedelta()
             assert tmp1 == tmp2
     for colname in ["col4", "col5", "col6", "col7", "col8"]:
-        for expected, actual in zip(df[colname], result[colname]):
+        for expected, actual in zip(df[colname], result[colname], strict=False):
             tmp1 = expected if type(expected) is datetime else expected.to_pydatetime()
             tmp2 = actual if type(actual) is datetime else actual.to_pydatetime()
             assert tmp1 == tmp2
     for colname in ["col9", "col10"]:
-        for expected, actual in zip(df[colname], result[colname]):
+        for expected, actual in zip(df[colname], result[colname], strict=False):
             assert (
                 datetime.combine(expected, datetime.min.time())
                 == actual.to_pydatetime()
@@ -230,7 +230,7 @@ def test_pyarrow_blob(conn_db_readonly: ConnDB) -> None:
     ).sort_values(by=["index"])
     result = conn.execute("LOAD FROM df RETURN * ORDER BY index").get_as_df()
     for colname in ["col1", "col2", "col3", "col4"]:
-        for expected, actual in zip(df[colname], result[colname]):
+        for expected, actual in zip(df[colname], result[colname], strict=False):
             if is_null(expected) or is_null(actual):
                 assert is_null(expected)
                 assert is_null(actual)
@@ -279,7 +279,7 @@ def test_pyarrow_string(conn_db_readonly: ConnDB) -> None:
     ).sort_values(by=["index"])
     result = conn.execute("LOAD FROM df RETURN * ORDER BY index").get_as_df()
     for colname in ["col1", "col2", "col3"]:
-        for expected, actual in zip(df[colname], result[colname]):
+        for expected, actual in zip(df[colname], result[colname], strict=False):
             if is_null(expected) or is_null(actual):
                 assert is_null(expected)
                 assert is_null(actual)
@@ -307,7 +307,7 @@ def test_pyarrow_dict(conn_db_readonly: ConnDB) -> None:
     )
     result = conn.execute("LOAD FROM df RETURN * ORDER BY index").get_as_df()
     for colname in ["col1", "col2"]:
-        for expected, actual in zip(df[colname], result[colname]):
+        for expected, actual in zip(df[colname], result[colname], strict=False):
             assert expected == actual
 
 

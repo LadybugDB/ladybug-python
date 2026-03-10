@@ -272,7 +272,7 @@ class QueryResult:
         return dict(
             zip(
                 self._query_result.getColumnNames(),
-                self._query_result.getColumnDataTypes(),
+                self._query_result.getColumnDataTypes(), strict=False,
             )
         )
 
@@ -511,4 +511,4 @@ def _row_to_dict(columns: list[str], row: list[Any]) -> dict[str, Any]:
         msg = "Number of columns in output row does not match number of columns"
         raise RuntimeError(msg)
 
-    return dict(zip(columns, row))
+    return dict(zip(columns, row, strict=False))

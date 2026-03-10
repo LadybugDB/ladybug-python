@@ -18,7 +18,8 @@ def test_connection_close(tmp_path: Path) -> None:
     conn = lb.Connection(db)
     conn.close()
     assert conn.is_closed
-    pytest.raises(RuntimeError, conn.execute, "RETURN 1")
+    with pytest.raises(RuntimeError):
+        conn.execute("RETURN 1")
     db.close()
 
 
@@ -28,7 +29,8 @@ def test_connection_close_context_manager(tmp_path: Path) -> None:
         with lb.Connection(db) as conn:
             pass
         assert conn.is_closed
-        pytest.raises(RuntimeError, conn.execute, "RETURN 1")
+        with pytest.raises(RuntimeError):
+            conn.execute("RETURN 1")
     assert db.is_closed
 
 

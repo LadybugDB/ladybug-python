@@ -220,7 +220,8 @@ def test_udf_except(conn_db_readwrite: ConnDB) -> None:
 
     conn.create_function("testexcept", throw)
 
-    pytest.raises(RuntimeError, conn.execute, "RETURN testexcept()")
+    with pytest.raises(RuntimeError):
+        conn.execute("RETURN testexcept()")
 
     conn.remove_function("testexcept")
     conn.create_function("testexcept", throw, catch_exceptions=True)
