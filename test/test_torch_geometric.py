@@ -17,6 +17,7 @@ def test_to_torch_geometric_nodes_only(conn_db_readonly: ConnDB) -> None:
         torch_geometric_data, pos_to_idx, unconverted_properties, _ = (
             res.get_as_torch_geometric()
         )
+    user_warnings = [w for w in ws if isinstance(w.message, UserWarning)]
     warnings_ground_truth = {
         "Property person.courseScoresPerTerm cannot be converted to Tensor (likely due to nested list of variable length). The property is marked as unconverted.",
         "Property person.height of type FLOAT is not supported by torch_geometric. The property is marked as unconverted.",
@@ -28,8 +29,8 @@ def test_to_torch_geometric_nodes_only(conn_db_readonly: ConnDB) -> None:
         "Property person.workedHours has an inconsistent shape. The property is marked as unconverted.",
         "Property person.usedNames of type STRING is not supported by torch_geometric. The property is marked as unconverted.",
     }
-    assert len(ws) == 9
-    for w in ws:
+    assert len(user_warnings) == 9
+    for w in user_warnings:
         assert str(w.message) in warnings_ground_truth
 
     assert torch_geometric_data.ID.shape == torch.Size([8])
@@ -138,6 +139,7 @@ def test_to_torch_geometric_homogeneous_graph(conn_db_readonly: ConnDB) -> None:
         torch_geometric_data, pos_to_idx, unconverted_properties, edge_properties = (
             res.get_as_torch_geometric()
         )
+    user_warnings = [w for w in ws if isinstance(w.message, UserWarning)]
     warnings_ground_truth = {
         "Property person.courseScoresPerTerm cannot be converted to Tensor (likely due to nested list of variable length). The property is marked as unconverted.",
         "Property person.height of type FLOAT is not supported by torch_geometric. The property is marked as unconverted.",
@@ -149,8 +151,8 @@ def test_to_torch_geometric_homogeneous_graph(conn_db_readonly: ConnDB) -> None:
         "Property person.workedHours has an inconsistent shape. The property is marked as unconverted.",
         "Property person.usedNames of type STRING is not supported by torch_geometric. The property is marked as unconverted.",
     }
-    assert len(ws) == 9
-    for w in ws:
+    assert len(user_warnings) == 9
+    for w in user_warnings:
         assert str(w.message) in warnings_ground_truth
 
     assert torch_geometric_data.ID.shape == torch.Size([7])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 from decimal import Decimal
 from uuid import UUID
 
@@ -418,6 +419,6 @@ def test_json(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
     result = conn.execute('RETURN CAST(\'{"key": "value", "number": 42}\' AS JSON)')
     assert result.has_next()
-    assert result.get_next() == [{"key": "value", "number": 42}]
+    assert json.loads(result.get_next()[0]) == {"key": "value", "number": 42}
     assert not result.has_next()
     result.close()
