@@ -135,15 +135,13 @@ class TorchGeometricResultConverter:
                 # Check if the shape of the property is consistent
                 if (
                     label in self.nodes_dict and prop_name in self.nodes_dict[label]
-                ):
-                    # If the shape is inconsistent, then mark the property as unconverted
-                    if curr_value.shape != self.nodes_dict[label][prop_name][0].shape:
-                        self.warning_messages.add(
-                            f"Property {label}.{prop_name} has an inconsistent shape. The property is marked as unconverted."
-                        )
-                        self.__mark_property_unconverted(label, prop_name)
-                        pos = self.__add_unconverted_property(node, label, prop_name)
-                        continue
+                ) and curr_value.shape != self.nodes_dict[label][prop_name][0].shape:
+                    self.warning_messages.add(
+                        f"Property {label}.{prop_name} has an inconsistent shape. The property is marked as unconverted."
+                    )
+                    self.__mark_property_unconverted(label, prop_name)
+                    pos = self.__add_unconverted_property(node, label, prop_name)
+                    continue
 
             # Create the dictionary for the label if it does not exist
             if label not in self.nodes_dict:

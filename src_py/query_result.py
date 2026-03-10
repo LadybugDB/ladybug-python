@@ -272,7 +272,8 @@ class QueryResult:
         return dict(
             zip(
                 self._query_result.getColumnNames(),
-                self._query_result.getColumnDataTypes(), strict=False,
+                self._query_result.getColumnDataTypes(),
+                strict=False,
             )
         )
 
