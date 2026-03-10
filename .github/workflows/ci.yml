@@ -1,0 +1,82 @@
+name: Python CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ladybug
+        uses: actions/checkout@v4
+        with:
+          repository: LadybugDB/ladybug
+          fetch-depth: 1
+          path: ladybug
+
+      - name: Checkout ladybug-python into ladybug/tools/python_api
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          path: ladybug/tools/python_api
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: python-${{ runner.os }}-${{ runner.arch }}-${{ github.ref }}
+          max-size: 2G
+          create-symlink: true
+          restore-keys: |
+            python-${{ runner.os }}-${{ runner.arch }}-refs/heads/main
+            python-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: ladybug/tools/python_api
+        run: |
+          uv venv .venv
+          uv pip install -e .[dev]
+
+      - name: Check formatting (black)
+        working-directory: ladybug/tools/python_api
+        run: |
+          uv pip install black
+          .venv/bin/black --check src_py test
+
+      - name: Run ruff check
+        working-directory: ladybug/tools/python_api
+        run: |
+          .venv/bin/ruff check src_py test
+
+      - name: Build native module
+        working-directory: ladybug
+        env:
+          GEN: Ninja
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        run: |
+          make python
+          cp tools/python_api/src_py/*.py build/real_ladybug/
+
+      - name: Run pytest
+        working-directory: ladybug/tools/python_api
+        run: |
+          export PYTHONPATH=./build
+          .venv/bin/python -m pytest -vv ./test
