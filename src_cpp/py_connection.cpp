@@ -352,7 +352,7 @@ static LogicalType pyLogicalType(const py::handle& val) {
     auto datetime_datetime = importCache->datetime.datetime();
     auto time_delta = importCache->datetime.timedelta();
     auto datetime_date = importCache->datetime.date();
-    auto uuid = importCache->uuid.UUID();
+    auto uuid_uuid = importCache->uuid.UUID();
     auto Decimal = importCache->decimal.Decimal();
     if (val.is_none()) {
         return LogicalType::ANY();
@@ -410,7 +410,7 @@ static LogicalType pyLogicalType(const py::handle& val) {
         return LogicalType::DATE();
     } else if (py::isinstance(val, time_delta)) {
         return LogicalType::INTERVAL();
-    } else if (py::isinstance(val, uuid)) {
+    } else if (py::isinstance(val, uuid_uuid)) {
         return LogicalType::UUID();
     } else if (py::isinstance<py::dict>(val)) {
         py::dict dict = py::reinterpret_borrow<py::dict>(val);
@@ -673,8 +673,7 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
     }
     case LogicalTypeID::UUID: {
         auto strVal = py::str(val).cast<std::string>();
-        auto uuidVal = UUID::fromString(strVal);
-        uuid uuidToAppend{uuidVal};
+        auto uuidToAppend = uuid::fromString(strVal);
         return Value{uuidToAppend};
     }
     case LogicalTypeID::LIST: {
