@@ -53,6 +53,7 @@ from .connection import Connection
 from .database import Database
 from .prepared_statement import PreparedStatement
 from .query_result import QueryResult
+from .session import RemoteQueryResult, Session
 from .types import Type
 
 
@@ -76,6 +77,8 @@ __all__ = [
     "Database",
     "PreparedStatement",
     "QueryResult",
+    "RemoteQueryResult",
+    "Session",
     "Type",
     "__version__",  # noqa: F822
     "storage_version",  # noqa: F822
