@@ -19,7 +19,7 @@ public:
     explicit PyDatabase(const std::string& databasePath, uint64_t bufferPoolSize,
         uint64_t maxNumThreads, bool compression, bool readOnly, uint64_t maxDBSize,
         bool autoCheckpoint, int64_t checkpointThreshold, bool throwOnWalReplayFailure = true,
-        bool enableChecksums = true);
+        bool enableChecksums = true, bool enableMultiWrites = false);
 
     ~PyDatabase();
 
