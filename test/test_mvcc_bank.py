@@ -1,6 +1,6 @@
 """
-Graph-based Jepsen Bank Test — MVCC anomaly detector
-======================================================
+Graph-based Jepsen Bank Test — MVCC anomaly detector.
+
 A pytest port of adsharma/mvcc-bank (https://github.com/adsharma/mvcc-bank),
 adapted to use real_ladybug directly and fit into the tools/python_api/test
 pytest suite.
@@ -14,11 +14,13 @@ Anomalies checked
   phantom_read           aggregate predicates (count, sum) must be stable
                          within the same READ ONLY txn
 
-Run:
+Run::
+
   cd tools/python_api
   pytest test/test_mvcc_bank.py -v
 
-Or from the repo root:
+Or from the repo root::
+
   make pytest  (runs all Python API tests including this one)
 """
 
@@ -28,10 +30,13 @@ import random
 import threading
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import real_ladybug as lb
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -60,25 +65,19 @@ def build_edges(n: int, prob: float, rng: random.Random) -> list[tuple[int, int]
     # Guarantee connectivity: add a hub
     hub = n // 2
     for i in range(n):
-        if i != hub:
-            if (hub, i) not in edges:
-                edges.append((hub, i))
+        if i != hub and (hub, i) not in edges:
+            edges.append((hub, i))
     return edges
 
 
 def setup_db(db: lb.Database, n: int, edges: list[tuple[int, int]]) -> None:
     with lb.Connection(db) as conn:
-        conn.execute(
-            "CREATE NODE TABLE Account (id INT64, balance INT64, PRIMARY KEY (id))"
-        )
+        conn.execute("CREATE NODE TABLE Account (id INT64, balance INT64, PRIMARY KEY (id))")
         conn.execute("CREATE REL TABLE CanTransfer (FROM Account TO Account)")
         for i in range(n):
             conn.execute(f"CREATE (:Account {{id: {i}, balance: {INITIAL_BALANCE}}})")
         for src, dst in edges:
-            conn.execute(
-                f"MATCH (a:Account {{id: {src}}}), (b:Account {{id: {dst}}}) "
-                f"CREATE (a)-[:CanTransfer]->(b)"
-            )
+            conn.execute(f"MATCH (a:Account {{id: {src}}}), (b:Account {{id: {dst}}}) CREATE (a)-[:CanTransfer]->(b)")
 
 
 # ---------------------------------------------------------------------------
@@ -86,6 +85,8 @@ def setup_db(db: lb.Database, n: int, edges: list[tuple[int, int]]) -> None:
 # ---------------------------------------------------------------------------
 @dataclass
 class Stats:
+    """Counters and anomaly log shared across writer/reader threads."""
+
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     writes_committed: int = 0
     writes_skipped: int = 0
@@ -124,20 +125,14 @@ def write_worker(
         for attempt in range(RETRY_LIMIT):
             try:
                 conn.execute("BEGIN TRANSACTION")
-                row = conn.execute(
-                    f"MATCH (a:Account {{id: {src}}}) RETURN a.balance"
-                ).get_next()
+                row = conn.execute(f"MATCH (a:Account {{id: {src}}}) RETURN a.balance").get_next()
                 balance = row[0]
                 if balance < amount:
                     conn.execute("ROLLBACK")
                     stats.inc("writes_skipped")
                     break
-                conn.execute(
-                    f"MATCH (a:Account {{id: {src}}}) SET a.balance = a.balance - {amount}"
-                )
-                conn.execute(
-                    f"MATCH (b:Account {{id: {dst}}}) SET b.balance = b.balance + {amount}"
-                )
+                conn.execute(f"MATCH (a:Account {{id: {src}}}) SET a.balance = a.balance - {amount}")
+                conn.execute(f"MATCH (b:Account {{id: {dst}}}) SET b.balance = b.balance + {amount}")
                 conn.execute("COMMIT")
                 stats.inc("writes_committed")
                 break
@@ -178,9 +173,7 @@ def read_worker(
                 )
 
             # 2: no negative balances
-            neg = conn.execute(
-                "MATCH (a:Account) WHERE a.balance < 0 RETURN count(a)"
-            ).get_next()[0]
+            neg = conn.execute("MATCH (a:Account) WHERE a.balance < 0 RETURN count(a)").get_next()[0]
             if neg > 0:
                 stats.anomaly(
                     "negative_balance",
@@ -203,12 +196,8 @@ def read_worker(
                 )
 
             # 4: phantom read — aggregate must be stable
-            agg1 = conn.execute(
-                "MATCH (a:Account) RETURN count(a), sum(a.balance)"
-            ).get_next()
-            agg2 = conn.execute(
-                "MATCH (a:Account) RETURN count(a), sum(a.balance)"
-            ).get_next()
+            agg1 = conn.execute("MATCH (a:Account) RETURN count(a), sum(a.balance)").get_next()
+            agg2 = conn.execute("MATCH (a:Account) RETURN count(a), sum(a.balance)").get_next()
             if agg1 != agg2:
                 stats.anomaly(
                     "phantom_read",
@@ -296,7 +285,8 @@ def test_single_writer_no_anomalies(tmp_path: Path) -> None:
 
 
 def test_multi_writer_no_anomalies(tmp_path: Path) -> None:
-    """Four concurrent writers with enable_multi_writes=True.
+    """
+    Four concurrent writers with enable_multi_writes=True.
 
     Write-write conflicts are expected and retried (OCC model); what must not
     happen is any MVCC anomaly visible to snapshot-isolated readers.
@@ -316,7 +306,8 @@ def test_multi_writer_no_anomalies(tmp_path: Path) -> None:
 
 @pytest.mark.slow
 def test_multi_writer_stress_no_anomalies(tmp_path: Path) -> None:
-    """Stress: 8 writers / 4 readers for 60 s (matches adsharma README example).
+    """
+    Stress: 8 writers / 4 readers for 60 s (matches adsharma README example).
 
     Marked @pytest.mark.slow — skipped in fast CI runs unless -m slow is passed.
     """
