@@ -39,6 +39,7 @@ class Database:
         checkpoint_threshold: int = -1,
         throw_on_wal_replay_failure: bool = True,
         enable_checksums: bool = True,
+        enable_multi_writes: bool = False,
     ):
         """
         Parameters
@@ -94,6 +95,9 @@ class Database:
             If true, the database will use checksums to detect corruption in the
             WAL file.
 
+        enable_multi_writes: bool
+            If true, multiple concurrent write transactions are allowed. Default to False.
+
         """
         if database_path is None:
             database_path = ":memory:"
@@ -110,6 +114,7 @@ class Database:
         self.checkpoint_threshold = checkpoint_threshold
         self.throw_on_wal_replay_failure = throw_on_wal_replay_failure
         self.enable_checksums = enable_checksums
+        self.enable_multi_writes = enable_multi_writes
         self.is_closed = False
 
         self._database: Any = None  # (type: _lbug.Database from pybind11)
@@ -176,6 +181,7 @@ class Database:
                 self.checkpoint_threshold,
                 self.throw_on_wal_replay_failure,
                 self.enable_checksums,
+                self.enable_multi_writes,
             )
 
     def get_torch_geometric_remote_backend(
