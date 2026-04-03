@@ -72,12 +72,16 @@ def build_edges(n: int, prob: float, rng: random.Random) -> list[tuple[int, int]
 
 def setup_db(db: lb.Database, n: int, edges: list[tuple[int, int]]) -> None:
     with lb.Connection(db) as conn:
-        conn.execute("CREATE NODE TABLE Account (id INT64, balance INT64, PRIMARY KEY (id))")
+        conn.execute(
+            "CREATE NODE TABLE Account (id INT64, balance INT64, PRIMARY KEY (id))"
+        )
         conn.execute("CREATE REL TABLE CanTransfer (FROM Account TO Account)")
         for i in range(n):
             conn.execute(f"CREATE (:Account {{id: {i}, balance: {INITIAL_BALANCE}}})")
         for src, dst in edges:
-            conn.execute(f"MATCH (a:Account {{id: {src}}}), (b:Account {{id: {dst}}}) CREATE (a)-[:CanTransfer]->(b)")
+            conn.execute(
+                f"MATCH (a:Account {{id: {src}}}), (b:Account {{id: {dst}}}) CREATE (a)-[:CanTransfer]->(b)"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -125,14 +129,20 @@ def write_worker(
         for attempt in range(RETRY_LIMIT):
             try:
                 conn.execute("BEGIN TRANSACTION")
-                row = conn.execute(f"MATCH (a:Account {{id: {src}}}) RETURN a.balance").get_next()
+                row = conn.execute(
+                    f"MATCH (a:Account {{id: {src}}}) RETURN a.balance"
+                ).get_next()
                 balance = row[0]
                 if balance < amount:
                     conn.execute("ROLLBACK")
                     stats.inc("writes_skipped")
                     break
-                conn.execute(f"MATCH (a:Account {{id: {src}}}) SET a.balance = a.balance - {amount}")
-                conn.execute(f"MATCH (b:Account {{id: {dst}}}) SET b.balance = b.balance + {amount}")
+                conn.execute(
+                    f"MATCH (a:Account {{id: {src}}}) SET a.balance = a.balance - {amount}"
+                )
+                conn.execute(
+                    f"MATCH (b:Account {{id: {dst}}}) SET b.balance = b.balance + {amount}"
+                )
                 conn.execute("COMMIT")
                 stats.inc("writes_committed")
                 break
@@ -173,7 +183,9 @@ def read_worker(
                 )
 
             # 2: no negative balances
-            neg = conn.execute("MATCH (a:Account) WHERE a.balance < 0 RETURN count(a)").get_next()[0]
+            neg = conn.execute(
+                "MATCH (a:Account) WHERE a.balance < 0 RETURN count(a)"
+            ).get_next()[0]
             if neg > 0:
                 stats.anomaly(
                     "negative_balance",
@@ -196,8 +208,12 @@ def read_worker(
                 )
 
             # 4: phantom read — aggregate must be stable
-            agg1 = conn.execute("MATCH (a:Account) RETURN count(a), sum(a.balance)").get_next()
-            agg2 = conn.execute("MATCH (a:Account) RETURN count(a), sum(a.balance)").get_next()
+            agg1 = conn.execute(
+                "MATCH (a:Account) RETURN count(a), sum(a.balance)"
+            ).get_next()
+            agg2 = conn.execute(
+                "MATCH (a:Account) RETURN count(a), sum(a.balance)"
+            ).get_next()
             if agg1 != agg2:
                 stats.anomaly(
                     "phantom_read",
