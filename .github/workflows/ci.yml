@@ -18,8 +18,7 @@ jobs:
       - name: Checkout ladybug
         uses: actions/checkout@v4
         with:
-          repository: loganpowell/ladybug
-          ref: feat/concurrent-writes
+          repository: LadybugDB/ladybug
           fetch-depth: 1
           path: ladybug
 
