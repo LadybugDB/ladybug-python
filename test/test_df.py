@@ -7,9 +7,9 @@ from typing import Any
 from uuid import UUID
 
 import pytz
-import real_ladybug as lb
+import ladybug as lb
 from pandas import Timedelta, Timestamp
-from real_ladybug.constants import DST, ID, LABEL, NODES, RELS, SRC
+from ladybug.constants import DST, ID, LABEL, NODES, RELS, SRC
 from type_aliases import ConnDB
 
 

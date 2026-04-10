@@ -11,10 +11,10 @@ from test_helper import LBUG_ROOT
 
 python_build_dir = Path(__file__).parent.parent / "build"
 try:
-    import real_ladybug as lb
+    import ladybug as lb
 except ModuleNotFoundError:
     sys.path.append(str(python_build_dir))
-    import real_ladybug as lb
+    import ladybug as lb
 
 if TYPE_CHECKING:
     from type_aliases import ConnDB

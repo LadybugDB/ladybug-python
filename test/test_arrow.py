@@ -11,9 +11,9 @@ import polars as pl
 import pyarrow as pa
 import pytest
 import pytz
-import real_ladybug as lb
+import ladybug as lb
 from pandas import Timestamp
-from real_ladybug.constants import DST, ID, LABEL, NODES, SRC
+from ladybug.constants import DST, ID, LABEL, NODES, SRC
 from type_aliases import ConnDB
 
 _expected_dtypes = {

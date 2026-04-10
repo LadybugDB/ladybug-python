@@ -13,7 +13,7 @@ def test_query_result_close(tmp_path: Path, build_dir: Path) -> None:
         import sys
         sys.path.append(r"{build_dir!s}")
 
-        import real_ladybug as lb
+        import ladybug as lb
         db = lb.Database(r"{db_path!s}")
         conn = lb.Connection(db)
         conn.execute('''

@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
-from real_ladybug.constants import ID, LABEL
+from ladybug.constants import ID, LABEL
 
 TINY_SNB_PERSONS_GROUND_TRUTH = {
     0: {

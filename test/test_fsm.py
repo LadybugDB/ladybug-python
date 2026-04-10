@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-import real_ladybug as lb
+import ladybug as lb
 from conftest import get_db_file_path
 from test_helper import LBUG_ROOT
 

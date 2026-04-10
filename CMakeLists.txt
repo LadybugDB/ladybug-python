@@ -29,9 +29,9 @@ pybind11_add_module(_lbug
 
 set_target_properties(_lbug
         PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/real_ladybug"
-        RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/real_ladybug"
-        ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/real_ladybug")
+        LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/ladybug"
+        RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/ladybug"
+        ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/ladybug")
 
 target_link_libraries(_lbug
         PRIVATE

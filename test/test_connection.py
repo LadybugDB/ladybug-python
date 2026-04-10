@@ -5,7 +5,7 @@ import time
 from typing import TYPE_CHECKING
 
 import pytest
-import real_ladybug as lb
+import ladybug as lb
 from type_aliases import ConnDB
 
 if TYPE_CHECKING:
