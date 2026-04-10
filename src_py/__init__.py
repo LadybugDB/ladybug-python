@@ -5,12 +5,12 @@ This package provides a Python API for Lbug graph database management system.
 
 To install the package, run:
 ```
-python3 -m pip install real_ladybug
+python3 -m pip install ladybug
 ```
 
 Example usage:
 ```python
-import real_ladybug as lb
+import ladybug as lb
 
 db = lb.Database("./test")
 conn = lb.Connection(db)

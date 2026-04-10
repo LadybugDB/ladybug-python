@@ -1,5 +1,5 @@
 [project]
-name = "real_ladybug"
+name = "ladybug"
 description = "Highly scalable, extremely fast, easy-to-use embeddable graph database"
 readme = "README.md"
 license = { text = "MIT" }

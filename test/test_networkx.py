@@ -4,7 +4,7 @@ import datetime
 from typing import Any
 
 from pandas import Timedelta, Timestamp
-from real_ladybug.constants import LABEL
+from ladybug.constants import LABEL
 from type_aliases import ConnDB
 
 

@@ -15,10 +15,10 @@ import pyarrow as pa
 
 python_build_dir = Path(__file__).parent.parent / "build"
 try:
-    import real_ladybug as lb
+    import ladybug as lb
 except ModuleNotFoundError:
     sys.path.append(str(python_build_dir))
-    import real_ladybug as lb
+    import ladybug as lb
 
 
 def parse_args() -> argparse.Namespace:

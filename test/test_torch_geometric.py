@@ -4,7 +4,7 @@ import warnings
 
 import ground_truth
 import torch
-from real_ladybug.constants import LABEL
+from ladybug.constants import LABEL
 from type_aliases import ConnDB
 
 

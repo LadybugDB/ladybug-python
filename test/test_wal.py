@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from textwrap import dedent
 
-import real_ladybug as lb
+import ladybug as lb
 from conftest import get_db_file_path
 
 
@@ -14,7 +14,7 @@ def run_query_in_new_process(tmp_path: Path, build_dir: Path, queries: str):
         import sys
         sys.path.append(r"{build_dir!s}")
 
-        import real_ladybug as lb
+        import ladybug as lb
         db = lb.Database(r"{db_path!s}")
         """) + queries
     return subprocess.Popen([sys.executable, "-c", code])

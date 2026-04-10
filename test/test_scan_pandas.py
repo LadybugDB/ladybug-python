@@ -12,8 +12,8 @@ try:
 except ImportError:
     from backports.zoneinfo import ZoneInfo  # type: ignore[no-redef]
 
-import real_ladybug as lb
-from real_ladybug.constants import ID, LABEL
+import ladybug as lb
+from ladybug.constants import ID, LABEL
 
 
 def validate_scan_pandas_results(results: lb.QueryResult) -> None:

@@ -6,7 +6,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-import real_ladybug as lb
+import ladybug as lb
 from conftest import get_db_file_path
 
 
@@ -15,7 +15,7 @@ def open_database_on_subprocess(tmp_path: Path, build_dir: Path) -> None:
         import sys
         sys.path.append(r"{build_dir!s}")
 
-        import real_ladybug as lb
+        import ladybug as lb
         db = lb.Database(r"{tmp_path!s}")
         print(r"{tmp_path!s}")
     """)

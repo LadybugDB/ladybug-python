@@ -3,7 +3,7 @@ import time
 
 import pyarrow as pa
 import pytest
-import real_ladybug as lb
+import ladybug as lb
 
 
 @pytest.mark.asyncio

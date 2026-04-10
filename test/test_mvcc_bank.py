@@ -2,7 +2,7 @@
 Graph-based Jepsen Bank Test — MVCC anomaly detector.
 
 A pytest port of adsharma/mvcc-bank (https://github.com/adsharma/mvcc-bank),
-adapted to use real_ladybug directly and fit into the tools/python_api/test
+adapted to use ladybug directly and fit into the tools/python_api/test
 pytest suite.
 
 Anomalies checked
@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import pytest
-import real_ladybug as lb
+import ladybug as lb
 
 if TYPE_CHECKING:
     from pathlib import Path

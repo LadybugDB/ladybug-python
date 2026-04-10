@@ -8,7 +8,7 @@ from uuid import UUID
 import numpy as np
 import pandas as pd
 import pytz
-from real_ladybug.constants import DST, ID, LABEL, NODES, RELS, SRC
+from ladybug.constants import DST, ID, LABEL, NODES, RELS, SRC
 from type_aliases import ConnDB
 
 
