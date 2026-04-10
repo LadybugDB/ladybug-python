@@ -33,9 +33,18 @@ set_target_properties(_lbug
         RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/ladybug"
         ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/build/ladybug")
 
-target_link_libraries(_lbug
-        PRIVATE
-        lbug)
+if(LBUG_API_USE_PRECOMPILED_LIB)
+    if(NOT LBUG_API_PRECOMPILED_LIB_PATH)
+        message(FATAL_ERROR "LBUG_API_PRECOMPILED_LIB_PATH must be set when LBUG_API_USE_PRECOMPILED_LIB is enabled.")
+    endif()
+    target_link_libraries(_lbug
+            PRIVATE
+            ${LBUG_API_PRECOMPILED_LIB_PATH})
+else()
+    target_link_libraries(_lbug
+            PRIVATE
+            lbug)
+endif()
 
 target_include_directories(
         _lbug
