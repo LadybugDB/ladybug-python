@@ -39,7 +39,16 @@ if(LBUG_API_USE_PRECOMPILED_LIB)
     endif()
     target_link_libraries(_lbug
             PRIVATE
-            ${LBUG_API_PRECOMPILED_LIB_PATH})
+            ${LBUG_API_PRECOMPILED_LIB_PATH}
+            # lbug_link_deps carries all third-party static libs (utf8proc, re2,
+            # antlr4, zstd, …) that lbug.lib references but does not bundle on
+            # Windows. On Linux/macOS the precompiled liblbug.a is a fat archive
+            # with those objects already merged in, so this is a no-op there.
+            lbug_link_deps)
+    # The precompiled lib is always a static archive. Without LBUG_STATIC_DEFINE,
+    # api.h decorates every LBUG_API symbol with __declspec(dllimport) on Windows,
+    # which causes LNK2001 unresolved-symbol errors because no DLL is present.
+    target_compile_definitions(_lbug PRIVATE LBUG_STATIC_DEFINE)
 else()
     target_link_libraries(_lbug
             PRIVATE
