@@ -9,7 +9,7 @@ version = "0.0.1"
 [project.urls]
 Homepage = "https://ladybugdb.com/"
 Documentation = "https://docs.ladybugdb.com/"
-Repository = "https://github.com/lbugdb/lbug"
+Repository = "https://github.com/LadybugDB/ladybug-python"
 Changelog = "https://github.com/LadybugDB/ladybug/releases"
 
 [project.optional-dependencies]
