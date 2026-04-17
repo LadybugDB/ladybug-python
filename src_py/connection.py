@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+import re
 import warnings
 from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
@@ -113,6 +115,52 @@ class Connection:
     ) -> None:
         self.close()
 
+    def _normalize_parameters_for_capi(
+        self,
+        query: str,
+        parameters: dict[str, Any],
+    ) -> tuple[str, dict[str, Any]]:
+        normalized_query = query
+        normalized_params = dict(parameters)
+
+        for key, value in list(normalized_params.items()):
+            if isinstance(value, (bytes, bytearray, memoryview)):
+                binary = bytes(value)
+                normalized_params[key] = "".join(f"\\x{byte:02x}" for byte in binary)
+                pattern = rf"(?i)(?<!BLOB\()\${re.escape(key)}\b"
+                normalized_query = re.sub(pattern, f"BLOB(${key})", normalized_query)
+
+        return normalized_query, normalized_params
+
+    def _maybe_raise_scan_unsupported_object(self, query: str) -> None:
+        match = re.search(r"\bLOAD\s+FROM\s+([A-Za-z_][A-Za-z0-9_]*)\b", query, re.IGNORECASE)
+        if not match:
+            return
+
+        var_name = match.group(1)
+        frame = inspect.currentframe()
+        if frame is None or frame.f_back is None:
+            return
+
+        caller = frame.f_back.f_back
+        if caller is None:
+            return
+
+        scope = {**caller.f_globals, **caller.f_locals}
+        if var_name not in scope:
+            return
+
+        value = scope[var_name]
+        module_name = type(value).__module__
+        if module_name.startswith("pandas") or module_name.startswith("polars") or module_name.startswith("pyarrow"):
+            return
+
+        msg = (
+            "Binder exception: Attempted to scan from unsupported python object. "
+            "Can only scan from pandas/polars dataframes and pyarrow tables."
+        )
+        raise RuntimeError(msg)
+
     def execute(
         self,
         query: str | PreparedStatement,
@@ -146,8 +194,11 @@ class Connection:
             raise RuntimeError(msg)  # noqa: TRY004
 
         if len(parameters) == 0 and isinstance(query, str):
+            self._maybe_raise_scan_unsupported_object(query)
             query_result_internal = self._connection.query(query)
         else:
+            if isinstance(query, str):
+                query, parameters = self._normalize_parameters_for_capi(query, parameters)
             prepared_statement = (
                 self._prepare(query, parameters) if isinstance(query, str) else query
             )
