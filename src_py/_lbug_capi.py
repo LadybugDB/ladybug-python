@@ -226,6 +226,42 @@ def _setup_signatures() -> None:
 
     _LIB.lbug_value_create_null.argtypes = []
     _LIB.lbug_value_create_null.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_bool.argtypes = [ctypes.c_bool]
+    _LIB.lbug_value_create_bool.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_int64.argtypes = [ctypes.c_int64]
+    _LIB.lbug_value_create_int64.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_double.argtypes = [ctypes.c_double]
+    _LIB.lbug_value_create_double.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_string.argtypes = [ctypes.c_char_p]
+    _LIB.lbug_value_create_string.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_date.argtypes = [_LbugDate]
+    _LIB.lbug_value_create_date.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_timestamp.argtypes = [_LbugTimestamp]
+    _LIB.lbug_value_create_timestamp.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_timestamp_tz.argtypes = [_LbugTimestamp]
+    _LIB.lbug_value_create_timestamp_tz.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_interval.argtypes = [_LbugInterval]
+    _LIB.lbug_value_create_interval.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_list.argtypes = [
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.POINTER(_LbugValue)),
+        ctypes.POINTER(ctypes.POINTER(_LbugValue)),
+    ]
+    _LIB.lbug_value_create_list.restype = ctypes.c_int
+    _LIB.lbug_value_create_struct.argtypes = [
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.c_char_p),
+        ctypes.POINTER(ctypes.POINTER(_LbugValue)),
+        ctypes.POINTER(ctypes.POINTER(_LbugValue)),
+    ]
+    _LIB.lbug_value_create_struct.restype = ctypes.c_int
+    _LIB.lbug_value_create_map.argtypes = [
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.POINTER(_LbugValue)),
+        ctypes.POINTER(ctypes.POINTER(_LbugValue)),
+        ctypes.POINTER(ctypes.POINTER(_LbugValue)),
+    ]
+    _LIB.lbug_value_create_map.restype = ctypes.c_int
     _LIB.lbug_value_destroy.argtypes = [ctypes.POINTER(_LbugValue)]
 
     _LIB.lbug_query_result_destroy.argtypes = [ctypes.POINTER(_LbugQueryResult)]
@@ -446,9 +482,108 @@ def _logical_type_to_str(logical_type: _LbugLogicalType) -> str:
 
 def _to_datetime_from_micros(value: int, *, tz_aware: bool = False) -> dt.datetime:
     seconds = value / 1_000_000
+    utc_dt = dt.datetime.fromtimestamp(seconds, tz=dt.timezone.utc)
     if tz_aware:
-        return dt.datetime.fromtimestamp(seconds, tz=dt.timezone.utc)
-    return dt.datetime.utcfromtimestamp(seconds)
+        return utc_dt
+    return utc_dt.replace(tzinfo=None)
+
+
+def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
+    if value is None:
+        return _LIB.lbug_value_create_null()
+    if isinstance(value, bool):
+        return _LIB.lbug_value_create_bool(value)
+    if isinstance(value, int) and not isinstance(value, bool):
+        return _LIB.lbug_value_create_int64(value)
+    if isinstance(value, float):
+        return _LIB.lbug_value_create_double(value)
+    if isinstance(value, str):
+        return _LIB.lbug_value_create_string(value.encode("utf-8"))
+    if isinstance(value, dt.date) and not isinstance(value, dt.datetime):
+        epoch = dt.date(1970, 1, 1)
+        days = (value - epoch).days
+        return _LIB.lbug_value_create_date(_LbugDate(days=days))
+    if isinstance(value, dt.datetime):
+        if value.tzinfo is not None:
+            micros = int(value.timestamp() * 1_000_000)
+            return _LIB.lbug_value_create_timestamp_tz(_LbugTimestamp(value=micros))
+        micros = int(value.replace(tzinfo=dt.timezone.utc).timestamp() * 1_000_000)
+        return _LIB.lbug_value_create_timestamp(_LbugTimestamp(value=micros))
+    if isinstance(value, dt.timedelta):
+        total_seconds = value.days * 86400 + value.seconds
+        micros = total_seconds * 1_000_000 + value.microseconds
+        return _LIB.lbug_value_create_interval(_LbugInterval(months=0, days=0, micros=micros))
+    if isinstance(value, (list, tuple)):
+        child_ptrs: list[ctypes.POINTER(_LbugValue)] = []
+        try:
+            for item in value:
+                child_ptrs.append(_value_from_python(item))
+            out = ctypes.POINTER(_LbugValue)()
+            arr_type = ctypes.POINTER(_LbugValue) * len(child_ptrs)
+            arr = arr_type(*child_ptrs) if child_ptrs else arr_type()
+            _check_state(
+                _LIB.lbug_value_create_list(len(child_ptrs), arr, ctypes.byref(out)),
+                "Failed to create list value",
+            )
+            return out
+        finally:
+            for ptr in child_ptrs:
+                _LIB.lbug_value_destroy(ptr)
+    if isinstance(value, dict):
+        if all(isinstance(k, str) for k in value):
+            names: list[bytes] = []
+            child_ptrs: list[ctypes.POINTER(_LbugValue)] = []
+            try:
+                for k, v in value.items():
+                    names.append(k.encode("utf-8"))
+                    child_ptrs.append(_value_from_python(v))
+                out = ctypes.POINTER(_LbugValue)()
+                name_arr_type = ctypes.c_char_p * len(names)
+                value_arr_type = ctypes.POINTER(_LbugValue) * len(child_ptrs)
+                name_arr = name_arr_type(*names) if names else name_arr_type()
+                value_arr = value_arr_type(*child_ptrs) if child_ptrs else value_arr_type()
+                _check_state(
+                    _LIB.lbug_value_create_struct(
+                        len(names),
+                        name_arr,
+                        value_arr,
+                        ctypes.byref(out),
+                    ),
+                    "Failed to create struct value",
+                )
+                return out
+            finally:
+                for ptr in child_ptrs:
+                    _LIB.lbug_value_destroy(ptr)
+        key_ptrs: list[ctypes.POINTER(_LbugValue)] = []
+        value_ptrs: list[ctypes.POINTER(_LbugValue)] = []
+        try:
+            for k, v in value.items():
+                key_ptrs.append(_value_from_python(k))
+                value_ptrs.append(_value_from_python(v))
+            out = ctypes.POINTER(_LbugValue)()
+            key_arr_type = ctypes.POINTER(_LbugValue) * len(key_ptrs)
+            value_arr_type = ctypes.POINTER(_LbugValue) * len(value_ptrs)
+            key_arr = key_arr_type(*key_ptrs) if key_ptrs else key_arr_type()
+            value_arr = value_arr_type(*value_ptrs) if value_ptrs else value_arr_type()
+            _check_state(
+                _LIB.lbug_value_create_map(
+                    len(key_ptrs),
+                    key_arr,
+                    value_arr,
+                    ctypes.byref(out),
+                ),
+                "Failed to create map value",
+            )
+            return out
+        finally:
+            for ptr in key_ptrs:
+                _LIB.lbug_value_destroy(ptr)
+            for ptr in value_ptrs:
+                _LIB.lbug_value_destroy(ptr)
+
+    msg = f"Unsupported parameter type for C-API backend: {type(value)!r}"
+    raise TypeError(msg)
 
 
 class Database:
@@ -525,42 +660,16 @@ class PreparedStatement:
     def bind_parameters(self, parameters: dict[str, Any]) -> None:
         for key, value in parameters.items():
             key_b = key.encode("utf-8")
-            if isinstance(value, bool):
+            value_ptr = _value_from_python(value)
+            try:
                 _check_state(
-                    _LIB.lbug_prepared_statement_bind_bool(ctypes.byref(self._prepared), key_b, value),
-                    f"Failed to bind bool parameter {key}",
-                )
-            elif isinstance(value, int) and not isinstance(value, bool):
-                _check_state(
-                    _LIB.lbug_prepared_statement_bind_int64(ctypes.byref(self._prepared), key_b, value),
-                    f"Failed to bind int parameter {key}",
-                )
-            elif isinstance(value, float):
-                _check_state(
-                    _LIB.lbug_prepared_statement_bind_double(ctypes.byref(self._prepared), key_b, value),
-                    f"Failed to bind float parameter {key}",
-                )
-            elif isinstance(value, str):
-                _check_state(
-                    _LIB.lbug_prepared_statement_bind_string(
-                        ctypes.byref(self._prepared), key_b, value.encode("utf-8")
+                    _LIB.lbug_prepared_statement_bind_value(
+                        ctypes.byref(self._prepared), key_b, value_ptr
                     ),
-                    f"Failed to bind string parameter {key}",
+                    f"Failed to bind parameter {key}",
                 )
-            elif value is None:
-                null_value = _LIB.lbug_value_create_null()
-                try:
-                    _check_state(
-                        _LIB.lbug_prepared_statement_bind_value(
-                            ctypes.byref(self._prepared), key_b, null_value
-                        ),
-                        f"Failed to bind null parameter {key}",
-                    )
-                finally:
-                    _LIB.lbug_value_destroy(null_value)
-            else:
-                msg = f"Unsupported parameter type for C-API backend: {type(value)!r}"
-                raise TypeError(msg)
+            finally:
+                _LIB.lbug_value_destroy(value_ptr)
 
 
 class QueryResult:
@@ -779,15 +888,21 @@ class QueryResult:
             if type_id == _LBUG_TIMESTAMP_MS:
                 out = _LbugTimestamp()
                 _check_state(_LIB.lbug_value_get_timestamp_ms(ctypes.byref(value), ctypes.byref(out)), "Failed to read timestamp_ms")
-                return dt.datetime.utcfromtimestamp(int(out.value) / 1000)
+                return dt.datetime.fromtimestamp(
+                    int(out.value) / 1000, tz=dt.timezone.utc
+                ).replace(tzinfo=None)
             if type_id == _LBUG_TIMESTAMP_SEC:
                 out = _LbugTimestamp()
                 _check_state(_LIB.lbug_value_get_timestamp_sec(ctypes.byref(value), ctypes.byref(out)), "Failed to read timestamp_sec")
-                return dt.datetime.utcfromtimestamp(int(out.value))
+                return dt.datetime.fromtimestamp(
+                    int(out.value), tz=dt.timezone.utc
+                ).replace(tzinfo=None)
             if type_id == _LBUG_TIMESTAMP_NS:
                 out = _LbugTimestamp()
                 _check_state(_LIB.lbug_value_get_timestamp_ns(ctypes.byref(value), ctypes.byref(out)), "Failed to read timestamp_ns")
-                return dt.datetime.utcfromtimestamp(int(out.value) / 1_000_000_000)
+                return dt.datetime.fromtimestamp(
+                    int(out.value) / 1_000_000_000, tz=dt.timezone.utc
+                ).replace(tzinfo=None)
             if type_id == _LBUG_INTERVAL:
                 out = _LbugInterval()
                 _check_state(_LIB.lbug_value_get_interval(ctypes.byref(value), ctypes.byref(out)), "Failed to read interval")
