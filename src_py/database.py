@@ -7,6 +7,11 @@ from weakref import WeakSet
 from . import _lbug_capi as _lbug
 from .types import Type
 
+try:
+    from . import _lbug as _lbug_pybind
+except ImportError:  # pragma: no cover - pybind module may be unavailable in some builds
+    _lbug_pybind = None
+
 if TYPE_CHECKING:
     import sys
     from types import TracebackType
@@ -120,6 +125,7 @@ class Database:
         self.is_closed = False
 
         self._database: Any = None  # (type: _lbug.Database from pybind11)
+        self._pybind_database: Any = None
         self._connections: WeakSet[Connection] = WeakSet()
         if not lazy_init:
             self.init_database()
@@ -186,6 +192,27 @@ class Database:
                 self.enable_checksums,
                 self.enable_multi_writes,
             )
+
+    def init_pybind_database(self) -> Any | None:
+        """Initialize and return the optional pybind database backend."""
+        self.check_for_database_close()
+        if _lbug_pybind is None:
+            return None
+        if self._pybind_database is None:
+            self._pybind_database = _lbug_pybind.Database(
+                self.database_path,
+                self.buffer_pool_size,
+                self.max_num_threads,
+                self.compression,
+                self.read_only,
+                self.max_db_size,
+                self.auto_checkpoint,
+                self.checkpoint_threshold,
+                self.throw_on_wal_replay_failure,
+                self.enable_checksums,
+                self.enable_multi_writes,
+            )
+        return self._pybind_database
 
     def get_torch_geometric_remote_backend(
         self, num_threads: int | None = None
@@ -316,6 +343,10 @@ class Database:
         if self._database is not None:
             self._database.close()
             self._database: Any = None  # (type: _lbug.Database from pybind11)
+
+        if self._pybind_database is not None:
+            self._pybind_database.close()
+            self._pybind_database = None
 
     def check_for_database_close(self) -> None:
         """
