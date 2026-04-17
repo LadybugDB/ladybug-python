@@ -134,6 +134,10 @@ class Connection:
         normalized_params = dict(parameters)
 
         for key, value in list(normalized_params.items()):
+            if not isinstance(key, str):
+                msg = f"Parameter name must be of type string but got {type(key)}"
+                raise RuntimeError(msg)
+
             if isinstance(value, (bytes, bytearray, memoryview)):
                 binary = bytes(value)
                 normalized_params[key] = "".join(f"\\x{byte:02x}" for byte in binary)
