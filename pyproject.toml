@@ -44,6 +44,11 @@ url = "https://data.pyg.org/whl/torch-2.5.0+cpu/"
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
 
+[tool.uv.workspace]
+members = [
+    "t1",
+]
+
 [tool.uv]
 index-strategy = "unsafe-best-match"
 
@@ -113,6 +118,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "test/**/*.py" = ["D100", "D102", "D103", "E501", "F841", "TCH002"]
 "src_py/torch_geo*.py" = ["E501", "FBT001"]
+"src_py/_lbug_capi.py" = ["E501", "RUF012", "FBT001", "EM101"]
 
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 119
