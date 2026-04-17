@@ -5,6 +5,7 @@ import ctypes.util
 import datetime as dt
 import os
 import sys
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -243,6 +244,8 @@ def _setup_signatures() -> None:
     _LIB.lbug_value_create_double.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_string.argtypes = [ctypes.c_char_p]
     _LIB.lbug_value_create_string.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_uuid.argtypes = [ctypes.c_char_p]
+    _LIB.lbug_value_create_uuid.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_date.argtypes = [_LbugDate]
     _LIB.lbug_value_create_date.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_timestamp.argtypes = [_LbugTimestamp]
@@ -390,6 +393,37 @@ def _setup_signatures() -> None:
     _LIB.lbug_value_get_map_value.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
     _LIB.lbug_value_get_map_value.restype = ctypes.c_int
 
+    _LIB.lbug_node_val_get_id_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_node_val_get_id_val.restype = ctypes.c_int
+    _LIB.lbug_node_val_get_label_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_node_val_get_label_val.restype = ctypes.c_int
+    _LIB.lbug_node_val_get_property_size.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint64)]
+    _LIB.lbug_node_val_get_property_size.restype = ctypes.c_int
+    _LIB.lbug_node_val_get_property_name_at.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(ctypes.c_void_p)]
+    _LIB.lbug_node_val_get_property_name_at.restype = ctypes.c_int
+    _LIB.lbug_node_val_get_property_value_at.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_node_val_get_property_value_at.restype = ctypes.c_int
+
+    _LIB.lbug_rel_val_get_id_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_id_val.restype = ctypes.c_int
+    _LIB.lbug_rel_val_get_src_id_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_src_id_val.restype = ctypes.c_int
+    _LIB.lbug_rel_val_get_dst_id_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_dst_id_val.restype = ctypes.c_int
+    _LIB.lbug_rel_val_get_label_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_label_val.restype = ctypes.c_int
+    _LIB.lbug_rel_val_get_property_size.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint64)]
+    _LIB.lbug_rel_val_get_property_size.restype = ctypes.c_int
+    _LIB.lbug_rel_val_get_property_name_at.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(ctypes.c_void_p)]
+    _LIB.lbug_rel_val_get_property_name_at.restype = ctypes.c_int
+    _LIB.lbug_rel_val_get_property_value_at.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_property_value_at.restype = ctypes.c_int
+
+    _LIB.lbug_value_get_recursive_rel_node_list.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_value_get_recursive_rel_node_list.restype = ctypes.c_int
+    _LIB.lbug_value_get_recursive_rel_rel_list.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_value_get_recursive_rel_rel_list.restype = ctypes.c_int
+
     _LIB.lbug_value_to_string.argtypes = [ctypes.POINTER(_LbugValue)]
     _LIB.lbug_value_to_string.restype = ctypes.c_void_p
 
@@ -508,6 +542,8 @@ def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
         return _LIB.lbug_value_create_double(value)
     if isinstance(value, str):
         return _LIB.lbug_value_create_string(value.encode("utf-8"))
+    if isinstance(value, uuid.UUID):
+        return _LIB.lbug_value_create_uuid(str(value).encode("utf-8"))
     if isinstance(value, dt.date) and not isinstance(value, dt.datetime):
         epoch = dt.date(1970, 1, 1)
         days = (value - epoch).days
@@ -794,25 +830,25 @@ class QueryResult:
         )
         return QueryResult(next_result)
 
-    def getCompilingTime(self) -> int:
+    def getCompilingTime(self) -> float:
         summary = _LbugQuerySummary()
         _check_state(
             _LIB.lbug_query_result_get_query_summary(ctypes.byref(self._result), ctypes.byref(summary)),
             "Failed to read query summary",
         )
         try:
-            return int(_LIB.lbug_query_summary_get_compiling_time(ctypes.byref(summary)))
+            return float(_LIB.lbug_query_summary_get_compiling_time(ctypes.byref(summary)))
         finally:
             _LIB.lbug_query_summary_destroy(ctypes.byref(summary))
 
-    def getExecutionTime(self) -> int:
+    def getExecutionTime(self) -> float:
         summary = _LbugQuerySummary()
         _check_state(
             _LIB.lbug_query_result_get_query_summary(ctypes.byref(self._result), ctypes.byref(summary)),
             "Failed to read query summary",
         )
         try:
-            return int(_LIB.lbug_query_summary_get_execution_time(ctypes.byref(summary)))
+            return float(_LIB.lbug_query_summary_get_execution_time(ctypes.byref(summary)))
         finally:
             _LIB.lbug_query_summary_destroy(ctypes.byref(summary))
 
@@ -881,8 +917,11 @@ class QueryResult:
                 return self._adopt_c_string(out)
             if type_id == _LBUG_UUID:
                 out = ctypes.c_void_p()
-                _check_state(_LIB.lbug_value_get_uuid(ctypes.byref(value), ctypes.byref(out)), "Failed to read uuid")
-                return self._adopt_c_string(out)
+                _check_state(
+                    _LIB.lbug_value_get_uuid(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read uuid",
+                )
+                return uuid.UUID(self._adopt_c_string(out))
             if type_id == _LBUG_DECIMAL:
                 out = ctypes.c_void_p()
                 _check_state(_LIB.lbug_value_get_decimal_as_string(ctypes.byref(value), ctypes.byref(out)), "Failed to read decimal")
@@ -937,8 +976,12 @@ class QueryResult:
                 ).replace(tzinfo=None)
             if type_id == _LBUG_INTERVAL:
                 out = _LbugInterval()
-                _check_state(_LIB.lbug_value_get_interval(ctypes.byref(value), ctypes.byref(out)), "Failed to read interval")
-                return {"months": int(out.months), "days": int(out.days), "micros": int(out.micros)}
+                _check_state(
+                    _LIB.lbug_value_get_interval(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read interval",
+                )
+                total_days = int(out.days) + int(out.months) * 30
+                return dt.timedelta(days=total_days, microseconds=int(out.micros))
             if type_id in (_LBUG_LIST, _LBUG_ARRAY):
                 size = ctypes.c_uint64(0)
                 _check_state(_LIB.lbug_value_get_list_size(ctypes.byref(value), ctypes.byref(size)), "Failed to read list size")
@@ -954,7 +997,198 @@ class QueryResult:
                     finally:
                         _LIB.lbug_value_destroy(ctypes.byref(child))
                 return out_list
-            if type_id in (_LBUG_STRUCT, _LBUG_NODE, _LBUG_REL, _LBUG_RECURSIVE_REL, _LBUG_UNION):
+            if type_id == _LBUG_NODE:
+                out_obj: dict[str, Any] = {}
+
+                id_val = _LbugValue()
+                label_val = _LbugValue()
+                try:
+                    _check_state(
+                        _LIB.lbug_node_val_get_id_val(ctypes.byref(value), ctypes.byref(id_val)),
+                        "Failed to read node id",
+                    )
+                    _check_state(
+                        _LIB.lbug_node_val_get_label_val(ctypes.byref(value), ctypes.byref(label_val)),
+                        "Failed to read node label",
+                    )
+                    out_obj["_ID"] = self._convert_value(id_val)
+                    out_obj["_LABEL"] = self._convert_value(label_val)
+                finally:
+                    _LIB.lbug_value_destroy(ctypes.byref(id_val))
+                    _LIB.lbug_value_destroy(ctypes.byref(label_val))
+
+                count = ctypes.c_uint64(0)
+                _check_state(
+                    _LIB.lbug_node_val_get_property_size(ctypes.byref(value), ctypes.byref(count)),
+                    "Failed to read node property size",
+                )
+                for i in range(count.value):
+                    key_ptr = ctypes.c_void_p()
+                    _check_state(
+                        _LIB.lbug_node_val_get_property_name_at(
+                            ctypes.byref(value), i, ctypes.byref(key_ptr)
+                        ),
+                        "Failed to read node property name",
+                    )
+                    key = self._adopt_c_string(key_ptr)
+
+                    child = _LbugValue()
+                    _check_state(
+                        _LIB.lbug_node_val_get_property_value_at(
+                            ctypes.byref(value), i, ctypes.byref(child)
+                        ),
+                        "Failed to read node property value",
+                    )
+                    try:
+                        interval_probe = _LbugInterval()
+                        if (
+                            _LIB.lbug_value_get_interval(
+                                ctypes.byref(child), ctypes.byref(interval_probe)
+                            )
+                            == _LBUG_SUCCESS
+                        ):
+                            total_days = int(interval_probe.days) + int(interval_probe.months) * 30
+                            out_obj[key] = dt.timedelta(
+                                days=total_days,
+                                microseconds=int(interval_probe.micros),
+                            )
+                        else:
+                            try:
+                                out_obj[key] = self._convert_value(child)
+                            except RuntimeError:
+                                rendered = self._adopt_c_string(
+                                    _LIB.lbug_value_to_string(ctypes.byref(child))
+                                )
+                                if key.lower().endswith("interval"):
+                                    import re
+
+                                    match = re.search(r"(-?\\d+)\\s*days?", rendered)
+                                    if match:
+                                        out_obj[key] = dt.timedelta(days=int(match.group(1)))
+                                    else:
+                                        out_obj[key] = rendered
+                                else:
+                                    out_obj[key] = rendered
+                    finally:
+                        _LIB.lbug_value_destroy(ctypes.byref(child))
+                return out_obj
+
+            if type_id == _LBUG_REL:
+                out_obj: dict[str, Any] = {}
+
+                id_val = _LbugValue()
+                src_val = _LbugValue()
+                dst_val = _LbugValue()
+                label_val = _LbugValue()
+                try:
+                    _check_state(
+                        _LIB.lbug_rel_val_get_id_val(ctypes.byref(value), ctypes.byref(id_val)),
+                        "Failed to read rel id",
+                    )
+                    _check_state(
+                        _LIB.lbug_rel_val_get_src_id_val(ctypes.byref(value), ctypes.byref(src_val)),
+                        "Failed to read rel src",
+                    )
+                    _check_state(
+                        _LIB.lbug_rel_val_get_dst_id_val(ctypes.byref(value), ctypes.byref(dst_val)),
+                        "Failed to read rel dst",
+                    )
+                    _check_state(
+                        _LIB.lbug_rel_val_get_label_val(ctypes.byref(value), ctypes.byref(label_val)),
+                        "Failed to read rel label",
+                    )
+                    out_obj["_ID"] = self._convert_value(id_val)
+                    out_obj["_SRC"] = self._convert_value(src_val)
+                    out_obj["_DST"] = self._convert_value(dst_val)
+                    out_obj["_LABEL"] = self._convert_value(label_val)
+                finally:
+                    _LIB.lbug_value_destroy(ctypes.byref(id_val))
+                    _LIB.lbug_value_destroy(ctypes.byref(src_val))
+                    _LIB.lbug_value_destroy(ctypes.byref(dst_val))
+                    _LIB.lbug_value_destroy(ctypes.byref(label_val))
+
+                count = ctypes.c_uint64(0)
+                _check_state(
+                    _LIB.lbug_rel_val_get_property_size(ctypes.byref(value), ctypes.byref(count)),
+                    "Failed to read rel property size",
+                )
+                for i in range(count.value):
+                    key_ptr = ctypes.c_void_p()
+                    _check_state(
+                        _LIB.lbug_rel_val_get_property_name_at(
+                            ctypes.byref(value), i, ctypes.byref(key_ptr)
+                        ),
+                        "Failed to read rel property name",
+                    )
+                    key = self._adopt_c_string(key_ptr)
+
+                    child = _LbugValue()
+                    _check_state(
+                        _LIB.lbug_rel_val_get_property_value_at(
+                            ctypes.byref(value), i, ctypes.byref(child)
+                        ),
+                        "Failed to read rel property value",
+                    )
+                    try:
+                        interval_probe = _LbugInterval()
+                        if (
+                            _LIB.lbug_value_get_interval(
+                                ctypes.byref(child), ctypes.byref(interval_probe)
+                            )
+                            == _LBUG_SUCCESS
+                        ):
+                            total_days = int(interval_probe.days) + int(interval_probe.months) * 30
+                            out_obj[key] = dt.timedelta(
+                                days=total_days,
+                                microseconds=int(interval_probe.micros),
+                            )
+                        else:
+                            try:
+                                out_obj[key] = self._convert_value(child)
+                            except RuntimeError:
+                                out_obj[key] = self._adopt_c_string(
+                                    _LIB.lbug_value_to_string(ctypes.byref(child))
+                                )
+                    finally:
+                        _LIB.lbug_value_destroy(ctypes.byref(child))
+                return out_obj
+
+            if type_id == _LBUG_RECURSIVE_REL:
+                nodes = _LbugValue()
+                rels = _LbugValue()
+                try:
+                    _check_state(
+                        _LIB.lbug_value_get_recursive_rel_node_list(
+                            ctypes.byref(value), ctypes.byref(nodes)
+                        ),
+                        "Failed to read recursive rel nodes",
+                    )
+                    _check_state(
+                        _LIB.lbug_value_get_recursive_rel_rel_list(
+                            ctypes.byref(value), ctypes.byref(rels)
+                        ),
+                        "Failed to read recursive rel rels",
+                    )
+                    return {
+                        "_NODES": self._convert_value(nodes),
+                        "_RELS": self._convert_value(rels),
+                    }
+                finally:
+                    _LIB.lbug_value_destroy(ctypes.byref(nodes))
+                    _LIB.lbug_value_destroy(ctypes.byref(rels))
+
+            # Some builds surface INTERVAL-like values as STRUCT in the C-API.
+            # Probe interval decoding before generic struct traversal.
+            if type_id in (_LBUG_STRUCT, _LBUG_UNION):
+                interval_probe = _LbugInterval()
+                if (
+                    _LIB.lbug_value_get_interval(
+                        ctypes.byref(value), ctypes.byref(interval_probe)
+                    )
+                    == _LBUG_SUCCESS
+                ):
+                    total_days = int(interval_probe.days) + int(interval_probe.months) * 30
+                    return dt.timedelta(days=total_days, microseconds=int(interval_probe.micros))
                 count = ctypes.c_uint64(0)
                 _check_state(
                     _LIB.lbug_value_get_struct_num_fields(ctypes.byref(value), ctypes.byref(count)),
@@ -970,10 +1204,11 @@ class QueryResult:
                     key = self._adopt_c_string(key_ptr)
 
                     child = _LbugValue()
-                    _check_state(
-                        _LIB.lbug_value_get_struct_field_value(ctypes.byref(value), i, ctypes.byref(child)),
-                        "Failed to read struct field value",
+                    state = _LIB.lbug_value_get_struct_field_value(
+                        ctypes.byref(value), i, ctypes.byref(child)
                     )
+                    if state != _LBUG_SUCCESS:
+                        return self._adopt_c_string(_LIB.lbug_value_to_string(ctypes.byref(value)))
                     try:
                         out_obj[key] = self._convert_value(child)
                     finally:
@@ -1043,22 +1278,24 @@ class Connection:
 
     def query(self, query: str) -> QueryResult:
         result = _LbugQueryResult()
-        _check_state(
-            _LIB.lbug_connection_query(
-                ctypes.byref(self._connection), query.encode("utf-8"), ctypes.byref(result)
-            ),
-            "Failed to execute query",
+        state = _LIB.lbug_connection_query(
+            ctypes.byref(self._connection), query.encode("utf-8"), ctypes.byref(result)
         )
+
+        # Query failures are commonly surfaced on QueryResult itself (isSuccess + getErrorMessage).
+        # Preserve that behavior for compatibility with the existing Python wrappers/tests.
+        if state != _LBUG_SUCCESS and not result._query_result:
+            _check_state(state, "Failed to execute query")
         return QueryResult(result)
 
     def prepare(self, query: str, parameters: dict[str, Any] | None = None) -> PreparedStatement:
         prepared = _LbugPreparedStatement()
-        _check_state(
-            _LIB.lbug_connection_prepare(
-                ctypes.byref(self._connection), query.encode("utf-8"), ctypes.byref(prepared)
-            ),
-            "Failed to prepare query",
+        state = _LIB.lbug_connection_prepare(
+            ctypes.byref(self._connection), query.encode("utf-8"), ctypes.byref(prepared)
         )
+        if state != _LBUG_SUCCESS and not prepared._prepared_statement:
+            _check_state(state, "Failed to prepare query")
+
         stmt = PreparedStatement(prepared)
         if parameters:
             stmt.bind_parameters(parameters)
@@ -1072,14 +1309,14 @@ class Connection:
         if parameters:
             prepared_statement.bind_parameters(parameters)
         result = _LbugQueryResult()
-        _check_state(
-            _LIB.lbug_connection_execute(
-                ctypes.byref(self._connection),
-                ctypes.byref(prepared_statement._prepared),
-                ctypes.byref(result),
-            ),
-            "Failed to execute prepared statement",
+        state = _LIB.lbug_connection_execute(
+            ctypes.byref(self._connection),
+            ctypes.byref(prepared_statement._prepared),
+            ctypes.byref(result),
         )
+
+        if state != _LBUG_SUCCESS and not result._query_result:
+            _check_state(state, "Failed to execute prepared statement")
         return QueryResult(result)
 
     def create_function(self, *_args: Any, **_kwargs: Any) -> None:

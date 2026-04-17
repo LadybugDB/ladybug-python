@@ -18,27 +18,21 @@ _CAPI_UNSUPPORTED_TEST_FILES = {
     "test_blob_parameter.py",
     "test_datatype.py",
     "test_df.py",
-    "test_exception.py",
     "test_issue.py",
     "test_json.py",
     "test_mvcc_bank.py",
     "test_networkx.py",
     "test_parameter.py",
-    "test_prepared_statement.py",
-    "test_query_result.py",
     "test_scan_pandas.py",
     "test_scan_pandas_pyarrow.py",
     "test_scan_polars.py",
     "test_scan_pyarrow.py",
-    "test_timeout.py",
     "test_torch_geometric.py",
     "test_torch_geometric_remote_backend.py",
     "test_udf.py",
 }
 
-_CAPI_UNSUPPORTED_TEST_NODEIDS = {
-    "test/test_connection.py::test_connection_interrupt",
-}
+_CAPI_UNSUPPORTED_TEST_NODEIDS: set[str] = set()
 
 python_build_dir = Path(__file__).parent.parent / "build"
 try:
