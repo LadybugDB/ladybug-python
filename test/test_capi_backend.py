@@ -1,15 +1,8 @@
 from __future__ import annotations
 
-import os
 from datetime import date, datetime
 
 import ladybug as lb
-import pytest
-
-pytestmark = pytest.mark.skipif(
-    os.getenv("LBUG_PYTHON_BACKEND", "").lower() != "capi",
-    reason="C-API backend tests run only when LBUG_PYTHON_BACKEND=capi",
-)
 
 
 def test_capi_backend_basic_query() -> None:
