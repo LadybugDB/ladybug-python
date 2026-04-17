@@ -1,41 +1,41 @@
-# Plan: Align `ladybug-python` prebuilt flow with existing upstream downloader logic (minimal-risk)
+# Plan: Full C-API Python backend + Node-style memory ownership
 
-## Goals
+## Goal
 
-1. Reuse latest prebuilt core binaries with the same approach used by sibling bindings.
-2. Avoid breaking existing Python clients/tests.
-3. Keep source-build path intact.
-4. Use `uv` in local workflows.
+Move `ladybug-python` fully to `lbug.h` C-API, with no backend knob, while preserving public Python API behavior and stability.
 
-## Key Direction Change
+## Memory Management Strategy (authoritative)
 
-Instead of implementing custom download logic in Python, use the same pattern as `../go-ladybug/download_lbug.sh`:
+### Ownership model
 
-- keep a local wrapper script,
-- fetch and run upstream `download-liblbug.sh`,
-- pass env vars to control target dir/library kind,
-- keep logic centralized upstream.
+- **All heap memory returned by C-API result-reading calls is owned by the backend `QueryResult` object**.
+- Memory is released when `result.close()` is called (or when GC triggers close), matching Node-style lifetime semantics.
+- This includes:
+  - `char*` returned through result paths (column names, string/uuid/decimal rendering, etc.)
+  - blob buffers returned from result values
 
-## Implementation Steps
+### Lifecycle ordering
 
-1. Add `scripts/download_lbug.sh` wrapper:
-   - fetches upstream `download-liblbug.sh` if missing,
-   - calls it with `LBUG_LIB_KIND=static` and local cache target,
-   - writes `.cache/lbug-prebuilt.env` with `EXTRA_CMAKE_FLAGS` for:
-     - `LBUG_API_USE_PRECOMPILED_LIB=TRUE`
-     - `LBUG_API_PRECOMPILED_LIB_PATH=...`
+- Normal close order remains:
+  1. `result.close()`
+  2. `conn.close()`
+  3. `db.close()`
 
-2. Update `Makefile` with additive targets:
-   - `bootstrap-prebuilt`: runs wrapper script
-   - `build-prebuilt`: sources emitted env file and builds using existing make flow
-   - keep existing `build`/`test` untouched.
+### Out-of-order safety
 
-3. Verification:
-   - run `make bootstrap-prebuilt`
-   - confirm env file created and static library resolved.
+- Out-of-order close must never crash.
+- We enforce safe parent/child close behavior in Python wrappers:
+  - Database tracks live connections; closes them before destroying DB handle.
+  - Connection tracks live query results; closes them before destroying connection handle.
+  - QueryResult methods detect closed parent DB/connection and raise Python exceptions, not segfault.
 
-## Non-Breaking Guarantees
+## Execution Steps
 
-- Python API remains unchanged.
-- Existing tests and source build flow remain valid.
-- Prebuilt linkage is opt-in via new target.
+1. Make C-API backend the only backend path.
+2. Add QueryResult-owned allocation tracking and deferred free-on-close.
+3. Add parent-child tracking across Database/Connection/QueryResult.
+4. Ensure out-of-order close behavior is idempotent and crash-safe.
+5. Add/adjust tests for:
+   - normal close ordering
+   - out-of-order close safety
+   - C-API smoke and parameter binding.
