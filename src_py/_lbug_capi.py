@@ -583,6 +583,9 @@ def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
         return _LIB.lbug_value_create_double(value)
     if isinstance(value, str):
         return _LIB.lbug_value_create_string(value.encode("utf-8"))
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        encoded = "".join(f"\\x{byte:02x}" for byte in bytes(value))
+        return _LIB.lbug_value_create_string(encoded.encode("utf-8"))
     if isinstance(value, uuid.UUID):
         return _LIB.lbug_value_create_uuid(str(value).encode("utf-8"))
     if isinstance(value, dt.date) and not isinstance(value, dt.datetime):
