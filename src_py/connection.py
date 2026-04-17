@@ -10,6 +10,11 @@ from . import _lbug_capi as _lbug
 from .prepared_statement import PreparedStatement
 from .query_result import QueryResult
 
+try:
+    from . import _lbug as _lbug_pybind
+except ImportError:  # pragma: no cover - pybind module may be unavailable in some builds
+    _lbug_pybind = None
+
 if TYPE_CHECKING:
     import sys
     from collections.abc import Callable
@@ -41,6 +46,7 @@ class Connection:
 
         """
         self._connection: Any = None  # (type: _lbug.Connection from pybind11)
+        self._py_connection: Any = None
         self.database = database
         self.num_threads = num_threads
         self.is_closed = False
@@ -101,6 +107,10 @@ class Connection:
         if self._connection is not None and not self.database.is_closed:
             self._connection.close()
         self._connection = None
+
+        if self._py_connection is not None and not self.database.is_closed:
+            self._py_connection.close()
+        self._py_connection = None
         self.is_closed = True
         self.database._unregister_connection(self)
 
@@ -131,6 +141,64 @@ class Connection:
                 normalized_query = re.sub(pattern, f"BLOB(${key})", normalized_query)
 
         return normalized_query, normalized_params
+
+    def _is_python_scan_object(self, value: Any) -> bool:
+        module_name = type(value).__module__
+        return (
+            module_name.startswith("pandas")
+            or module_name.startswith("polars")
+            or module_name.startswith("pyarrow")
+        )
+
+    def _has_scan_pattern(self, query: str) -> bool:
+        stripped = query.lstrip()
+        if not (stripped.upper().startswith("LOAD ") or stripped.upper().startswith("COPY ")):
+            return False
+        return re.search(r"(?i)\bFROM\b", query) is not None
+
+    def _should_use_pybind_for_scan(self, query: str, parameters: dict[str, Any]) -> bool:
+        if _lbug_pybind is None:
+            return False
+        if not self._has_scan_pattern(query):
+            return False
+
+        if re.search(r"(?i)\bFROM\s+[A-Za-z_][A-Za-z0-9_]*\b", query):
+            return True
+
+        for key, value in parameters.items():
+            if not isinstance(key, str):
+                continue
+            if re.search(rf"(?i)\bFROM\s+\${re.escape(key)}\b", query):
+                return True
+            if self._is_python_scan_object(value):
+                return True
+        return False
+
+    def _get_pybind_connection(self) -> Any | None:
+        if _lbug_pybind is None:
+            return None
+        self.database.init_database()
+        pybind_db = self.database.init_pybind_database()
+        if pybind_db is None:
+            return None
+        if self._py_connection is None:
+            self._py_connection = _lbug_pybind.Connection(pybind_db, self.num_threads)
+        return self._py_connection
+
+    def _execute_with_pybind(
+        self,
+        query: str,
+        parameters: dict[str, Any],
+    ) -> Any:
+        py_connection = self._get_pybind_connection()
+        if py_connection is None:
+            return None
+
+        if len(parameters) == 0:
+            return py_connection.query(query)
+
+        prepared = py_connection.prepare(query, {})
+        return py_connection.execute(prepared, parameters)
 
     def _maybe_raise_scan_unsupported_object(self, query: str) -> None:
         match = re.search(r"\bLOAD\s+FROM\s+([A-Za-z_][A-Za-z0-9_]*)\b", query, re.IGNORECASE)
@@ -193,7 +261,12 @@ class Connection:
             msg = f"Parameters must be a dict; found {type(parameters)}."
             raise RuntimeError(msg)  # noqa: TRY004
 
-        if len(parameters) == 0 and isinstance(query, str):
+        if isinstance(query, str) and self._should_use_pybind_for_scan(query, parameters):
+            query_result_internal = self._execute_with_pybind(query, parameters)
+            if query_result_internal is None:
+                msg = "Scan from python objects requires pybind backend support."
+                raise RuntimeError(msg)
+        elif len(parameters) == 0 and isinstance(query, str):
             self._maybe_raise_scan_unsupported_object(query)
             query_result_internal = self._connection.query(query)
         else:
@@ -380,14 +453,27 @@ class Connection:
         if type(return_type) is not str:
             return_type = return_type.value
 
-        self._connection.create_function(
-            name=name,
-            udf=udf,
-            params_type=parsed_params_type,
-            return_value=return_type,
-            default_null=default_null_handling,
-            catch_exceptions=catch_exceptions,
-        )
+        try:
+            self._connection.create_function(
+                name=name,
+                udf=udf,
+                params_type=parsed_params_type,
+                return_value=return_type,
+                default_null=default_null_handling,
+                catch_exceptions=catch_exceptions,
+            )
+        except NotImplementedError:
+            py_connection = self._get_pybind_connection()
+            if py_connection is None:
+                raise
+            py_connection.create_function(
+                name=name,
+                udf=udf,
+                params_type=parsed_params_type,
+                return_value=return_type,
+                default_null=default_null_handling,
+                catch_exceptions=catch_exceptions,
+            )
 
     def remove_function(self, name: str) -> None:
         """
@@ -398,7 +484,13 @@ class Connection:
         name: str
             name of function to be removed.
         """
-        self._connection.remove_function(name)
+        try:
+            self._connection.remove_function(name)
+        except NotImplementedError:
+            py_connection = self._get_pybind_connection()
+            if py_connection is None:
+                raise
+            py_connection.remove_function(name)
 
     def create_arrow_table(
         self,
@@ -423,9 +515,15 @@ class Connection:
 
         """
         self.init_connection()
-        query_result_internal = self._connection.create_arrow_table(
-            table_name, dataframe
-        )
+        try:
+            query_result_internal = self._connection.create_arrow_table(
+                table_name, dataframe
+            )
+        except NotImplementedError:
+            py_connection = self._get_pybind_connection()
+            if py_connection is None:
+                raise
+            query_result_internal = py_connection.create_arrow_table(table_name, dataframe)
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         return QueryResult(self, query_result_internal)
@@ -446,7 +544,13 @@ class Connection:
 
         """
         self.init_connection()
-        query_result_internal = self._connection.drop_arrow_table(table_name)
+        try:
+            query_result_internal = self._connection.drop_arrow_table(table_name)
+        except NotImplementedError:
+            py_connection = self._get_pybind_connection()
+            if py_connection is None:
+                raise
+            query_result_internal = py_connection.drop_arrow_table(table_name)
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         return QueryResult(self, query_result_internal)
@@ -482,12 +586,23 @@ class Connection:
 
         """
         self.init_connection()
-        query_result_internal = self._connection.create_arrow_rel_table(
-            table_name,
-            dataframe,
-            src_table_name,
-            dst_table_name,
-        )
+        try:
+            query_result_internal = self._connection.create_arrow_rel_table(
+                table_name,
+                dataframe,
+                src_table_name,
+                dst_table_name,
+            )
+        except NotImplementedError:
+            py_connection = self._get_pybind_connection()
+            if py_connection is None:
+                raise
+            query_result_internal = py_connection.create_arrow_rel_table(
+                table_name,
+                dataframe,
+                src_table_name,
+                dst_table_name,
+            )
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         return QueryResult(self, query_result_internal)
