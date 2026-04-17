@@ -90,11 +90,20 @@ def _resolve_library_path() -> str:
     if override:
         return override
 
-    root = Path(__file__).resolve().parent.parent
-    search_dirs = [
-        root / ".cache" / "lbug-prebuilt" / "lib",
-        root / "lib",
+    module_path = Path(__file__).resolve()
+    candidate_roots = [
+        module_path.parent.parent,
+        module_path.parent.parent.parent,
+        Path.cwd(),
     ]
+    search_dirs: list[Path] = []
+    for root in candidate_roots:
+        search_dirs.extend(
+            [
+                root / ".cache" / "lbug-prebuilt" / "lib",
+                root / "lib",
+            ]
+        )
 
     if sys.platform == "darwin":
         names = ["liblbug.dylib", "liblbug.0.dylib"]

@@ -3,7 +3,7 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING, Any
 
-from ._backend import _lbug
+from . import _lbug_capi as _lbug
 from .prepared_statement import PreparedStatement
 from .query_result import QueryResult
 

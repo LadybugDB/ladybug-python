@@ -2,27 +2,17 @@
 
 ## Build
 
-### Existing source build
+This package now uses the shared Lbug **C-API** backend.
 
 ```bash
 make build
 ```
 
-### Precompiled static core (pybind backend)
+The build command downloads the latest shared `liblbug` binary (via upstream
+`download-liblbug.sh`) and stages Python sources in `./build/ladybug`.
+
+To run tests:
 
 ```bash
-make bootstrap-prebuilt
-make build-prebuilt
+make test
 ```
-
-### Experimental C-API backend (ctypes)
-
-```bash
-make bootstrap-capi
-set -a; source .cache/lbug-capi.env; set +a
-export LBUG_PYTHON_BACKEND=capi
-```
-
-Then run Python/tests with `PYTHONPATH=./build` (or an installed package).
-
-> The C-API backend is additive and opt-in. Default behavior remains the existing pybind backend.
