@@ -32,8 +32,6 @@ _CAPI_UNSUPPORTED_TEST_NODEIDS: set[str] = {
     "test/test_parameter.py::test_general_list_param",
     "test/test_parameter.py::test_null_resolution",
     "test/test_parameter.py::test_param_error4",
-    "test/test_datatype.py::test_large_array",
-    "test/test_datatype.py::test_json",
     "test/test_networkx.py::test_to_networkx_node",
     "test/test_networkx.py::test_networkx_undirected",
     "test/test_networkx.py::test_networkx_directed",
