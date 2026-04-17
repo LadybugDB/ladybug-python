@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from . import _lbug
+from ._backend import _lbug
 from .types import Type
 
 if TYPE_CHECKING:

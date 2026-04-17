@@ -3,7 +3,7 @@
 .PHONY: \
 	requirements \
 	lint check format \
-	build build-prebuilt bootstrap-prebuilt test \
+	build build-prebuilt bootstrap-prebuilt bootstrap-capi test \
 	help
 
 PYTHONPATH=
@@ -43,13 +43,17 @@ format: requirements
 	$(VENV_BIN)/ruff format src_py test
 
 PREBUILT_ENV_FILE=.cache/lbug-prebuilt.env
+CAPI_ENV_FILE=.cache/lbug-capi.env
 
 build:  ## Compile ladybug (and install in 'build') for Python
 	$(MAKE) -C ../../ python
 	cp src_py/*.py build/ladybug/
 
-bootstrap-prebuilt: ## Download latest precompiled core binary and emit cmake env file
+bootstrap-prebuilt: ## Download latest precompiled static core binary and emit cmake env file
 	bash scripts/download_lbug.sh $(PREBUILT_ENV_FILE)
+
+bootstrap-capi: ## Download latest shared C-API binary and emit runtime env file
+	LBUG_LIB_KIND=shared bash scripts/download_lbug.sh $(CAPI_ENV_FILE)
 
 build-prebuilt: bootstrap-prebuilt ## Build Python bindings linked against downloaded precompiled core
 	@set -a && source $(PREBUILT_ENV_FILE) && set +a && \
