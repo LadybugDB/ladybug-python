@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import warnings
 from typing import TYPE_CHECKING, Any
+from weakref import WeakSet
 
 from . import _lbug_capi as _lbug
 from .prepared_statement import PreparedStatement
@@ -41,6 +42,8 @@ class Connection:
         self.database = database
         self.num_threads = num_threads
         self.is_closed = False
+        self._query_results: WeakSet[QueryResult] = WeakSet()
+        self.database._register_connection(self)
         self.init_connection()
 
     def __getstate__(self) -> dict[str, Any]:
@@ -73,6 +76,12 @@ class Connection:
         self.init_connection()
         self._connection.set_max_threads_for_exec(num_threads)
 
+    def _register_query_result(self, query_result: QueryResult) -> None:
+        self._query_results.add(query_result)
+
+    def _unregister_query_result(self, query_result: QueryResult) -> None:
+        self._query_results.discard(query_result)
+
     def close(self) -> None:
         """
         Close the connection.
@@ -80,10 +89,18 @@ class Connection:
         Note: Call to this method is optional. The connection will be closed
         automatically when the object goes out of scope.
         """
-        if self._connection is not None:
+        if self.is_closed:
+            return
+
+        for query_result in list(self._query_results):
+            query_result.close()
+        self._query_results.clear()
+
+        if self._connection is not None and not self.database.is_closed:
             self._connection.close()
         self._connection = None
         self.is_closed = True
+        self.database._unregister_connection(self)
 
     def __enter__(self) -> Self:
         return self
@@ -140,6 +157,7 @@ class Connection:
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         current_query_result = QueryResult(self, query_result_internal)
+        self._register_query_result(current_query_result)
         if not query_result_internal.hasNextQueryResult():
             return current_query_result
         all_query_results = [current_query_result]
@@ -147,7 +165,9 @@ class Connection:
             query_result_internal = query_result_internal.getNextQueryResult()
             if not query_result_internal.isSuccess():
                 raise RuntimeError(query_result_internal.getErrorMessage())
-            all_query_results.append(QueryResult(self, query_result_internal))
+            next_query_result = QueryResult(self, query_result_internal)
+            self._register_query_result(next_query_result)
+            all_query_results.append(next_query_result)
         return all_query_results
 
     def _prepare(

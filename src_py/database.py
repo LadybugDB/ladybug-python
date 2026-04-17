@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from weakref import WeakSet
 
 from . import _lbug_capi as _lbug
 from .types import Type
@@ -13,6 +14,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
     from torch_geometric.data.feature_store import IndexType
 
+    from .connection import Connection
     from .torch_geometric_feature_store import LbugFeatureStore
     from .torch_geometric_graph_store import LbugGraphStore
 
@@ -34,7 +36,7 @@ class Database:
         compression: bool = True,
         lazy_init: bool = False,
         read_only: bool = False,
-        max_db_size: int = (1 << 43),
+        max_db_size: int = (1 << 30),
         auto_checkpoint: bool = True,
         checkpoint_threshold: int = -1,
         throw_on_wal_replay_failure: bool = True,
@@ -118,6 +120,7 @@ class Database:
         self.is_closed = False
 
         self._database: Any = None  # (type: _lbug.Database from pybind11)
+        self._connections: WeakSet[Connection] = WeakSet()
         if not lazy_init:
             self.init_database()
 
@@ -289,6 +292,12 @@ class Database:
         msg = f"Unsupported property type: {prop_type}"
         raise ValueError(msg)
 
+    def _register_connection(self, connection: Connection) -> None:
+        self._connections.add(connection)
+
+    def _unregister_connection(self, connection: Connection) -> None:
+        self._connections.discard(connection)
+
     def close(self) -> None:
         """
         Close the database. Once the database is closed, the lock on the database
@@ -303,6 +312,7 @@ class Database:
         if self.is_closed:
             return
         self.is_closed = True
+
         if self._database is not None:
             self._database.close()
             self._database: Any = None  # (type: _lbug.Database from pybind11)

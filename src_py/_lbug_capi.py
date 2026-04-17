@@ -603,7 +603,7 @@ class Database:
         max_num_threads: int = 0,
         compression: bool = True,
         read_only: bool = False,
-        max_db_size: int = (1 << 43),
+        max_db_size: int = (1 << 30),
         auto_checkpoint: bool = True,
         checkpoint_threshold: int = -1,
         throw_on_wal_replay_failure: bool = True,
@@ -684,17 +684,43 @@ class PreparedStatement:
 class QueryResult:
     def __init__(self, result: _LbugQueryResult):
         self._result = result
+        self._owned_string_ptrs: list[ctypes.c_void_p] = []
+        self._owned_blob_ptrs: list[ctypes.POINTER(ctypes.c_uint8)] = []
+
+    def _adopt_c_string(self, ptr: ctypes.c_void_p) -> str:
+        if not ptr:
+            return ""
+        self._owned_string_ptrs.append(ptr)
+        raw = ctypes.cast(ptr, ctypes.c_char_p).value or b""
+        return raw.decode("utf-8", errors="replace")
+
+    def _adopt_blob(self, ptr: ctypes.POINTER(ctypes.c_uint8), length: int) -> bytes:
+        if not ptr:
+            return b""
+        self._owned_blob_ptrs.append(ptr)
+        return bytes(ctypes.string_at(ptr, length))
 
     def close(self) -> None:
+        for ptr in self._owned_string_ptrs:
+            _LIB.lbug_destroy_string(ptr)
+        self._owned_string_ptrs.clear()
+
+        for ptr in self._owned_blob_ptrs:
+            _LIB.lbug_destroy_blob(ptr)
+        self._owned_blob_ptrs.clear()
+
         if self._result._query_result:
             _LIB.lbug_query_result_destroy(ctypes.byref(self._result))
             self._result._query_result = None
+
+    def __del__(self) -> None:
+        self.close()
 
     def isSuccess(self) -> bool:
         return bool(_LIB.lbug_query_result_is_success(ctypes.byref(self._result)))
 
     def getErrorMessage(self) -> str:
-        return _decode_c_string(_LIB.lbug_query_result_get_error_message(ctypes.byref(self._result)))
+        return self._adopt_c_string(_LIB.lbug_query_result_get_error_message(ctypes.byref(self._result)))
 
     def getColumnNames(self) -> list[str]:
         columns: list[str] = []
@@ -705,7 +731,7 @@ class QueryResult:
                 _LIB.lbug_query_result_get_column_name(ctypes.byref(self._result), idx, ctypes.byref(out)),
                 "Failed to get column name",
             )
-            columns.append(_decode_c_string(out))
+            columns.append(self._adopt_c_string(out))
         return columns
 
     def getColumnDataTypes(self) -> list[str]:
@@ -852,15 +878,15 @@ class QueryResult:
             if type_id == _LBUG_STRING:
                 out = ctypes.c_void_p()
                 _check_state(_LIB.lbug_value_get_string(ctypes.byref(value), ctypes.byref(out)), "Failed to read string")
-                return _decode_c_string(out)
+                return self._adopt_c_string(out)
             if type_id == _LBUG_UUID:
                 out = ctypes.c_void_p()
                 _check_state(_LIB.lbug_value_get_uuid(ctypes.byref(value), ctypes.byref(out)), "Failed to read uuid")
-                return _decode_c_string(out)
+                return self._adopt_c_string(out)
             if type_id == _LBUG_DECIMAL:
                 out = ctypes.c_void_p()
                 _check_state(_LIB.lbug_value_get_decimal_as_string(ctypes.byref(value), ctypes.byref(out)), "Failed to read decimal")
-                return _decode_c_string(out)
+                return self._adopt_c_string(out)
             if type_id == _LBUG_BLOB:
                 out_ptr = ctypes.POINTER(ctypes.c_uint8)()
                 out_len = ctypes.c_uint64(0)
@@ -868,10 +894,7 @@ class QueryResult:
                     _LIB.lbug_value_get_blob(ctypes.byref(value), ctypes.byref(out_ptr), ctypes.byref(out_len)),
                     "Failed to read blob",
                 )
-                try:
-                    return bytes(ctypes.string_at(out_ptr, out_len.value))
-                finally:
-                    _LIB.lbug_destroy_blob(out_ptr)
+                return self._adopt_blob(out_ptr, out_len.value)
             if type_id == _LBUG_INTERNAL_ID:
                 out = _LbugInternalID()
                 _check_state(
@@ -944,7 +967,7 @@ class QueryResult:
                         _LIB.lbug_value_get_struct_field_name(ctypes.byref(value), i, ctypes.byref(key_ptr)),
                         "Failed to read struct field name",
                     )
-                    key = _decode_c_string(key_ptr)
+                    key = self._adopt_c_string(key_ptr)
 
                     child = _LbugValue()
                     _check_state(
@@ -981,7 +1004,7 @@ class QueryResult:
                         _LIB.lbug_value_destroy(ctypes.byref(val_val))
                 return out_map
 
-            return _decode_c_string(_LIB.lbug_value_to_string(ctypes.byref(value)))
+            return self._adopt_c_string(_LIB.lbug_value_to_string(ctypes.byref(value)))
         finally:
             _LIB.lbug_data_type_destroy(ctypes.byref(logical_type))
 

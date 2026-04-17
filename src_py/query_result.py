@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     import pyarrow as pa
     import torch_geometric.data as geo
 
-    from . import _lbug
+    from . import _lbug_capi as _lbug
 
     if sys.version_info >= (3, 11):
         from typing import Self
@@ -126,12 +126,20 @@ class QueryResult:
 
     def close(self) -> None:
         """Close the query result."""
-        if not self.is_closed:
-            # Allows the connection to be garbage collected if the query result
-            # is closed manually by the user.
+        if self.is_closed:
+            return
+
+        # Allows the connection to be garbage collected if the query result
+        # is closed manually by the user.
+        parent_db_closed = (
+            self.connection is not None and self.connection.database.is_closed
+        )
+        if self.connection is not None:
+            self.connection._unregister_query_result(self)
+        if not parent_db_closed:
             self._query_result.close()
-            self.connection = None
-            self.is_closed = True
+        self.connection = None
+        self.is_closed = True
 
     def check_for_query_result_close(self) -> None:
         """
@@ -145,6 +153,18 @@ class QueryResult:
         """
         if self.is_closed:
             msg = "Query result is closed"
+            raise RuntimeError(msg)
+
+        if self.connection is None:
+            msg = "Query result is closed"
+            raise RuntimeError(msg)
+
+        if self.connection.database.is_closed:
+            msg = "the parent database is closed"
+            raise RuntimeError(msg)
+
+        if self.connection.is_closed:
+            msg = "the parent connection is closed"
             raise RuntimeError(msg)
 
     def get_as_df(self) -> pd.DataFrame:
