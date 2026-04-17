@@ -22,7 +22,6 @@ _CAPI_UNSUPPORTED_TEST_FILES = {
     "test_json.py",
     "test_mvcc_bank.py",
     "test_networkx.py",
-    "test_parameter.py",
     "test_scan_pandas.py",
     "test_scan_pandas_pyarrow.py",
     "test_scan_polars.py",
@@ -32,7 +31,13 @@ _CAPI_UNSUPPORTED_TEST_FILES = {
     "test_udf.py",
 }
 
-_CAPI_UNSUPPORTED_TEST_NODEIDS: set[str] = set()
+_CAPI_UNSUPPORTED_TEST_NODEIDS: set[str] = {
+    "test/test_parameter.py::test_empty_list_param",
+    "test/test_parameter.py::test_map_param",
+    "test/test_parameter.py::test_general_list_param",
+    "test/test_parameter.py::test_null_resolution",
+    "test/test_parameter.py::test_param_error4",
+}
 
 python_build_dir = Path(__file__).parent.parent / "build"
 try:

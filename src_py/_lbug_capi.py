@@ -575,6 +575,40 @@ def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
             for ptr in child_ptrs:
                 _LIB.lbug_value_destroy(ptr)
     if isinstance(value, dict):
+        # Convention used in tests for MAP parameters.
+        if (
+            set(value.keys()) == {"key", "value"}
+            and isinstance(value["key"], list)
+            and isinstance(value["value"], list)
+            and len(value["key"]) == len(value["value"])
+        ):
+            key_ptrs: list[ctypes.POINTER(_LbugValue)] = []
+            value_ptrs: list[ctypes.POINTER(_LbugValue)] = []
+            try:
+                for k, v in zip(value["key"], value["value"], strict=False):
+                    key_ptrs.append(_value_from_python(k))
+                    value_ptrs.append(_value_from_python(v))
+                out = ctypes.POINTER(_LbugValue)()
+                key_arr_type = ctypes.POINTER(_LbugValue) * len(key_ptrs)
+                value_arr_type = ctypes.POINTER(_LbugValue) * len(value_ptrs)
+                key_arr = key_arr_type(*key_ptrs) if key_ptrs else key_arr_type()
+                value_arr = value_arr_type(*value_ptrs) if value_ptrs else value_arr_type()
+                _check_state(
+                    _LIB.lbug_value_create_map(
+                        len(key_ptrs),
+                        key_arr,
+                        value_arr,
+                        ctypes.byref(out),
+                    ),
+                    "Failed to create map value",
+                )
+                return out
+            finally:
+                for ptr in key_ptrs:
+                    _LIB.lbug_value_destroy(ptr)
+                for ptr in value_ptrs:
+                    _LIB.lbug_value_destroy(ptr)
+
         if all(isinstance(k, str) for k in value):
             names: list[bytes] = []
             child_ptrs: list[ctypes.POINTER(_LbugValue)] = []
@@ -704,6 +738,9 @@ class PreparedStatement:
 
     def bind_parameters(self, parameters: dict[str, Any]) -> None:
         for key, value in parameters.items():
+            if not isinstance(key, str):
+                msg = f"Parameter name must be of type string but got {type(key)}"
+                raise RuntimeError(msg)
             key_b = key.encode("utf-8")
             value_ptr = _value_from_python(value)
             try:
