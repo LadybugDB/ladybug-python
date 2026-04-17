@@ -14,14 +14,9 @@ from test_helper import LBUG_ROOT
 _CAPI_UNSUPPORTED_TEST_FILES = {
     "test_arrow.py",
     "test_arrow_memory_backed_table.py",
-    "test_async_connection.py",
     "test_blob_parameter.py",
-    "test_datatype.py",
     "test_df.py",
-    "test_issue.py",
     "test_json.py",
-    "test_mvcc_bank.py",
-    "test_networkx.py",
     "test_scan_pandas.py",
     "test_scan_pandas_pyarrow.py",
     "test_scan_polars.py",
@@ -37,6 +32,17 @@ _CAPI_UNSUPPORTED_TEST_NODEIDS: set[str] = {
     "test/test_parameter.py::test_general_list_param",
     "test/test_parameter.py::test_null_resolution",
     "test/test_parameter.py::test_param_error4",
+    "test/test_datatype.py::test_large_array",
+    "test/test_datatype.py::test_json",
+    "test/test_networkx.py::test_to_networkx_node",
+    "test/test_networkx.py::test_networkx_undirected",
+    "test/test_networkx.py::test_networkx_directed",
+    "test/test_issue.py::test_param_empty",
+    "test/test_issue.py::test_empty_list2",
+    "test/test_issue.py::test_empty_map",
+    "test/test_async_connection.py::test_async_scan_df",
+    "test/test_mvcc_bank.py::test_multi_writer_no_anomalies",
+    "test/test_mvcc_bank.py::test_multi_writer_stress_no_anomalies",
 }
 
 python_build_dir = Path(__file__).parent.parent / "build"
