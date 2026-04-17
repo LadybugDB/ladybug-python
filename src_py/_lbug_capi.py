@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import ast
 import ctypes
 import ctypes.util
 import datetime as dt
 import os
 import sys
 import uuid
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -84,6 +86,10 @@ class _LbugTimestamp(ctypes.Structure):
 
 class _LbugInterval(ctypes.Structure):
     _fields_ = [("months", ctypes.c_int32), ("days", ctypes.c_int32), ("micros", ctypes.c_int64)]
+
+
+class _LbugInt128(ctypes.Structure):
+    _fields_ = [("low", ctypes.c_uint64), ("high", ctypes.c_int64)]
 
 
 def _resolve_library_path() -> str:
@@ -340,6 +346,8 @@ def _setup_signatures() -> None:
     _LIB.lbug_value_get_uint16.restype = ctypes.c_int
     _LIB.lbug_value_get_uint8.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint8)]
     _LIB.lbug_value_get_uint8.restype = ctypes.c_int
+    _LIB.lbug_value_get_int128.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugInt128)]
+    _LIB.lbug_value_get_int128.restype = ctypes.c_int
     _LIB.lbug_value_get_double.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_double)]
     _LIB.lbug_value_get_double.restype = ctypes.c_int
     _LIB.lbug_value_get_float.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_float)]
@@ -529,6 +537,39 @@ def _to_datetime_from_micros(value: int, *, tz_aware: bool = False) -> dt.dateti
     if tz_aware:
         return utc_dt
     return utc_dt.replace(tzinfo=None)
+
+
+def _parse_rendered_value(value: str) -> Any:
+    text = value.strip()
+
+    # Keep map/json-like textual values as strings for compatibility.
+    if text.startswith("{") and text.endswith("}"):
+        return value
+
+    # Parse list/tuple text, including quoted list literals like "'[1,2]'".
+    candidate = text
+    if (
+        len(candidate) >= 2
+        and candidate[0] in {"'", '"'}
+        and candidate[-1] == candidate[0]
+    ):
+        candidate = candidate[1:-1].strip()
+
+    if (candidate.startswith("[") and candidate.endswith("]")) or (
+        candidate.startswith("(") and candidate.endswith(")")
+    ):
+        try:
+            return ast.literal_eval(candidate)
+        except (ValueError, SyntaxError):
+            return value
+
+    # Parse plain numeric textual values.
+    try:
+        if "." in candidate or "e" in candidate.lower():
+            return float(candidate)
+        return int(candidate)
+    except ValueError:
+        return value
 
 
 def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
@@ -940,6 +981,14 @@ class QueryResult:
                 out = ctypes.c_uint8()
                 _check_state(_LIB.lbug_value_get_uint8(ctypes.byref(value), ctypes.byref(out)), "Failed to read uint8")
                 return int(out.value)
+            if type_id == _LBUG_INT128:
+                out = _LbugInt128()
+                _check_state(
+                    _LIB.lbug_value_get_int128(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read int128",
+                )
+                combined = (out.high << 64) + int(out.low)
+                return int(combined)
             if type_id == _LBUG_DOUBLE:
                 out = ctypes.c_double()
                 _check_state(_LIB.lbug_value_get_double(ctypes.byref(value), ctypes.byref(out)), "Failed to read double")
@@ -961,8 +1010,11 @@ class QueryResult:
                 return uuid.UUID(self._adopt_c_string(out))
             if type_id == _LBUG_DECIMAL:
                 out = ctypes.c_void_p()
-                _check_state(_LIB.lbug_value_get_decimal_as_string(ctypes.byref(value), ctypes.byref(out)), "Failed to read decimal")
-                return self._adopt_c_string(out)
+                _check_state(
+                    _LIB.lbug_value_get_decimal_as_string(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read decimal",
+                )
+                return Decimal(self._adopt_c_string(out))
             if type_id == _LBUG_BLOB:
                 out_ptr = ctypes.POINTER(ctypes.c_uint8)()
                 out_len = ctypes.c_uint64(0)
@@ -1183,9 +1235,10 @@ class QueryResult:
                             try:
                                 out_obj[key] = self._convert_value(child)
                             except RuntimeError:
-                                out_obj[key] = self._adopt_c_string(
+                                rendered = self._adopt_c_string(
                                     _LIB.lbug_value_to_string(ctypes.byref(child))
                                 )
+                                out_obj[key] = _parse_rendered_value(rendered)
                     finally:
                         _LIB.lbug_value_destroy(ctypes.byref(child))
                 return out_obj
@@ -1245,7 +1298,10 @@ class QueryResult:
                         ctypes.byref(value), i, ctypes.byref(child)
                     )
                     if state != _LBUG_SUCCESS:
-                        return self._adopt_c_string(_LIB.lbug_value_to_string(ctypes.byref(value)))
+                        rendered = self._adopt_c_string(
+                            _LIB.lbug_value_to_string(ctypes.byref(value))
+                        )
+                        return _parse_rendered_value(rendered)
                     try:
                         out_obj[key] = self._convert_value(child)
                     finally:
@@ -1276,7 +1332,8 @@ class QueryResult:
                         _LIB.lbug_value_destroy(ctypes.byref(val_val))
                 return out_map
 
-            return self._adopt_c_string(_LIB.lbug_value_to_string(ctypes.byref(value)))
+            rendered = self._adopt_c_string(_LIB.lbug_value_to_string(ctypes.byref(value)))
+            return _parse_rendered_value(rendered)
         finally:
             _LIB.lbug_data_type_destroy(ctypes.byref(logical_type))
 
