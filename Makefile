@@ -3,7 +3,7 @@
 .PHONY: \
 	requirements \
 	lint check format \
-	build test \
+	build build-prebuilt bootstrap-prebuilt test \
 	help
 
 PYTHONPATH=
@@ -42,8 +42,18 @@ check: requirements
 format: requirements
 	$(VENV_BIN)/ruff format src_py test
 
+PREBUILT_ENV_FILE=.cache/lbug-prebuilt.env
+
 build:  ## Compile ladybug (and install in 'build') for Python
 	$(MAKE) -C ../../ python
+	cp src_py/*.py build/ladybug/
+
+bootstrap-prebuilt: ## Download latest precompiled core binary and emit cmake env file
+	bash scripts/download_lbug.sh $(PREBUILT_ENV_FILE)
+
+build-prebuilt: bootstrap-prebuilt ## Build Python bindings linked against downloaded precompiled core
+	@set -a && source $(PREBUILT_ENV_FILE) && set +a && \
+	$(MAKE) -C ../../ python EXTRA_CMAKE_FLAGS="$$EXTRA_CMAKE_FLAGS"
 	cp src_py/*.py build/ladybug/
 
 test: requirements  ## Run the Python unit tests
