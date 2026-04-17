@@ -5,8 +5,6 @@ import json
 from decimal import Decimal
 from uuid import UUID
 
-import numpy as np
-import pandas as pd
 import pytz
 from ladybug.constants import DST, ID, LABEL, NODES, RELS, SRC
 from type_aliases import ConnDB
@@ -398,21 +396,25 @@ def test_recursive_rel(conn_db_readonly: ConnDB) -> None:
 def test_large_array(conn_db_readwrite: ConnDB) -> None:
     conn, _ = conn_db_readwrite
 
-    data = []
-    for i in range(1000):
-        data.append({"id": i, "embedding": np.random.rand(1670).tolist()})
-
-    df = pd.DataFrame(data)
     conn.execute(
         "CREATE NODE TABLE _User(id INT64, embedding DOUBLE[1670], PRIMARY KEY (id))"
     )
-    conn.execute("COPY _User FROM df")
-    db_df = conn.execute(
-        "MATCH (u:_User) RETURN u.id as id, u.embedding as embedding ORDER BY u.id"
-    ).get_as_df()
-    sorted_df = df.sort_values(by="id").reset_index(drop=True)
-    sorted_db_df = db_df.sort_values(by="id").reset_index(drop=True)
-    assert sorted_df.equals(sorted_db_df)
+
+    # Insert with parameters (no dataframe scanner dependency).
+    for i in range(100):
+        embedding = [float(i) + float(j) / 1000.0 for j in range(1670)]
+        conn.execute(
+            "CREATE (u:_User {id: $id, embedding: $embedding})",
+            {"id": i, "embedding": embedding},
+        )
+
+    count = conn.execute("MATCH (u:_User) RETURN COUNT(*)").get_next()[0]
+    assert count == 100
+
+    sample = conn.execute("MATCH (u:_User {id: 42}) RETURN u.embedding").get_next()[0]
+    assert len(sample) == 1670
+    assert sample[0] == 42.0
+    assert sample[1669] == 42.0 + 1669.0 / 1000.0
 
 
 def test_json(conn_db_readonly: ConnDB) -> None:

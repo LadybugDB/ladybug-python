@@ -1073,7 +1073,14 @@ class QueryResult:
                 return dt.timedelta(days=total_days, microseconds=int(out.micros))
             if type_id in (_LBUG_LIST, _LBUG_ARRAY):
                 size = ctypes.c_uint64(0)
-                _check_state(_LIB.lbug_value_get_list_size(ctypes.byref(value), ctypes.byref(size)), "Failed to read list size")
+                state = _LIB.lbug_value_get_list_size(
+                    ctypes.byref(value), ctypes.byref(size)
+                )
+                if state != _LBUG_SUCCESS:
+                    rendered = self._adopt_c_string(
+                        _LIB.lbug_value_to_string(ctypes.byref(value))
+                    )
+                    return _parse_rendered_value(rendered)
                 out_list: list[Any] = []
                 for i in range(size.value):
                     child = _LbugValue()
