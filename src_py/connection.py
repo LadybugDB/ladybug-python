@@ -50,6 +50,7 @@ class Connection:
         self.database = database
         self.num_threads = num_threads
         self.is_closed = False
+        self._prefer_pybind = False
         self._query_results: WeakSet[QueryResult] = WeakSet()
         self.database._register_connection(self)
         self.init_connection()
@@ -201,7 +202,7 @@ class Connection:
         if len(parameters) == 0:
             return py_connection.query(query)
 
-        prepared = py_connection.prepare(query, {})
+        prepared = py_connection.prepare(query, parameters)
         return py_connection.execute(prepared, parameters)
 
     def _maybe_raise_scan_unsupported_object(self, query: str) -> None:
@@ -265,7 +266,10 @@ class Connection:
             msg = f"Parameters must be a dict; found {type(parameters)}."
             raise RuntimeError(msg)  # noqa: TRY004
 
-        if isinstance(query, str) and self._should_use_pybind_for_scan(query, parameters):
+        if isinstance(query, str) and (
+            self._prefer_pybind or self._should_use_pybind_for_scan(query, parameters)
+        ):
+            self._prefer_pybind = True
             query_result_internal = self._execute_with_pybind(query, parameters)
             if query_result_internal is None:
                 msg = "Scan from python objects requires pybind backend support."
@@ -470,6 +474,7 @@ class Connection:
             py_connection = self._get_pybind_connection()
             if py_connection is None:
                 raise
+            self._prefer_pybind = True
             py_connection.create_function(
                 name=name,
                 udf=udf,
@@ -494,6 +499,7 @@ class Connection:
             py_connection = self._get_pybind_connection()
             if py_connection is None:
                 raise
+            self._prefer_pybind = True
             py_connection.remove_function(name)
 
     def create_arrow_table(
@@ -527,6 +533,7 @@ class Connection:
             py_connection = self._get_pybind_connection()
             if py_connection is None:
                 raise
+            self._prefer_pybind = True
             query_result_internal = py_connection.create_arrow_table(table_name, dataframe)
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
@@ -554,6 +561,7 @@ class Connection:
             py_connection = self._get_pybind_connection()
             if py_connection is None:
                 raise
+            self._prefer_pybind = True
             query_result_internal = py_connection.drop_arrow_table(table_name)
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
@@ -601,6 +609,7 @@ class Connection:
             py_connection = self._get_pybind_connection()
             if py_connection is None:
                 raise
+            self._prefer_pybind = True
             query_result_internal = py_connection.create_arrow_rel_table(
                 table_name,
                 dataframe,
