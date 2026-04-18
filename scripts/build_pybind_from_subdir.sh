@@ -25,10 +25,14 @@ rm -f "${API_LINK}"
 ln -s "${ROOT_DIR}" "${API_LINK}"
 
 echo "[pybind] Building via ${LBUG_DIR} (target: make python)"
-PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+PYTHON_BIN="${PYTHON_BIN:-${ROOT_DIR}/.venv/bin/python}"
 if [[ ! -x "${PYTHON_BIN}" ]]; then
   PYTHON_BIN="$(command -v python3)"
 fi
+PYTHON_VERSION="$(${PYTHON_BIN} -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+
+echo "[pybind] Using Python interpreter: ${PYTHON_BIN} (${PYTHON_VERSION})"
+
 export PATH="$(dirname "${PYTHON_BIN}"):${PATH}"
 export PYTHON_EXECUTABLE="${PYTHON_BIN}"
 export Python_EXECUTABLE="${PYTHON_BIN}"
@@ -37,7 +41,7 @@ export Python3_EXECUTABLE="${PYTHON_BIN}"
 make -C "${LBUG_DIR}" clean-python-api || true
 rm -rf "${LBUG_DIR}/build/release"
 
-EXTRA_CMAKE_FLAGS="-DPYTHON_EXECUTABLE=${PYTHON_BIN} -DPython_EXECUTABLE=${PYTHON_BIN} -DPython3_EXECUTABLE=${PYTHON_BIN} -DPYBIND11_PYTHON_VERSION=3.12" \
+EXTRA_CMAKE_FLAGS="-DPYTHON_EXECUTABLE=${PYTHON_BIN} -DPython_EXECUTABLE=${PYTHON_BIN} -DPython3_EXECUTABLE=${PYTHON_BIN} -DPYBIND11_PYTHON_VERSION=${PYTHON_VERSION}" \
   make -C "${LBUG_DIR}" python
 
 mkdir -p "${ROOT_DIR}/build/ladybug"
