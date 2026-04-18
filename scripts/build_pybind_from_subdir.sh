@@ -30,8 +30,14 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   PYTHON_BIN="$(command -v python3)"
 fi
 export PATH="$(dirname "${PYTHON_BIN}"):${PATH}"
+export PYTHON_EXECUTABLE="${PYTHON_BIN}"
+export Python_EXECUTABLE="${PYTHON_BIN}"
+export Python3_EXECUTABLE="${PYTHON_BIN}"
+
 make -C "${LBUG_DIR}" clean-python-api || true
-EXTRA_CMAKE_FLAGS="-DPython3_EXECUTABLE=${PYTHON_BIN} -DPython_EXECUTABLE=${PYTHON_BIN} -DPYBIND11_PYTHON_VERSION=3.12" \
+rm -rf "${LBUG_DIR}/build/release"
+
+EXTRA_CMAKE_FLAGS="-DPYTHON_EXECUTABLE=${PYTHON_BIN} -DPython_EXECUTABLE=${PYTHON_BIN} -DPython3_EXECUTABLE=${PYTHON_BIN} -DPYBIND11_PYTHON_VERSION=3.12" \
   make -C "${LBUG_DIR}" python
 
 mkdir -p "${ROOT_DIR}/build/ladybug"
