@@ -39,3 +39,16 @@ Move `ladybug-python` fully to `lbug.h` C-API, with no backend knob, while prese
    - normal close ordering
    - out-of-order close safety
    - C-API smoke and parameter binding.
+
+## Transitional pybind usage (tracking subsection)
+
+Use pybind only where C-API does not currently expose equivalent functionality.
+
+- Keep C-API as default for duplicated core functionality (`Database`, `Connection`,
+  `PreparedStatement`, `QueryResult` lifecycle/query execution semantics).
+- Route to pybind for non-duplicated features:
+  - Python object scan replacement (`LOAD/COPY ... FROM df/tab`)
+  - Arrow memory-backed table APIs (`create_arrow_table`, `create_arrow_rel_table`, `drop_arrow_table`)
+  - UDF registration/removal (until C-API equivalent is available)
+- Track and reduce duplication over time by migrating pybind-only features to C-API upstream,
+  then removing fallback paths.

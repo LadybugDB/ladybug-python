@@ -25,7 +25,14 @@ rm -f "${API_LINK}"
 ln -s "${ROOT_DIR}" "${API_LINK}"
 
 echo "[pybind] Building via ${LBUG_DIR} (target: make python)"
-make -C "${LBUG_DIR}" python
+PYTHON_BIN="${ROOT_DIR}/.venv/bin/python"
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  PYTHON_BIN="$(command -v python3)"
+fi
+export PATH="$(dirname "${PYTHON_BIN}"):${PATH}"
+make -C "${LBUG_DIR}" clean-python-api || true
+EXTRA_CMAKE_FLAGS="-DPython3_EXECUTABLE=${PYTHON_BIN} -DPython_EXECUTABLE=${PYTHON_BIN} -DPYBIND11_PYTHON_VERSION=3.12" \
+  make -C "${LBUG_DIR}" python
 
 mkdir -p "${ROOT_DIR}/build/ladybug"
 cp "${ROOT_DIR}"/src_py/*.py "${ROOT_DIR}/build/ladybug/"
@@ -33,6 +40,11 @@ cp "${ROOT_DIR}"/src_py/*.py "${ROOT_DIR}/build/ladybug/"
 # Copy extension artifact(s) to local build package.
 shopt -s nullglob
 for ext in "${API_LINK}/build/ladybug"/_lbug*.so "${API_LINK}/build/ladybug"/_lbug*.pyd "${API_LINK}/build/ladybug"/_lbug*.dylib; do
+  src_real="$(realpath "${ext}")"
+  dst_real="$(realpath "${ROOT_DIR}/build/ladybug/$(basename "${ext}")" 2>/dev/null || true)"
+  if [[ -n "${dst_real}" && "${src_real}" == "${dst_real}" ]]; then
+    continue
+  fi
   cp "${ext}" "${ROOT_DIR}/build/ladybug/"
 done
 
