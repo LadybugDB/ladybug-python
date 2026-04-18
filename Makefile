@@ -3,12 +3,13 @@
 .PHONY: \
 	requirements \
 	lint check format \
-	build bootstrap-capi test \
+	build bootstrap-capi build-pybind-subdir test test-pybind-subdir \
 	help
 
 PYTHONPATH=
 SHELL=/usr/bin/env bash
 VENV=.venv
+LBUG_SOURCE_DIR?=ladybug
 
 ifeq ($(OS),Windows_NT)
 	VENV_BIN=$(VENV)/Scripts
@@ -47,6 +48,13 @@ CAPI_ENV_FILE=.cache/lbug-capi.env
 build: bootstrap-capi ## Prepare C-API backend package in ./build
 	mkdir -p build/ladybug
 	cp src_py/*.py build/ladybug/
+
+build-pybind-subdir: requirements ## Build pybind via ./ladybug checkout (inverted layout)
+	bash scripts/build_pybind_from_subdir.sh "$(LBUG_SOURCE_DIR)"
+
+test-pybind-subdir: build-pybind-subdir ## Run tests against pybind build produced from ./ladybug
+	export PYTHONPATH=./build
+	$(VENV_BIN)/pytest -q
 
 bootstrap-capi: ## Download latest shared C-API binary and emit runtime env file
 	LBUG_LIB_KIND=shared bash scripts/download_lbug.sh $(CAPI_ENV_FILE)
