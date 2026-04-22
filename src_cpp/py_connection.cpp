@@ -393,14 +393,6 @@ static LogicalType pyLogicalType(const py::handle& val) {
         }
         return LogicalType::DECIMAL(precision, -exponent);
     } else if (py::isinstance<py::str>(val)) {
-        auto strVal = py::cast<std::string>(val);
-        if (!strVal.empty() && (strVal.front() == '{' || strVal.front() == '[')) {
-            auto jsonModule = py::module_::import("json");
-            try {
-                auto parsed = jsonModule.attr("loads")(val);
-                return pyLogicalType(parsed);
-            } catch (...) {}
-        }
         return LogicalType::STRING();
     } else if (py::isinstance<py::bytes>(val)) {
         return LogicalType::BLOB();
@@ -517,6 +509,9 @@ static bool tryCastToMap(py::dict& dict, LogicalType& result) {
 }
 
 static LogicalType pyLogicalTypeFromParameter(const py::handle& val) {
+    if (py::isinstance<py::str>(val)) {
+        return LogicalType::STRING();
+    }
     if (py::isinstance<py::dict>(val)) {
         auto dict = py::reinterpret_borrow<py::dict>(val);
         LogicalType resultType;
@@ -603,18 +598,9 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
     }
     case LogicalTypeID::STRING:
         if (py::isinstance<py::str>(val)) {
-            auto strVal = val.cast<std::string>();
-            if (!strVal.empty() && (strVal.front() == '{' || strVal.front() == '[')) {
-                auto jsonModule = py::module_::import("json");
-                try {
-                    auto parsed = jsonModule.attr("loads")(val);
-                    return transformPythonValue(parsed);
-                } catch (...) {}
-            }
-            return Value::createValue<std::string>(strVal);
-        } else {
-            return Value::createValue<std::string>(py::str(val));
+            return Value::createValue<std::string>(val.cast<std::string>());
         }
+        return Value::createValue<std::string>(py::str(val));
     case LogicalTypeID::BLOB: {
         auto bytes = py::cast<py::bytes>(val);
         const char* data = PyBytes_AsString(bytes.ptr());
@@ -727,16 +713,6 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
 
 Value PyConnection::transformPythonValueFromParameterAs(const py::handle& val,
     const LogicalType& type) {
-    if (py::isinstance<py::str>(val)) {
-        auto strVal = py::cast<std::string>(val);
-        if (!strVal.empty() && (strVal.front() == '{' || strVal.front() == '[')) {
-            auto jsonModule = py::module_::import("json");
-            try {
-                auto parsed = jsonModule.attr("loads")(val);
-                return transformPythonValueFromParameter(parsed);
-            } catch (...) {}
-        }
-    }
     switch (type.getLogicalTypeID()) {
     case LogicalTypeID::LIST: {
         if (ListType::getChildType(type).getLogicalTypeID() == LogicalTypeID::JSON) {
@@ -785,6 +761,9 @@ Value PyConnection::transformPythonValueFromParameterAs(const py::handle& val,
         return Value(type.copy(), std::move(children));
     }
     case LogicalTypeID::JSON: {
+        if (py::isinstance<py::str>(val)) {
+            return Value::createValue<std::string>(py::cast<std::string>(val));
+        }
         auto jsonStr = pythonObjectToJsonString(val);
         return Value::createValue<std::string>(jsonStr);
     }
@@ -802,6 +781,16 @@ Value PyConnection::transformPythonValue(const py::handle& val) {
 }
 
 Value PyConnection::transformPythonValueFromParameter(const py::handle& val) {
+    if (py::isinstance<py::str>(val)) {
+        auto strVal = py::cast<std::string>(val);
+        if (!strVal.empty() && (strVal.front() == '{' || strVal.front() == '[')) {
+            auto jsonModule = py::module_::import("json");
+            try {
+                auto parsed = jsonModule.attr("loads")(val);
+                return transformPythonValueFromParameter(parsed);
+            } catch (...) {}
+        }
+    }
     auto type = pyLogicalTypeFromParameter(val);
     return transformPythonValueFromParameterAs(val, type);
 }
