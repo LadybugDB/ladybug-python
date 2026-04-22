@@ -1,7 +1,37 @@
+cmake_minimum_required(VERSION 3.15)
+
 include(FetchContent)
-project(_lbug)
+project(_lbug LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
+set(LBUG_SOURCE_DIR "" CACHE PATH "Path to the Ladybug source tree used for pybind builds")
+
+if(NOT TARGET pybind11::module)
+    if(LBUG_SOURCE_DIR)
+        add_subdirectory("${LBUG_SOURCE_DIR}/third_party/pybind11" "${CMAKE_BINARY_DIR}/third_party/pybind11" EXCLUDE_FROM_ALL)
+    else()
+        find_package(pybind11 CONFIG REQUIRED)
+    endif()
+endif()
+
+if(NOT LBUG_API_USE_PRECOMPILED_LIB AND NOT TARGET lbug)
+    if(NOT LBUG_SOURCE_DIR)
+        message(FATAL_ERROR "LBUG_SOURCE_DIR must be set when building the pybind extension from Ladybug sources.")
+    endif()
+
+    set(BUILD_BENCHMARK FALSE CACHE BOOL "" FORCE)
+    set(BUILD_EXAMPLES FALSE CACHE BOOL "" FORCE)
+    set(BUILD_EXTENSION_TESTS FALSE CACHE BOOL "" FORCE)
+    set(BUILD_JAVA FALSE CACHE BOOL "" FORCE)
+    set(BUILD_NODEJS FALSE CACHE BOOL "" FORCE)
+    set(BUILD_PYTHON FALSE CACHE BOOL "" FORCE)
+    set(BUILD_SHELL FALSE CACHE BOOL "" FORCE)
+    set(BUILD_TESTS FALSE CACHE BOOL "" FORCE)
+    set(BUILD_WAL_DUMP FALSE CACHE BOOL "" FORCE)
+    set(BUILD_WASM FALSE CACHE BOOL "" FORCE)
+
+    add_subdirectory("${LBUG_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/lbug-source" EXCLUDE_FROM_ALL)
+endif()
 
 file(GLOB SOURCE_PY
         "src_py/*")
@@ -59,6 +89,23 @@ target_include_directories(
         _lbug
         PUBLIC
         src_cpp/include)
+
+if(TARGET lbug)
+    get_target_property(LBUG_INCLUDE_DIRECTORIES lbug INCLUDE_DIRECTORIES)
+    if(LBUG_INCLUDE_DIRECTORIES)
+        target_include_directories(_lbug PRIVATE ${LBUG_INCLUDE_DIRECTORIES})
+    endif()
+
+    get_target_property(LBUG_COMPILE_DEFINITIONS lbug COMPILE_DEFINITIONS)
+    if(LBUG_COMPILE_DEFINITIONS)
+        target_compile_definitions(_lbug PRIVATE ${LBUG_COMPILE_DEFINITIONS})
+    endif()
+
+    get_target_property(LBUG_COMPILE_OPTIONS lbug COMPILE_OPTIONS)
+    if(LBUG_COMPILE_OPTIONS)
+        target_compile_options(_lbug PRIVATE ${LBUG_COMPILE_OPTIONS})
+    endif()
+endif()
 
 get_target_property(PYTHON_DEST _lbug LIBRARY_OUTPUT_DIRECTORY)
 

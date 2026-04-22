@@ -45,11 +45,6 @@ url = "https://data.pyg.org/whl/torch-2.5.0+cpu/"
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
 
-[tool.uv.workspace]
-members = [
-    "t1",
-]
-
 [tool.uv]
 index-strategy = "unsafe-best-match"
 
@@ -133,9 +128,14 @@ strict = true
 [tool.ruff.format]
 docstring-code-format = true
 
-[tool.setuptools.packages.find]
-where = ["src_py", "build"]
-exclude = ["src_cpp*"]
+[tool.setuptools]
+packages = ["ladybug"]
+
+[tool.setuptools.package-dir]
+ladybug = "src_py"
+
+[tool.setuptools.package-data]
+ladybug = ["py.typed"]
 
 [build-system]
 requires = ["setuptools", "wheel"]
