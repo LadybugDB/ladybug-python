@@ -787,7 +787,11 @@ Value PyConnection::transformPythonValueFromParameter(const py::handle& val) {
             auto jsonModule = py::module_::import("json");
             try {
                 auto parsed = jsonModule.attr("loads")(val);
-                return transformPythonValueFromParameter(parsed);
+                auto parsedType = pyLogicalTypeFromParameter(parsed);
+                if (parsedType.containsAny()) {
+                    return Value(LogicalType::JSON(), strVal);
+                }
+                return transformPythonValueFromParameterAs(parsed, parsedType);
             } catch (...) {}
         }
     }
