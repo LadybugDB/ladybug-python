@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
@@ -32,6 +33,8 @@ if TYPE_CHECKING:
 class Database:
     """Lbug database instance."""
 
+    _VALID_BACKENDS = {"auto", "capi", "pybind"}
+
     def __init__(
         self,
         database_path: str | Path | None = None,
@@ -47,6 +50,7 @@ class Database:
         throw_on_wal_replay_failure: bool = True,
         enable_checksums: bool = True,
         enable_multi_writes: bool = False,
+        backend: str = "auto",
     ):
         """
         Parameters
@@ -105,6 +109,11 @@ class Database:
         enable_multi_writes: bool
             If true, multiple concurrent write transactions are allowed. Default to False.
 
+        backend : {"auto", "capi", "pybind"}
+            Backend to use for database/query execution.
+            `auto` prefers pybind when the optional `_lbug` extension is available and
+            falls back to the C-API shim otherwise.
+
         """
         if database_path is None:
             database_path = ":memory:"
@@ -122,14 +131,36 @@ class Database:
         self.throw_on_wal_replay_failure = throw_on_wal_replay_failure
         self.enable_checksums = enable_checksums
         self.enable_multi_writes = enable_multi_writes
+        self.backend = self._resolve_backend_preference(backend)
         self.is_closed = False
 
         self._database: Any = None  # (type: _lbug.Database from pybind11)
         self._pybind_database: Any = None
-        self._use_pybind_backend = _lbug_pybind is not None
+        self._use_pybind_backend = self._should_use_pybind_backend()
         self._connections: WeakSet[Connection] = WeakSet()
         if not lazy_init:
             self.init_database()
+
+    @classmethod
+    def _resolve_backend_preference(cls, backend: str) -> str:
+        env_backend = os.getenv("LBUG_PYTHON_BACKEND")
+        selected = env_backend if env_backend is not None else backend
+        normalized = selected.strip().lower()
+        if normalized not in cls._VALID_BACKENDS:
+            valid = ", ".join(sorted(cls._VALID_BACKENDS))
+            msg = f"Invalid backend {selected!r}. Expected one of: {valid}."
+            raise ValueError(msg)
+        return normalized
+
+    def _should_use_pybind_backend(self) -> bool:
+        if self.backend == "capi":
+            return False
+        if self.backend == "pybind":
+            if _lbug_pybind is None:
+                msg = "Requested pybind backend, but ladybug._lbug is not available."
+                raise RuntimeError(msg)
+            return True
+        return _lbug_pybind is not None
 
     def __enter__(self) -> Self:
         return self
@@ -172,6 +203,7 @@ class Database:
             "buffer_pool_size": self.buffer_pool_size,
             "compression": self.compression,
             "read_only": self.read_only,
+            "backend": self.backend,
             "_database": None,
         }
         return state
