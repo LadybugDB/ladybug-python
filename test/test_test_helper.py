@@ -24,3 +24,15 @@ def test_nested_ci_checkout_dataset_path_is_outside_python_api_tree() -> None:
     assert dataset_root.as_posix().endswith(
         "/ladybug-python/ladybug-python/ladybug/dataset"
     )
+
+
+def test_nested_ci_checkout_prefers_parent_ladybug_root_over_local_dataset_dir() -> (
+    None
+):
+    repo_root = Path(
+        "/home/runner/work/ladybug-python/ladybug-python/ladybug/tools/python_api"
+    )
+
+    resolved = _resolve_lbug_root(repo_root)
+    assert resolved.name == "ladybug"
+    assert "/tools/python_api" not in resolved.as_posix()
