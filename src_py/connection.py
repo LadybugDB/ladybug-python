@@ -161,6 +161,48 @@ class Connection:
             return False
         return re.search(r"(?i)\bFROM\b", query) is not None
 
+    def _lookup_python_object_in_frames(self, name: str) -> Any | None:
+        frame = inspect.currentframe()
+        if frame is None:
+            return None
+
+        try:
+            current = frame.f_back
+            while current is not None:
+                if name in current.f_locals:
+                    return current.f_locals[name]
+                if name in current.f_globals:
+                    return current.f_globals[name]
+                current = current.f_back
+        finally:
+            del frame
+
+        return None
+
+    def _rewrite_local_scan_object(
+        self,
+        query: str,
+        parameters: dict[str, Any],
+    ) -> tuple[str, dict[str, Any]]:
+        if parameters or not self._has_scan_pattern(query):
+            return query, parameters
+
+        match = re.search(r"(?i)\bFROM\s+([A-Za-z_][A-Za-z0-9_]*)\b", query)
+        if match is None:
+            return query, parameters
+
+        object_name = match.group(1)
+        value = self._lookup_python_object_in_frames(object_name)
+        if value is None or not self._is_python_scan_object(value):
+            return query, parameters
+
+        rewritten_query = (
+            query[: match.start(1)] + f"${object_name}" + query[match.end(1) :]
+        )
+        rewritten_parameters = dict(parameters)
+        rewritten_parameters[object_name] = value
+        return rewritten_query, rewritten_parameters
+
     def _should_use_pybind_for_scan(self, query: str, parameters: dict[str, Any]) -> bool:
         if _lbug_pybind is None:
             return False
@@ -265,6 +307,9 @@ class Connection:
         if not isinstance(parameters, dict):
             msg = f"Parameters must be a dict; found {type(parameters)}."
             raise RuntimeError(msg)  # noqa: TRY004
+
+        if isinstance(query, str):
+            query, parameters = self._rewrite_local_scan_object(query, parameters)
 
         if isinstance(query, str) and (
             self._prefer_pybind or self._should_use_pybind_for_scan(query, parameters)

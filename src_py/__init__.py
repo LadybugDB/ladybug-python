@@ -41,12 +41,21 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 # Set RTLD_GLOBAL and RTLD_LAZY flags on Linux to fix the issue with loading
 # extensions
 if sys.platform == "linux":
     original_dlopen_flags = sys.getdlopenflags()
     sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)
+
+# In local dev/test runs the optional pybind extension is built under build/ladybug
+# while the package sources live in src_py. Extend the package path so
+# `from . import _lbug` can discover the built extension without installation.
+_pkg_dir = Path(__file__).resolve().parent
+_repo_build_pkg_dir = _pkg_dir.parent / "build" / "ladybug"
+if _repo_build_pkg_dir.is_dir():
+    __path__.append(str(_repo_build_pkg_dir))
 
 from .async_connection import AsyncConnection
 from .connection import Connection

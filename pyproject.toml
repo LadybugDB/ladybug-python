@@ -19,7 +19,7 @@ dev = [
     "numpy~=2.0",
     "pandas~=2.2",
     "polars~=1.30",
-    "pyarrow~=20.0",
+    "pyarrow>=21,<23",
     "pybind11~=2.13",
     "pytest",
     "pytest-asyncio~=1.0",
