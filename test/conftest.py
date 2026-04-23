@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from test_helper import DATASET_ROOT, LBUG_ROOT
+from lbug_test_paths import DATASET_ROOT, LBUG_ROOT
 
 python_build_dir = Path(__file__).parent.parent / "build"
 try:
