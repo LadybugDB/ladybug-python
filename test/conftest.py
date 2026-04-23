@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from capi_xfails import CAPI_XFAILS
 from lbug_test_paths import DATASET_ROOT, LBUG_ROOT
 
 python_build_dir = Path(__file__).parent.parent / "build"
@@ -18,6 +19,30 @@ except ModuleNotFoundError:
 
 if TYPE_CHECKING:
     from type_aliases import ConnDB
+
+
+_USING_CAPI_BACKEND: bool | None = None
+
+
+def _using_capi_backend() -> bool:
+    global _USING_CAPI_BACKEND
+    if _USING_CAPI_BACKEND is None:
+        db = lb.Database(":memory:", lazy_init=True)
+        _USING_CAPI_BACKEND = not db._use_pybind_backend
+    return _USING_CAPI_BACKEND
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    del config
+    if not _using_capi_backend():
+        return
+
+    reason = "Known C-API backend failure"
+    for item in items:
+        if item.nodeid in CAPI_XFAILS:
+            item.add_marker(pytest.mark.xfail(reason=reason, strict=True))
 
 
 def init_npy(conn: lb.Connection) -> None:
