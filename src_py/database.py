@@ -179,7 +179,9 @@ class Database:
         str
             The version of the database.
         """
-        return get_capi_module().Database.get_version()
+        from . import __version__
+
+        return __version__
 
     @staticmethod
     def get_storage_version() -> int:
@@ -191,7 +193,9 @@ class Database:
         int
             The storage version of the database.
         """
-        return get_capi_module().Database.get_storage_version()
+        from . import storage_version
+
+        return storage_version
 
     def __getstate__(self) -> dict[str, Any]:
         state = {
