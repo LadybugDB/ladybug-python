@@ -995,8 +995,10 @@ class Database:
         _check_state(state, "Failed to initialize database")
 
     def close(self) -> None:
+        lib = _LIB
         if self._database._database:
-            _LIB.lbug_database_destroy(ctypes.byref(self._database))
+            if lib is not None:
+                lib.lbug_database_destroy(ctypes.byref(self._database))
             self._database._database = None
 
     @staticmethod
@@ -1024,8 +1026,10 @@ class PreparedStatement:
         self._prepared = prepared
 
     def close(self) -> None:
+        lib = _LIB
         if self._prepared._prepared_statement:
-            _LIB.lbug_prepared_statement_destroy(ctypes.byref(self._prepared))
+            if lib is not None:
+                lib.lbug_prepared_statement_destroy(ctypes.byref(self._prepared))
             self._prepared._prepared_statement = None
 
     def is_success(self) -> bool:
@@ -1076,16 +1080,21 @@ class QueryResult:
         return bytes(ctypes.string_at(ptr, length))
 
     def close(self) -> None:
-        for ptr in self._owned_string_ptrs:
-            _LIB.lbug_destroy_string(ptr)
+        lib = _LIB
+
+        if lib is not None:
+            for ptr in self._owned_string_ptrs:
+                lib.lbug_destroy_string(ptr)
         self._owned_string_ptrs.clear()
 
-        for ptr in self._owned_blob_ptrs:
-            _LIB.lbug_destroy_blob(ptr)
+        if lib is not None:
+            for ptr in self._owned_blob_ptrs:
+                lib.lbug_destroy_blob(ptr)
         self._owned_blob_ptrs.clear()
 
         if self._result._query_result:
-            _LIB.lbug_query_result_destroy(ctypes.byref(self._result))
+            if lib is not None:
+                lib.lbug_query_result_destroy(ctypes.byref(self._result))
             self._result._query_result = None
 
     def __del__(self) -> None:
@@ -1764,8 +1773,10 @@ class Connection:
             self.set_max_threads_for_exec(num_threads)
 
     def close(self) -> None:
+        lib = _LIB
         if self._connection._connection:
-            _LIB.lbug_connection_destroy(ctypes.byref(self._connection))
+            if lib is not None:
+                lib.lbug_connection_destroy(ctypes.byref(self._connection))
             self._connection._connection = None
 
     def set_max_threads_for_exec(self, num_threads: int) -> None:
