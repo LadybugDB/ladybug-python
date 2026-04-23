@@ -5,15 +5,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 from weakref import WeakSet
 
-from . import _lbug_capi as _lbug
+from ._backend import get_capi_module, get_pybind_module
 from .types import Type
-
-try:
-    from . import _lbug as _lbug_pybind
-except (
-    ImportError
-):  # pragma: no cover - pybind module may be unavailable in some builds
-    _lbug_pybind = None
 
 if TYPE_CHECKING:
     import sys
@@ -157,12 +150,13 @@ class Database:
     def _should_use_pybind_backend(self) -> bool:
         if self.backend == "capi":
             return False
+        pybind_module = get_pybind_module()
         if self.backend == "pybind":
-            if _lbug_pybind is None:
+            if pybind_module is None:
                 msg = "Requested pybind backend, but ladybug._lbug is not available."
                 raise RuntimeError(msg)
             return True
-        return _lbug_pybind is not None
+        return pybind_module is not None
 
     def __enter__(self) -> Self:
         return self
@@ -185,7 +179,7 @@ class Database:
         str
             The version of the database.
         """
-        return _lbug.Database.get_version()  # type: ignore[union-attr]
+        return get_capi_module().Database.get_version()
 
     @staticmethod
     def get_storage_version() -> int:
@@ -197,7 +191,7 @@ class Database:
         int
             The storage version of the database.
         """
-        return _lbug.Database.get_storage_version()  # type: ignore[union-attr]
+        return get_capi_module().Database.get_storage_version()
 
     def __getstate__(self) -> dict[str, Any]:
         state = {
@@ -217,7 +211,7 @@ class Database:
             if self._use_pybind_backend:
                 self._database = self.init_pybind_database()
             else:
-                self._database = _lbug.Database(  # type: ignore[union-attr]
+                self._database = get_capi_module().Database(
                     self.database_path,
                     self.buffer_pool_size,
                     self.max_num_threads,
@@ -234,10 +228,11 @@ class Database:
     def init_pybind_database(self) -> Any | None:
         """Initialize and return the optional pybind database backend."""
         self.check_for_database_close()
-        if _lbug_pybind is None:
+        pybind_module = get_pybind_module()
+        if pybind_module is None:
             return None
         if self._pybind_database is None:
-            self._pybind_database = _lbug_pybind.Database(
+            self._pybind_database = pybind_module.Database(
                 self.database_path,
                 self.buffer_pool_size,
                 self.max_num_threads,

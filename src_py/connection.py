@@ -6,16 +6,9 @@ import warnings
 from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
 
-from . import _lbug_capi as _lbug
+from ._backend import get_capi_module, get_pybind_module
 from .prepared_statement import PreparedStatement
 from .query_result import QueryResult
-
-try:
-    from . import _lbug as _lbug_pybind
-except (
-    ImportError
-):  # pragma: no cover - pybind module may be unavailable in some builds
-    _lbug_pybind = None
 
 if TYPE_CHECKING:
     import sys
@@ -73,12 +66,18 @@ class Connection:
         self.database.init_database()
         if self._connection is None:
             backend_module = (
-                _lbug_pybind if self.database._use_pybind_backend else _lbug
+                get_pybind_module()
+                if self.database._use_pybind_backend
+                else get_capi_module()
             )
-            self._connection = backend_module.Connection(self.database._database, self.num_threads)  # type: ignore[union-attr]
+            self._connection = backend_module.Connection(
+                self.database._database, self.num_threads
+            )
 
     def _using_pybind_backend(self) -> bool:
-        return bool(self.database._use_pybind_backend and _lbug_pybind is not None)
+        return bool(
+            self.database._use_pybind_backend and get_pybind_module() is not None
+        )
 
     def set_max_threads_for_exec(self, num_threads: int) -> None:
         """
@@ -212,7 +211,7 @@ class Connection:
     def _should_use_pybind_for_scan(
         self, query: str, parameters: dict[str, Any]
     ) -> bool:
-        if _lbug_pybind is None:
+        if get_pybind_module() is None:
             return False
         if not self._has_scan_pattern(query):
             return False
@@ -230,7 +229,8 @@ class Connection:
         return False
 
     def _get_pybind_connection(self) -> Any | None:
-        if _lbug_pybind is None:
+        pybind_module = get_pybind_module()
+        if pybind_module is None:
             return None
         if self._using_pybind_backend():
             return self._connection
@@ -239,7 +239,7 @@ class Connection:
         if pybind_db is None:
             return None
         if self._py_connection is None:
-            self._py_connection = _lbug_pybind.Connection(pybind_db, self.num_threads)
+            self._py_connection = pybind_module.Connection(pybind_db, self.num_threads)
         return self._py_connection
 
     def _execute_with_pybind(

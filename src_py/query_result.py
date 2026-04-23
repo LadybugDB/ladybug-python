@@ -18,8 +18,6 @@ if TYPE_CHECKING:
     import pyarrow as pa
     import torch_geometric.data as geo
 
-    from . import _lbug_capi as _lbug
-
     if sys.version_info >= (3, 11):
         from typing import Self
     else:
@@ -29,7 +27,7 @@ if TYPE_CHECKING:
 class QueryResult:
     """QueryResult stores the result of a query execution."""
 
-    def __init__(self, connection: _lbug.Connection, query_result: _lbug.QueryResult):  # type: ignore[name-defined]
+    def __init__(self, connection: Any, query_result: Any):
         """
         Parameters
         ----------
