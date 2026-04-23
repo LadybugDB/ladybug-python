@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 from weakref import WeakSet
 
 from . import _lbug_capi as _lbug
@@ -10,7 +10,9 @@ from .types import Type
 
 try:
     from . import _lbug as _lbug_pybind
-except ImportError:  # pragma: no cover - pybind module may be unavailable in some builds
+except (
+    ImportError
+):  # pragma: no cover - pybind module may be unavailable in some builds
     _lbug_pybind = None
 
 if TYPE_CHECKING:
@@ -33,7 +35,7 @@ if TYPE_CHECKING:
 class Database:
     """Lbug database instance."""
 
-    _VALID_BACKENDS = {"auto", "capi", "pybind"}
+    _VALID_BACKENDS: ClassVar[set[str]] = {"auto", "capi", "pybind"}
 
     def __init__(
         self,

@@ -171,15 +171,15 @@ class QueryResult:
         """
         Get the query result as a Pandas DataFrame.
 
-        See Also
-        --------
-        get_as_pl : Get the query result as a Polars DataFrame.
-        get_as_arrow : Get the query result as a PyArrow Table.
-
         Returns
         -------
         pandas.DataFrame
             Query result as a Pandas DataFrame.
+
+        See Also
+        --------
+        get_as_pl : Get the query result as a Polars DataFrame.
+        get_as_arrow : Get the query result as a PyArrow Table.
 
         """
         self.check_for_query_result_close()
@@ -190,15 +190,15 @@ class QueryResult:
         """
         Get the query result as a Polars DataFrame.
 
-        See Also
-        --------
-        get_as_df : Get the query result as a Pandas DataFrame.
-        get_as_arrow : Get the query result as a PyArrow Table.
-
         Returns
         -------
         polars.DataFrame
             Query result as a Polars DataFrame.
+
+        See Also
+        --------
+        get_as_df : Get the query result as a Pandas DataFrame.
+        get_as_arrow : Get the query result as a PyArrow Table.
         """
         import polars as pl
 
@@ -229,15 +229,15 @@ class QueryResult:
         fallbackExtensionTypes : bool
             Avoid using Arrow extension types for compatibility with Polars
 
-        See Also
-        --------
-        get_as_pl : Get the query result as a Polars DataFrame.
-        get_as_df : Get the query result as a Pandas DataFrame.
-
         Returns
         -------
         pyarrow.Table
             Query result as a PyArrow Table.
+
+        See Also
+        --------
+        get_as_pl : Get the query result as a Polars DataFrame.
+        get_as_df : Get the query result as a Pandas DataFrame.
         """
         self.check_for_query_result_close()
 

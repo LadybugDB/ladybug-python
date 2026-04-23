@@ -4,8 +4,8 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-import pytest
 import ladybug as lb
+import pytest
 from type_aliases import ConnDB
 
 if TYPE_CHECKING:

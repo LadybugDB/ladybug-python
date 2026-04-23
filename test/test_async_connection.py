@@ -1,9 +1,9 @@
 import asyncio
 import time
 
+import ladybug as lb
 import pyarrow as pa
 import pytest
-import ladybug as lb
 
 
 @pytest.mark.asyncio

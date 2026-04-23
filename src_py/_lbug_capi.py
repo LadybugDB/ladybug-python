@@ -85,7 +85,11 @@ class _LbugTimestamp(ctypes.Structure):
 
 
 class _LbugInterval(ctypes.Structure):
-    _fields_ = [("months", ctypes.c_int32), ("days", ctypes.c_int32), ("micros", ctypes.c_int64)]
+    _fields_ = [
+        ("months", ctypes.c_int32),
+        ("days", ctypes.c_int32),
+        ("micros", ctypes.c_int64),
+    ]
 
 
 class _LbugInt128(ctypes.Structure):
@@ -192,21 +196,38 @@ def _setup_signatures() -> None:
     _LIB.lbug_default_system_config.argtypes = []
     _LIB.lbug_default_system_config.restype = _LbugSystemConfig
 
-    _LIB.lbug_database_init.argtypes = [ctypes.c_char_p, _LbugSystemConfig, ctypes.POINTER(_LbugDatabase)]
+    _LIB.lbug_database_init.argtypes = [
+        ctypes.c_char_p,
+        _LbugSystemConfig,
+        ctypes.POINTER(_LbugDatabase),
+    ]
     _LIB.lbug_database_init.restype = ctypes.c_int
     _LIB.lbug_database_destroy.argtypes = [ctypes.POINTER(_LbugDatabase)]
 
-    _LIB.lbug_connection_init.argtypes = [ctypes.POINTER(_LbugDatabase), ctypes.POINTER(_LbugConnection)]
+    _LIB.lbug_connection_init.argtypes = [
+        ctypes.POINTER(_LbugDatabase),
+        ctypes.POINTER(_LbugConnection),
+    ]
     _LIB.lbug_connection_init.restype = ctypes.c_int
     _LIB.lbug_connection_destroy.argtypes = [ctypes.POINTER(_LbugConnection)]
 
-    _LIB.lbug_connection_set_max_num_thread_for_exec.argtypes = [ctypes.POINTER(_LbugConnection), ctypes.c_uint64]
+    _LIB.lbug_connection_set_max_num_thread_for_exec.argtypes = [
+        ctypes.POINTER(_LbugConnection),
+        ctypes.c_uint64,
+    ]
     _LIB.lbug_connection_set_max_num_thread_for_exec.restype = ctypes.c_int
-    _LIB.lbug_connection_set_query_timeout.argtypes = [ctypes.POINTER(_LbugConnection), ctypes.c_uint64]
+    _LIB.lbug_connection_set_query_timeout.argtypes = [
+        ctypes.POINTER(_LbugConnection),
+        ctypes.c_uint64,
+    ]
     _LIB.lbug_connection_set_query_timeout.restype = ctypes.c_int
     _LIB.lbug_connection_interrupt.argtypes = [ctypes.POINTER(_LbugConnection)]
 
-    _LIB.lbug_connection_query.argtypes = [ctypes.POINTER(_LbugConnection), ctypes.c_char_p, ctypes.POINTER(_LbugQueryResult)]
+    _LIB.lbug_connection_query.argtypes = [
+        ctypes.POINTER(_LbugConnection),
+        ctypes.c_char_p,
+        ctypes.POINTER(_LbugQueryResult),
+    ]
     _LIB.lbug_connection_query.restype = ctypes.c_int
 
     _LIB.lbug_connection_prepare.argtypes = [
@@ -223,21 +244,47 @@ def _setup_signatures() -> None:
     ]
     _LIB.lbug_connection_execute.restype = ctypes.c_int
 
-    _LIB.lbug_prepared_statement_destroy.argtypes = [ctypes.POINTER(_LbugPreparedStatement)]
-    _LIB.lbug_prepared_statement_is_success.argtypes = [ctypes.POINTER(_LbugPreparedStatement)]
+    _LIB.lbug_prepared_statement_destroy.argtypes = [
+        ctypes.POINTER(_LbugPreparedStatement)
+    ]
+    _LIB.lbug_prepared_statement_is_success.argtypes = [
+        ctypes.POINTER(_LbugPreparedStatement)
+    ]
     _LIB.lbug_prepared_statement_is_success.restype = ctypes.c_bool
-    _LIB.lbug_prepared_statement_get_error_message.argtypes = [ctypes.POINTER(_LbugPreparedStatement)]
+    _LIB.lbug_prepared_statement_get_error_message.argtypes = [
+        ctypes.POINTER(_LbugPreparedStatement)
+    ]
     _LIB.lbug_prepared_statement_get_error_message.restype = ctypes.c_void_p
 
-    _LIB.lbug_prepared_statement_bind_bool.argtypes = [ctypes.POINTER(_LbugPreparedStatement), ctypes.c_char_p, ctypes.c_bool]
+    _LIB.lbug_prepared_statement_bind_bool.argtypes = [
+        ctypes.POINTER(_LbugPreparedStatement),
+        ctypes.c_char_p,
+        ctypes.c_bool,
+    ]
     _LIB.lbug_prepared_statement_bind_bool.restype = ctypes.c_int
-    _LIB.lbug_prepared_statement_bind_int64.argtypes = [ctypes.POINTER(_LbugPreparedStatement), ctypes.c_char_p, ctypes.c_int64]
+    _LIB.lbug_prepared_statement_bind_int64.argtypes = [
+        ctypes.POINTER(_LbugPreparedStatement),
+        ctypes.c_char_p,
+        ctypes.c_int64,
+    ]
     _LIB.lbug_prepared_statement_bind_int64.restype = ctypes.c_int
-    _LIB.lbug_prepared_statement_bind_double.argtypes = [ctypes.POINTER(_LbugPreparedStatement), ctypes.c_char_p, ctypes.c_double]
+    _LIB.lbug_prepared_statement_bind_double.argtypes = [
+        ctypes.POINTER(_LbugPreparedStatement),
+        ctypes.c_char_p,
+        ctypes.c_double,
+    ]
     _LIB.lbug_prepared_statement_bind_double.restype = ctypes.c_int
-    _LIB.lbug_prepared_statement_bind_string.argtypes = [ctypes.POINTER(_LbugPreparedStatement), ctypes.c_char_p, ctypes.c_char_p]
+    _LIB.lbug_prepared_statement_bind_string.argtypes = [
+        ctypes.POINTER(_LbugPreparedStatement),
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+    ]
     _LIB.lbug_prepared_statement_bind_string.restype = ctypes.c_int
-    _LIB.lbug_prepared_statement_bind_value.argtypes = [ctypes.POINTER(_LbugPreparedStatement), ctypes.c_char_p, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_prepared_statement_bind_value.argtypes = [
+        ctypes.POINTER(_LbugPreparedStatement),
+        ctypes.c_char_p,
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_prepared_statement_bind_value.restype = ctypes.c_int
 
     _LIB.lbug_value_create_null.argtypes = []
@@ -285,78 +332,161 @@ def _setup_signatures() -> None:
     _LIB.lbug_query_result_destroy.argtypes = [ctypes.POINTER(_LbugQueryResult)]
     _LIB.lbug_query_result_is_success.argtypes = [ctypes.POINTER(_LbugQueryResult)]
     _LIB.lbug_query_result_is_success.restype = ctypes.c_bool
-    _LIB.lbug_query_result_get_error_message.argtypes = [ctypes.POINTER(_LbugQueryResult)]
+    _LIB.lbug_query_result_get_error_message.argtypes = [
+        ctypes.POINTER(_LbugQueryResult)
+    ]
     _LIB.lbug_query_result_get_error_message.restype = ctypes.c_void_p
     _LIB.lbug_query_result_get_num_columns.argtypes = [ctypes.POINTER(_LbugQueryResult)]
     _LIB.lbug_query_result_get_num_columns.restype = ctypes.c_uint64
-    _LIB.lbug_query_result_get_column_name.argtypes = [ctypes.POINTER(_LbugQueryResult), ctypes.c_uint64, ctypes.POINTER(ctypes.c_void_p)]
+    _LIB.lbug_query_result_get_column_name.argtypes = [
+        ctypes.POINTER(_LbugQueryResult),
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
     _LIB.lbug_query_result_get_column_name.restype = ctypes.c_int
-    _LIB.lbug_query_result_get_column_data_type.argtypes = [ctypes.POINTER(_LbugQueryResult), ctypes.c_uint64, ctypes.POINTER(_LbugLogicalType)]
+    _LIB.lbug_query_result_get_column_data_type.argtypes = [
+        ctypes.POINTER(_LbugQueryResult),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugLogicalType),
+    ]
     _LIB.lbug_query_result_get_column_data_type.restype = ctypes.c_int
     _LIB.lbug_query_result_get_num_tuples.argtypes = [ctypes.POINTER(_LbugQueryResult)]
     _LIB.lbug_query_result_get_num_tuples.restype = ctypes.c_uint64
     _LIB.lbug_query_result_has_next.argtypes = [ctypes.POINTER(_LbugQueryResult)]
     _LIB.lbug_query_result_has_next.restype = ctypes.c_bool
-    _LIB.lbug_query_result_get_next.argtypes = [ctypes.POINTER(_LbugQueryResult), ctypes.POINTER(_LbugFlatTuple)]
+    _LIB.lbug_query_result_get_next.argtypes = [
+        ctypes.POINTER(_LbugQueryResult),
+        ctypes.POINTER(_LbugFlatTuple),
+    ]
     _LIB.lbug_query_result_get_next.restype = ctypes.c_int
-    _LIB.lbug_query_result_has_next_query_result.argtypes = [ctypes.POINTER(_LbugQueryResult)]
+    _LIB.lbug_query_result_has_next_query_result.argtypes = [
+        ctypes.POINTER(_LbugQueryResult)
+    ]
     _LIB.lbug_query_result_has_next_query_result.restype = ctypes.c_bool
-    _LIB.lbug_query_result_get_next_query_result.argtypes = [ctypes.POINTER(_LbugQueryResult), ctypes.POINTER(_LbugQueryResult)]
+    _LIB.lbug_query_result_get_next_query_result.argtypes = [
+        ctypes.POINTER(_LbugQueryResult),
+        ctypes.POINTER(_LbugQueryResult),
+    ]
     _LIB.lbug_query_result_get_next_query_result.restype = ctypes.c_int
     _LIB.lbug_query_result_reset_iterator.argtypes = [ctypes.POINTER(_LbugQueryResult)]
-    _LIB.lbug_query_result_get_query_summary.argtypes = [ctypes.POINTER(_LbugQueryResult), ctypes.POINTER(_LbugQuerySummary)]
+    _LIB.lbug_query_result_get_query_summary.argtypes = [
+        ctypes.POINTER(_LbugQueryResult),
+        ctypes.POINTER(_LbugQuerySummary),
+    ]
     _LIB.lbug_query_result_get_query_summary.restype = ctypes.c_int
 
     _LIB.lbug_query_summary_destroy.argtypes = [ctypes.POINTER(_LbugQuerySummary)]
-    _LIB.lbug_query_summary_get_compiling_time.argtypes = [ctypes.POINTER(_LbugQuerySummary)]
+    _LIB.lbug_query_summary_get_compiling_time.argtypes = [
+        ctypes.POINTER(_LbugQuerySummary)
+    ]
     _LIB.lbug_query_summary_get_compiling_time.restype = ctypes.c_double
-    _LIB.lbug_query_summary_get_execution_time.argtypes = [ctypes.POINTER(_LbugQuerySummary)]
+    _LIB.lbug_query_summary_get_execution_time.argtypes = [
+        ctypes.POINTER(_LbugQuerySummary)
+    ]
     _LIB.lbug_query_summary_get_execution_time.restype = ctypes.c_double
 
     _LIB.lbug_flat_tuple_destroy.argtypes = [ctypes.POINTER(_LbugFlatTuple)]
-    _LIB.lbug_flat_tuple_get_value.argtypes = [ctypes.POINTER(_LbugFlatTuple), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_flat_tuple_get_value.argtypes = [
+        ctypes.POINTER(_LbugFlatTuple),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_flat_tuple_get_value.restype = ctypes.c_int
 
     _LIB.lbug_value_is_null.argtypes = [ctypes.POINTER(_LbugValue)]
     _LIB.lbug_value_is_null.restype = ctypes.c_bool
-    _LIB.lbug_value_get_data_type.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugLogicalType)]
+    _LIB.lbug_value_get_data_type.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugLogicalType),
+    ]
     _LIB.lbug_data_type_get_id.argtypes = [ctypes.POINTER(_LbugLogicalType)]
     _LIB.lbug_data_type_get_id.restype = ctypes.c_int
-    _LIB.lbug_data_type_get_child_type.argtypes = [ctypes.POINTER(_LbugLogicalType), ctypes.POINTER(_LbugLogicalType)]
+    _LIB.lbug_data_type_get_child_type.argtypes = [
+        ctypes.POINTER(_LbugLogicalType),
+        ctypes.POINTER(_LbugLogicalType),
+    ]
     _LIB.lbug_data_type_get_child_type.restype = ctypes.c_int
-    _LIB.lbug_data_type_get_num_elements_in_array.argtypes = [ctypes.POINTER(_LbugLogicalType), ctypes.POINTER(ctypes.c_uint64)]
+    _LIB.lbug_data_type_get_num_elements_in_array.argtypes = [
+        ctypes.POINTER(_LbugLogicalType),
+        ctypes.POINTER(ctypes.c_uint64),
+    ]
     _LIB.lbug_data_type_get_num_elements_in_array.restype = ctypes.c_int
     _LIB.lbug_data_type_destroy.argtypes = [ctypes.POINTER(_LbugLogicalType)]
 
-    _LIB.lbug_value_get_bool.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_bool)]
+    _LIB.lbug_value_get_bool.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_bool),
+    ]
     _LIB.lbug_value_get_bool.restype = ctypes.c_int
-    _LIB.lbug_value_get_int64.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_int64)]
+    _LIB.lbug_value_get_int64.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_int64),
+    ]
     _LIB.lbug_value_get_int64.restype = ctypes.c_int
-    _LIB.lbug_value_get_int32.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_int32)]
+    _LIB.lbug_value_get_int32.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_int32),
+    ]
     _LIB.lbug_value_get_int32.restype = ctypes.c_int
-    _LIB.lbug_value_get_int16.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_int16)]
+    _LIB.lbug_value_get_int16.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_int16),
+    ]
     _LIB.lbug_value_get_int16.restype = ctypes.c_int
-    _LIB.lbug_value_get_int8.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_int8)]
+    _LIB.lbug_value_get_int8.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_int8),
+    ]
     _LIB.lbug_value_get_int8.restype = ctypes.c_int
-    _LIB.lbug_value_get_uint64.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint64)]
+    _LIB.lbug_value_get_uint64.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_uint64),
+    ]
     _LIB.lbug_value_get_uint64.restype = ctypes.c_int
-    _LIB.lbug_value_get_uint32.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint32)]
+    _LIB.lbug_value_get_uint32.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_uint32),
+    ]
     _LIB.lbug_value_get_uint32.restype = ctypes.c_int
-    _LIB.lbug_value_get_uint16.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint16)]
+    _LIB.lbug_value_get_uint16.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_uint16),
+    ]
     _LIB.lbug_value_get_uint16.restype = ctypes.c_int
-    _LIB.lbug_value_get_uint8.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint8)]
+    _LIB.lbug_value_get_uint8.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_uint8),
+    ]
     _LIB.lbug_value_get_uint8.restype = ctypes.c_int
-    _LIB.lbug_value_get_int128.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugInt128)]
+    _LIB.lbug_value_get_int128.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugInt128),
+    ]
     _LIB.lbug_value_get_int128.restype = ctypes.c_int
-    _LIB.lbug_value_get_double.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_double)]
+    _LIB.lbug_value_get_double.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_double),
+    ]
     _LIB.lbug_value_get_double.restype = ctypes.c_int
-    _LIB.lbug_value_get_float.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_float)]
+    _LIB.lbug_value_get_float.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_float),
+    ]
     _LIB.lbug_value_get_float.restype = ctypes.c_int
-    _LIB.lbug_value_get_string.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_void_p)]
+    _LIB.lbug_value_get_string.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
     _LIB.lbug_value_get_string.restype = ctypes.c_int
-    _LIB.lbug_value_get_uuid.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_void_p)]
+    _LIB.lbug_value_get_uuid.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
     _LIB.lbug_value_get_uuid.restype = ctypes.c_int
-    _LIB.lbug_value_get_decimal_as_string.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_void_p)]
+    _LIB.lbug_value_get_decimal_as_string.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
     _LIB.lbug_value_get_decimal_as_string.restype = ctypes.c_int
     _LIB.lbug_value_get_blob.argtypes = [
         ctypes.POINTER(_LbugValue),
@@ -365,71 +495,170 @@ def _setup_signatures() -> None:
     ]
     _LIB.lbug_value_get_blob.restype = ctypes.c_int
 
-    _LIB.lbug_value_get_internal_id.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugInternalID)]
+    _LIB.lbug_value_get_internal_id.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugInternalID),
+    ]
     _LIB.lbug_value_get_internal_id.restype = ctypes.c_int
-    _LIB.lbug_value_get_date.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugDate)]
+    _LIB.lbug_value_get_date.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugDate),
+    ]
     _LIB.lbug_value_get_date.restype = ctypes.c_int
-    _LIB.lbug_value_get_timestamp.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugTimestamp)]
+    _LIB.lbug_value_get_timestamp.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugTimestamp),
+    ]
     _LIB.lbug_value_get_timestamp.restype = ctypes.c_int
-    _LIB.lbug_value_get_timestamp_ns.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugTimestamp)]
+    _LIB.lbug_value_get_timestamp_ns.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugTimestamp),
+    ]
     _LIB.lbug_value_get_timestamp_ns.restype = ctypes.c_int
-    _LIB.lbug_value_get_timestamp_ms.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugTimestamp)]
+    _LIB.lbug_value_get_timestamp_ms.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugTimestamp),
+    ]
     _LIB.lbug_value_get_timestamp_ms.restype = ctypes.c_int
-    _LIB.lbug_value_get_timestamp_sec.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugTimestamp)]
+    _LIB.lbug_value_get_timestamp_sec.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugTimestamp),
+    ]
     _LIB.lbug_value_get_timestamp_sec.restype = ctypes.c_int
-    _LIB.lbug_value_get_timestamp_tz.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugTimestamp)]
+    _LIB.lbug_value_get_timestamp_tz.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugTimestamp),
+    ]
     _LIB.lbug_value_get_timestamp_tz.restype = ctypes.c_int
-    _LIB.lbug_value_get_interval.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugInterval)]
+    _LIB.lbug_value_get_interval.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugInterval),
+    ]
     _LIB.lbug_value_get_interval.restype = ctypes.c_int
 
-    _LIB.lbug_value_get_list_size.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint64)]
+    _LIB.lbug_value_get_list_size.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_uint64),
+    ]
     _LIB.lbug_value_get_list_size.restype = ctypes.c_int
-    _LIB.lbug_value_get_list_element.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_value_get_list_element.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_value_get_list_element.restype = ctypes.c_int
 
-    _LIB.lbug_value_get_struct_num_fields.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint64)]
+    _LIB.lbug_value_get_struct_num_fields.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_uint64),
+    ]
     _LIB.lbug_value_get_struct_num_fields.restype = ctypes.c_int
-    _LIB.lbug_value_get_struct_field_name.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(ctypes.c_void_p)]
+    _LIB.lbug_value_get_struct_field_name.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
     _LIB.lbug_value_get_struct_field_name.restype = ctypes.c_int
-    _LIB.lbug_value_get_struct_field_value.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_value_get_struct_field_value.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_value_get_struct_field_value.restype = ctypes.c_int
 
-    _LIB.lbug_value_get_map_size.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint64)]
+    _LIB.lbug_value_get_map_size.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_uint64),
+    ]
     _LIB.lbug_value_get_map_size.restype = ctypes.c_int
-    _LIB.lbug_value_get_map_key.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_value_get_map_key.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_value_get_map_key.restype = ctypes.c_int
-    _LIB.lbug_value_get_map_value.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_value_get_map_value.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_value_get_map_value.restype = ctypes.c_int
 
-    _LIB.lbug_node_val_get_id_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_node_val_get_id_val.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_node_val_get_id_val.restype = ctypes.c_int
-    _LIB.lbug_node_val_get_label_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_node_val_get_label_val.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_node_val_get_label_val.restype = ctypes.c_int
-    _LIB.lbug_node_val_get_property_size.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint64)]
+    _LIB.lbug_node_val_get_property_size.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_uint64),
+    ]
     _LIB.lbug_node_val_get_property_size.restype = ctypes.c_int
-    _LIB.lbug_node_val_get_property_name_at.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(ctypes.c_void_p)]
+    _LIB.lbug_node_val_get_property_name_at.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
     _LIB.lbug_node_val_get_property_name_at.restype = ctypes.c_int
-    _LIB.lbug_node_val_get_property_value_at.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_node_val_get_property_value_at.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_node_val_get_property_value_at.restype = ctypes.c_int
 
-    _LIB.lbug_rel_val_get_id_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_id_val.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_rel_val_get_id_val.restype = ctypes.c_int
-    _LIB.lbug_rel_val_get_src_id_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_src_id_val.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_rel_val_get_src_id_val.restype = ctypes.c_int
-    _LIB.lbug_rel_val_get_dst_id_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_dst_id_val.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_rel_val_get_dst_id_val.restype = ctypes.c_int
-    _LIB.lbug_rel_val_get_label_val.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_label_val.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_rel_val_get_label_val.restype = ctypes.c_int
-    _LIB.lbug_rel_val_get_property_size.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(ctypes.c_uint64)]
+    _LIB.lbug_rel_val_get_property_size.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(ctypes.c_uint64),
+    ]
     _LIB.lbug_rel_val_get_property_size.restype = ctypes.c_int
-    _LIB.lbug_rel_val_get_property_name_at.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(ctypes.c_void_p)]
+    _LIB.lbug_rel_val_get_property_name_at.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.c_uint64,
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
     _LIB.lbug_rel_val_get_property_name_at.restype = ctypes.c_int
-    _LIB.lbug_rel_val_get_property_value_at.argtypes = [ctypes.POINTER(_LbugValue), ctypes.c_uint64, ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_rel_val_get_property_value_at.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_rel_val_get_property_value_at.restype = ctypes.c_int
 
-    _LIB.lbug_value_get_recursive_rel_node_list.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_value_get_recursive_rel_node_list.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_value_get_recursive_rel_node_list.restype = ctypes.c_int
-    _LIB.lbug_value_get_recursive_rel_rel_list.argtypes = [ctypes.POINTER(_LbugValue), ctypes.POINTER(_LbugValue)]
+    _LIB.lbug_value_get_recursive_rel_rel_list.argtypes = [
+        ctypes.POINTER(_LbugValue),
+        ctypes.POINTER(_LbugValue),
+    ]
     _LIB.lbug_value_get_recursive_rel_rel_list.restype = ctypes.c_int
 
     _LIB.lbug_value_to_string.argtypes = [ctypes.POINTER(_LbugValue)]
@@ -511,7 +740,12 @@ def _logical_type_to_str(logical_type: _LbugLogicalType) -> str:
     type_id = _LIB.lbug_data_type_get_id(ctypes.byref(logical_type))
     if type_id == _LBUG_LIST:
         child = _LbugLogicalType()
-        _check_state(_LIB.lbug_data_type_get_child_type(ctypes.byref(logical_type), ctypes.byref(child)), "Failed to read LIST child type")
+        _check_state(
+            _LIB.lbug_data_type_get_child_type(
+                ctypes.byref(logical_type), ctypes.byref(child)
+            ),
+            "Failed to read LIST child type",
+        )
         try:
             return f"{_logical_type_to_str(child)}[]"
         finally:
@@ -519,9 +753,16 @@ def _logical_type_to_str(logical_type: _LbugLogicalType) -> str:
     if type_id == _LBUG_ARRAY:
         child = _LbugLogicalType()
         size = ctypes.c_uint64(0)
-        _check_state(_LIB.lbug_data_type_get_child_type(ctypes.byref(logical_type), ctypes.byref(child)), "Failed to read ARRAY child type")
         _check_state(
-            _LIB.lbug_data_type_get_num_elements_in_array(ctypes.byref(logical_type), ctypes.byref(size)),
+            _LIB.lbug_data_type_get_child_type(
+                ctypes.byref(logical_type), ctypes.byref(child)
+            ),
+            "Failed to read ARRAY child type",
+        )
+        _check_state(
+            _LIB.lbug_data_type_get_num_elements_in_array(
+                ctypes.byref(logical_type), ctypes.byref(size)
+            ),
             "Failed to read ARRAY size",
         )
         try:
@@ -601,7 +842,9 @@ def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
     if isinstance(value, dt.timedelta):
         total_seconds = value.days * 86400 + value.seconds
         micros = total_seconds * 1_000_000 + value.microseconds
-        return _LIB.lbug_value_create_interval(_LbugInterval(months=0, days=0, micros=micros))
+        return _LIB.lbug_value_create_interval(
+            _LbugInterval(months=0, days=0, micros=micros)
+        )
     if isinstance(value, (list, tuple)):
         child_ptrs: list[ctypes.POINTER(_LbugValue)] = []
         try:
@@ -636,7 +879,9 @@ def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
                 key_arr_type = ctypes.POINTER(_LbugValue) * len(key_ptrs)
                 value_arr_type = ctypes.POINTER(_LbugValue) * len(value_ptrs)
                 key_arr = key_arr_type(*key_ptrs) if key_ptrs else key_arr_type()
-                value_arr = value_arr_type(*value_ptrs) if value_ptrs else value_arr_type()
+                value_arr = (
+                    value_arr_type(*value_ptrs) if value_ptrs else value_arr_type()
+                )
                 _check_state(
                     _LIB.lbug_value_create_map(
                         len(key_ptrs),
@@ -664,7 +909,9 @@ def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
                 name_arr_type = ctypes.c_char_p * len(names)
                 value_arr_type = ctypes.POINTER(_LbugValue) * len(child_ptrs)
                 name_arr = name_arr_type(*names) if names else name_arr_type()
-                value_arr = value_arr_type(*child_ptrs) if child_ptrs else value_arr_type()
+                value_arr = (
+                    value_arr_type(*child_ptrs) if child_ptrs else value_arr_type()
+                )
                 _check_state(
                     _LIB.lbug_value_create_struct(
                         len(names),
@@ -725,7 +972,9 @@ class Database:
         enable_multi_writes: bool = False,
     ):
         if enable_multi_writes:
-            raise NotImplementedError("enable_multi_writes is not yet wired in C-API backend")
+            raise NotImplementedError(
+                "enable_multi_writes is not yet wired in C-API backend"
+            )
         self._database = _LbugDatabase()
         config = _LIB.lbug_default_system_config()
         config.buffer_pool_size = buffer_pool_size
@@ -739,7 +988,9 @@ class Database:
         config.throw_on_wal_replay_failure = throw_on_wal_replay_failure
         config.enable_checksums = enable_checksums
 
-        state = _LIB.lbug_database_init(database_path.encode("utf-8"), config, ctypes.byref(self._database))
+        state = _LIB.lbug_database_init(
+            database_path.encode("utf-8"), config, ctypes.byref(self._database)
+        )
         _check_state(state, "Failed to initialize database")
 
     def close(self) -> None:
@@ -756,7 +1007,9 @@ class Database:
         return int(_LIB.lbug_get_storage_version())
 
     def scan_node_table_as_int64(self, *_args: Any, **_kwargs: Any) -> None:
-        raise NotImplementedError("scan_node_table_* is not yet implemented in C-API backend")
+        raise NotImplementedError(
+            "scan_node_table_* is not yet implemented in C-API backend"
+        )
 
     scan_node_table_as_int32 = scan_node_table_as_int64
     scan_node_table_as_int16 = scan_node_table_as_int64
@@ -775,16 +1028,20 @@ class PreparedStatement:
             self._prepared._prepared_statement = None
 
     def is_success(self) -> bool:
-        return bool(_LIB.lbug_prepared_statement_is_success(ctypes.byref(self._prepared)))
+        return bool(
+            _LIB.lbug_prepared_statement_is_success(ctypes.byref(self._prepared))
+        )
 
     def get_error_message(self) -> str:
-        return _decode_c_string(_LIB.lbug_prepared_statement_get_error_message(ctypes.byref(self._prepared)))
+        return _decode_c_string(
+            _LIB.lbug_prepared_statement_get_error_message(ctypes.byref(self._prepared))
+        )
 
     def bind_parameters(self, parameters: dict[str, Any]) -> None:
         for key, value in parameters.items():
             if not isinstance(key, str):
                 msg = f"Parameter name must be of type string but got {type(key)}"
-                raise RuntimeError(msg)
+                raise TypeError(msg)
             key_b = key.encode("utf-8")
             value_ptr = _value_from_python(value)
             try:
@@ -837,15 +1094,21 @@ class QueryResult:
         return bool(_LIB.lbug_query_result_is_success(ctypes.byref(self._result)))
 
     def getErrorMessage(self) -> str:
-        return self._adopt_c_string(_LIB.lbug_query_result_get_error_message(ctypes.byref(self._result)))
+        return self._adopt_c_string(
+            _LIB.lbug_query_result_get_error_message(ctypes.byref(self._result))
+        )
 
     def getColumnNames(self) -> list[str]:
         columns: list[str] = []
-        num_cols = int(_LIB.lbug_query_result_get_num_columns(ctypes.byref(self._result)))
+        num_cols = int(
+            _LIB.lbug_query_result_get_num_columns(ctypes.byref(self._result))
+        )
         for idx in range(num_cols):
             out = ctypes.c_void_p()
             _check_state(
-                _LIB.lbug_query_result_get_column_name(ctypes.byref(self._result), idx, ctypes.byref(out)),
+                _LIB.lbug_query_result_get_column_name(
+                    ctypes.byref(self._result), idx, ctypes.byref(out)
+                ),
                 "Failed to get column name",
             )
             columns.append(self._adopt_c_string(out))
@@ -853,7 +1116,9 @@ class QueryResult:
 
     def getColumnDataTypes(self) -> list[str]:
         dtypes: list[str] = []
-        num_cols = int(_LIB.lbug_query_result_get_num_columns(ctypes.byref(self._result)))
+        num_cols = int(
+            _LIB.lbug_query_result_get_num_columns(ctypes.byref(self._result))
+        )
         for idx in range(num_cols):
             logical_type = _LbugLogicalType()
             _check_state(
@@ -874,16 +1139,22 @@ class QueryResult:
     def getNext(self) -> list[Any]:
         flat = _LbugFlatTuple()
         _check_state(
-            _LIB.lbug_query_result_get_next(ctypes.byref(self._result), ctypes.byref(flat)),
+            _LIB.lbug_query_result_get_next(
+                ctypes.byref(self._result), ctypes.byref(flat)
+            ),
             "Failed to fetch next row",
         )
         try:
-            num_cols = int(_LIB.lbug_query_result_get_num_columns(ctypes.byref(self._result)))
+            num_cols = int(
+                _LIB.lbug_query_result_get_num_columns(ctypes.byref(self._result))
+            )
             row: list[Any] = []
             for idx in range(num_cols):
                 value = _LbugValue()
                 _check_state(
-                    _LIB.lbug_flat_tuple_get_value(ctypes.byref(flat), idx, ctypes.byref(value)),
+                    _LIB.lbug_flat_tuple_get_value(
+                        ctypes.byref(flat), idx, ctypes.byref(value)
+                    ),
                     "Failed to read tuple value",
                 )
                 try:
@@ -901,12 +1172,16 @@ class QueryResult:
         return int(_LIB.lbug_query_result_get_num_tuples(ctypes.byref(self._result)))
 
     def hasNextQueryResult(self) -> bool:
-        return bool(_LIB.lbug_query_result_has_next_query_result(ctypes.byref(self._result)))
+        return bool(
+            _LIB.lbug_query_result_has_next_query_result(ctypes.byref(self._result))
+        )
 
     def getNextQueryResult(self) -> QueryResult:
         next_result = _LbugQueryResult()
         _check_state(
-            _LIB.lbug_query_result_get_next_query_result(ctypes.byref(self._result), ctypes.byref(next_result)),
+            _LIB.lbug_query_result_get_next_query_result(
+                ctypes.byref(self._result), ctypes.byref(next_result)
+            ),
             "Failed to fetch next query result",
         )
         return QueryResult(next_result)
@@ -914,30 +1189,42 @@ class QueryResult:
     def getCompilingTime(self) -> float:
         summary = _LbugQuerySummary()
         _check_state(
-            _LIB.lbug_query_result_get_query_summary(ctypes.byref(self._result), ctypes.byref(summary)),
+            _LIB.lbug_query_result_get_query_summary(
+                ctypes.byref(self._result), ctypes.byref(summary)
+            ),
             "Failed to read query summary",
         )
         try:
-            return float(_LIB.lbug_query_summary_get_compiling_time(ctypes.byref(summary)))
+            return float(
+                _LIB.lbug_query_summary_get_compiling_time(ctypes.byref(summary))
+            )
         finally:
             _LIB.lbug_query_summary_destroy(ctypes.byref(summary))
 
     def getExecutionTime(self) -> float:
         summary = _LbugQuerySummary()
         _check_state(
-            _LIB.lbug_query_result_get_query_summary(ctypes.byref(self._result), ctypes.byref(summary)),
+            _LIB.lbug_query_result_get_query_summary(
+                ctypes.byref(self._result), ctypes.byref(summary)
+            ),
             "Failed to read query summary",
         )
         try:
-            return float(_LIB.lbug_query_summary_get_execution_time(ctypes.byref(summary)))
+            return float(
+                _LIB.lbug_query_summary_get_execution_time(ctypes.byref(summary))
+            )
         finally:
             _LIB.lbug_query_summary_destroy(ctypes.byref(summary))
 
     def getAsArrow(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise NotImplementedError("Arrow export is not yet implemented in C-API backend")
+        raise NotImplementedError(
+            "Arrow export is not yet implemented in C-API backend"
+        )
 
     def getAsDF(self) -> Any:
-        raise NotImplementedError("DataFrame export is not yet implemented in C-API backend")
+        raise NotImplementedError(
+            "DataFrame export is not yet implemented in C-API backend"
+        )
 
     def _convert_value(self, value: _LbugValue) -> Any:
         if _LIB.lbug_value_is_null(ctypes.byref(value)):
@@ -950,39 +1237,66 @@ class QueryResult:
 
             if type_id == _LBUG_BOOL:
                 out = ctypes.c_bool()
-                _check_state(_LIB.lbug_value_get_bool(ctypes.byref(value), ctypes.byref(out)), "Failed to read bool")
+                _check_state(
+                    _LIB.lbug_value_get_bool(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read bool",
+                )
                 return bool(out.value)
             if type_id in (_LBUG_INT64, _LBUG_SERIAL):
                 out = ctypes.c_int64()
-                _check_state(_LIB.lbug_value_get_int64(ctypes.byref(value), ctypes.byref(out)), "Failed to read int64")
+                _check_state(
+                    _LIB.lbug_value_get_int64(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read int64",
+                )
                 return int(out.value)
             if type_id == _LBUG_INT32:
                 out = ctypes.c_int32()
-                _check_state(_LIB.lbug_value_get_int32(ctypes.byref(value), ctypes.byref(out)), "Failed to read int32")
+                _check_state(
+                    _LIB.lbug_value_get_int32(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read int32",
+                )
                 return int(out.value)
             if type_id == _LBUG_INT16:
                 out = ctypes.c_int16()
-                _check_state(_LIB.lbug_value_get_int16(ctypes.byref(value), ctypes.byref(out)), "Failed to read int16")
+                _check_state(
+                    _LIB.lbug_value_get_int16(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read int16",
+                )
                 return int(out.value)
             if type_id == _LBUG_INT8:
                 out = ctypes.c_int8()
-                _check_state(_LIB.lbug_value_get_int8(ctypes.byref(value), ctypes.byref(out)), "Failed to read int8")
+                _check_state(
+                    _LIB.lbug_value_get_int8(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read int8",
+                )
                 return int(out.value)
             if type_id == _LBUG_UINT64:
                 out = ctypes.c_uint64()
-                _check_state(_LIB.lbug_value_get_uint64(ctypes.byref(value), ctypes.byref(out)), "Failed to read uint64")
+                _check_state(
+                    _LIB.lbug_value_get_uint64(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read uint64",
+                )
                 return int(out.value)
             if type_id == _LBUG_UINT32:
                 out = ctypes.c_uint32()
-                _check_state(_LIB.lbug_value_get_uint32(ctypes.byref(value), ctypes.byref(out)), "Failed to read uint32")
+                _check_state(
+                    _LIB.lbug_value_get_uint32(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read uint32",
+                )
                 return int(out.value)
             if type_id == _LBUG_UINT16:
                 out = ctypes.c_uint16()
-                _check_state(_LIB.lbug_value_get_uint16(ctypes.byref(value), ctypes.byref(out)), "Failed to read uint16")
+                _check_state(
+                    _LIB.lbug_value_get_uint16(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read uint16",
+                )
                 return int(out.value)
             if type_id == _LBUG_UINT8:
                 out = ctypes.c_uint8()
-                _check_state(_LIB.lbug_value_get_uint8(ctypes.byref(value), ctypes.byref(out)), "Failed to read uint8")
+                _check_state(
+                    _LIB.lbug_value_get_uint8(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read uint8",
+                )
                 return int(out.value)
             if type_id == _LBUG_INT128:
                 out = _LbugInt128()
@@ -994,15 +1308,24 @@ class QueryResult:
                 return int(combined)
             if type_id == _LBUG_DOUBLE:
                 out = ctypes.c_double()
-                _check_state(_LIB.lbug_value_get_double(ctypes.byref(value), ctypes.byref(out)), "Failed to read double")
+                _check_state(
+                    _LIB.lbug_value_get_double(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read double",
+                )
                 return float(out.value)
             if type_id == _LBUG_FLOAT:
                 out = ctypes.c_float()
-                _check_state(_LIB.lbug_value_get_float(ctypes.byref(value), ctypes.byref(out)), "Failed to read float")
+                _check_state(
+                    _LIB.lbug_value_get_float(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read float",
+                )
                 return float(out.value)
             if type_id == _LBUG_STRING:
                 out = ctypes.c_void_p()
-                _check_state(_LIB.lbug_value_get_string(ctypes.byref(value), ctypes.byref(out)), "Failed to read string")
+                _check_state(
+                    _LIB.lbug_value_get_string(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read string",
+                )
                 return self._adopt_c_string(out)
             if type_id == _LBUG_UUID:
                 out = ctypes.c_void_p()
@@ -1014,7 +1337,9 @@ class QueryResult:
             if type_id == _LBUG_DECIMAL:
                 out = ctypes.c_void_p()
                 _check_state(
-                    _LIB.lbug_value_get_decimal_as_string(ctypes.byref(value), ctypes.byref(out)),
+                    _LIB.lbug_value_get_decimal_as_string(
+                        ctypes.byref(value), ctypes.byref(out)
+                    ),
                     "Failed to read decimal",
                 )
                 return Decimal(self._adopt_c_string(out))
@@ -1022,54 +1347,87 @@ class QueryResult:
                 out_ptr = ctypes.POINTER(ctypes.c_uint8)()
                 out_len = ctypes.c_uint64(0)
                 _check_state(
-                    _LIB.lbug_value_get_blob(ctypes.byref(value), ctypes.byref(out_ptr), ctypes.byref(out_len)),
+                    _LIB.lbug_value_get_blob(
+                        ctypes.byref(value),
+                        ctypes.byref(out_ptr),
+                        ctypes.byref(out_len),
+                    ),
                     "Failed to read blob",
                 )
                 return self._adopt_blob(out_ptr, out_len.value)
             if type_id == _LBUG_INTERNAL_ID:
                 out = _LbugInternalID()
                 _check_state(
-                    _LIB.lbug_value_get_internal_id(ctypes.byref(value), ctypes.byref(out)),
+                    _LIB.lbug_value_get_internal_id(
+                        ctypes.byref(value), ctypes.byref(out)
+                    ),
                     "Failed to read internal id",
                 )
                 return {"table": int(out.table_id), "offset": int(out.offset)}
             if type_id == _LBUG_DATE:
                 out = _LbugDate()
-                _check_state(_LIB.lbug_value_get_date(ctypes.byref(value), ctypes.byref(out)), "Failed to read date")
+                _check_state(
+                    _LIB.lbug_value_get_date(ctypes.byref(value), ctypes.byref(out)),
+                    "Failed to read date",
+                )
                 return dt.date(1970, 1, 1) + dt.timedelta(days=int(out.days))
             if type_id == _LBUG_TIMESTAMP:
                 out = _LbugTimestamp()
-                _check_state(_LIB.lbug_value_get_timestamp(ctypes.byref(value), ctypes.byref(out)), "Failed to read timestamp")
+                _check_state(
+                    _LIB.lbug_value_get_timestamp(
+                        ctypes.byref(value), ctypes.byref(out)
+                    ),
+                    "Failed to read timestamp",
+                )
                 return _to_datetime_from_micros(int(out.value))
             if type_id == _LBUG_TIMESTAMP_TZ:
                 out = _LbugTimestamp()
                 _check_state(
-                    _LIB.lbug_value_get_timestamp_tz(ctypes.byref(value), ctypes.byref(out)),
+                    _LIB.lbug_value_get_timestamp_tz(
+                        ctypes.byref(value), ctypes.byref(out)
+                    ),
                     "Failed to read timestamp_tz",
                 )
                 return _to_datetime_from_micros(int(out.value), tz_aware=True)
             if type_id == _LBUG_TIMESTAMP_MS:
                 out = _LbugTimestamp()
-                _check_state(_LIB.lbug_value_get_timestamp_ms(ctypes.byref(value), ctypes.byref(out)), "Failed to read timestamp_ms")
+                _check_state(
+                    _LIB.lbug_value_get_timestamp_ms(
+                        ctypes.byref(value), ctypes.byref(out)
+                    ),
+                    "Failed to read timestamp_ms",
+                )
                 return dt.datetime.fromtimestamp(
                     int(out.value) / 1000, tz=dt.timezone.utc
                 ).replace(tzinfo=None)
             if type_id == _LBUG_TIMESTAMP_SEC:
                 out = _LbugTimestamp()
-                _check_state(_LIB.lbug_value_get_timestamp_sec(ctypes.byref(value), ctypes.byref(out)), "Failed to read timestamp_sec")
+                _check_state(
+                    _LIB.lbug_value_get_timestamp_sec(
+                        ctypes.byref(value), ctypes.byref(out)
+                    ),
+                    "Failed to read timestamp_sec",
+                )
                 return dt.datetime.fromtimestamp(
                     int(out.value), tz=dt.timezone.utc
                 ).replace(tzinfo=None)
             if type_id == _LBUG_TIMESTAMP_NS:
                 out = _LbugTimestamp()
-                _check_state(_LIB.lbug_value_get_timestamp_ns(ctypes.byref(value), ctypes.byref(out)), "Failed to read timestamp_ns")
+                _check_state(
+                    _LIB.lbug_value_get_timestamp_ns(
+                        ctypes.byref(value), ctypes.byref(out)
+                    ),
+                    "Failed to read timestamp_ns",
+                )
                 return dt.datetime.fromtimestamp(
                     int(out.value) / 1_000_000_000, tz=dt.timezone.utc
                 ).replace(tzinfo=None)
             if type_id == _LBUG_INTERVAL:
                 out = _LbugInterval()
                 _check_state(
-                    _LIB.lbug_value_get_interval(ctypes.byref(value), ctypes.byref(out)),
+                    _LIB.lbug_value_get_interval(
+                        ctypes.byref(value), ctypes.byref(out)
+                    ),
                     "Failed to read interval",
                 )
                 total_days = int(out.days) + int(out.months) * 30
@@ -1088,7 +1446,9 @@ class QueryResult:
                 for i in range(size.value):
                     child = _LbugValue()
                     _check_state(
-                        _LIB.lbug_value_get_list_element(ctypes.byref(value), i, ctypes.byref(child)),
+                        _LIB.lbug_value_get_list_element(
+                            ctypes.byref(value), i, ctypes.byref(child)
+                        ),
                         "Failed to read list element",
                     )
                     try:
@@ -1103,11 +1463,15 @@ class QueryResult:
                 label_val = _LbugValue()
                 try:
                     _check_state(
-                        _LIB.lbug_node_val_get_id_val(ctypes.byref(value), ctypes.byref(id_val)),
+                        _LIB.lbug_node_val_get_id_val(
+                            ctypes.byref(value), ctypes.byref(id_val)
+                        ),
                         "Failed to read node id",
                     )
                     _check_state(
-                        _LIB.lbug_node_val_get_label_val(ctypes.byref(value), ctypes.byref(label_val)),
+                        _LIB.lbug_node_val_get_label_val(
+                            ctypes.byref(value), ctypes.byref(label_val)
+                        ),
                         "Failed to read node label",
                     )
                     out_obj["_ID"] = self._convert_value(id_val)
@@ -1118,7 +1482,9 @@ class QueryResult:
 
                 count = ctypes.c_uint64(0)
                 _check_state(
-                    _LIB.lbug_node_val_get_property_size(ctypes.byref(value), ctypes.byref(count)),
+                    _LIB.lbug_node_val_get_property_size(
+                        ctypes.byref(value), ctypes.byref(count)
+                    ),
                     "Failed to read node property size",
                 )
                 for i in range(count.value):
@@ -1146,7 +1512,10 @@ class QueryResult:
                             )
                             == _LBUG_SUCCESS
                         ):
-                            total_days = int(interval_probe.days) + int(interval_probe.months) * 30
+                            total_days = (
+                                int(interval_probe.days)
+                                + int(interval_probe.months) * 30
+                            )
                             out_obj[key] = dt.timedelta(
                                 days=total_days,
                                 microseconds=int(interval_probe.micros),
@@ -1163,7 +1532,9 @@ class QueryResult:
 
                                     match = re.search(r"(-?\\d+)\\s*days?", rendered)
                                     if match:
-                                        out_obj[key] = dt.timedelta(days=int(match.group(1)))
+                                        out_obj[key] = dt.timedelta(
+                                            days=int(match.group(1))
+                                        )
                                     else:
                                         out_obj[key] = rendered
                                 else:
@@ -1181,19 +1552,27 @@ class QueryResult:
                 label_val = _LbugValue()
                 try:
                     _check_state(
-                        _LIB.lbug_rel_val_get_id_val(ctypes.byref(value), ctypes.byref(id_val)),
+                        _LIB.lbug_rel_val_get_id_val(
+                            ctypes.byref(value), ctypes.byref(id_val)
+                        ),
                         "Failed to read rel id",
                     )
                     _check_state(
-                        _LIB.lbug_rel_val_get_src_id_val(ctypes.byref(value), ctypes.byref(src_val)),
+                        _LIB.lbug_rel_val_get_src_id_val(
+                            ctypes.byref(value), ctypes.byref(src_val)
+                        ),
                         "Failed to read rel src",
                     )
                     _check_state(
-                        _LIB.lbug_rel_val_get_dst_id_val(ctypes.byref(value), ctypes.byref(dst_val)),
+                        _LIB.lbug_rel_val_get_dst_id_val(
+                            ctypes.byref(value), ctypes.byref(dst_val)
+                        ),
                         "Failed to read rel dst",
                     )
                     _check_state(
-                        _LIB.lbug_rel_val_get_label_val(ctypes.byref(value), ctypes.byref(label_val)),
+                        _LIB.lbug_rel_val_get_label_val(
+                            ctypes.byref(value), ctypes.byref(label_val)
+                        ),
                         "Failed to read rel label",
                     )
                     out_obj["_ID"] = self._convert_value(id_val)
@@ -1208,7 +1587,9 @@ class QueryResult:
 
                 count = ctypes.c_uint64(0)
                 _check_state(
-                    _LIB.lbug_rel_val_get_property_size(ctypes.byref(value), ctypes.byref(count)),
+                    _LIB.lbug_rel_val_get_property_size(
+                        ctypes.byref(value), ctypes.byref(count)
+                    ),
                     "Failed to read rel property size",
                 )
                 for i in range(count.value):
@@ -1236,7 +1617,10 @@ class QueryResult:
                             )
                             == _LBUG_SUCCESS
                         ):
-                            total_days = int(interval_probe.days) + int(interval_probe.months) * 30
+                            total_days = (
+                                int(interval_probe.days)
+                                + int(interval_probe.months) * 30
+                            )
                             out_obj[key] = dt.timedelta(
                                 days=total_days,
                                 microseconds=int(interval_probe.micros),
@@ -1287,18 +1671,26 @@ class QueryResult:
                     )
                     == _LBUG_SUCCESS
                 ):
-                    total_days = int(interval_probe.days) + int(interval_probe.months) * 30
-                    return dt.timedelta(days=total_days, microseconds=int(interval_probe.micros))
+                    total_days = (
+                        int(interval_probe.days) + int(interval_probe.months) * 30
+                    )
+                    return dt.timedelta(
+                        days=total_days, microseconds=int(interval_probe.micros)
+                    )
                 count = ctypes.c_uint64(0)
                 _check_state(
-                    _LIB.lbug_value_get_struct_num_fields(ctypes.byref(value), ctypes.byref(count)),
+                    _LIB.lbug_value_get_struct_num_fields(
+                        ctypes.byref(value), ctypes.byref(count)
+                    ),
                     "Failed to read struct field count",
                 )
                 out_obj: dict[str, Any] = {}
                 for i in range(count.value):
                     key_ptr = ctypes.c_void_p()
                     _check_state(
-                        _LIB.lbug_value_get_struct_field_name(ctypes.byref(value), i, ctypes.byref(key_ptr)),
+                        _LIB.lbug_value_get_struct_field_name(
+                            ctypes.byref(value), i, ctypes.byref(key_ptr)
+                        ),
                         "Failed to read struct field name",
                     )
                     key = self._adopt_c_string(key_ptr)
@@ -1320,7 +1712,9 @@ class QueryResult:
             if type_id == _LBUG_MAP:
                 count = ctypes.c_uint64(0)
                 _check_state(
-                    _LIB.lbug_value_get_map_size(ctypes.byref(value), ctypes.byref(count)),
+                    _LIB.lbug_value_get_map_size(
+                        ctypes.byref(value), ctypes.byref(count)
+                    ),
                     "Failed to read map size",
                 )
                 out_map: dict[Any, Any] = {}
@@ -1328,21 +1722,29 @@ class QueryResult:
                     key_val = _LbugValue()
                     val_val = _LbugValue()
                     _check_state(
-                        _LIB.lbug_value_get_map_key(ctypes.byref(value), i, ctypes.byref(key_val)),
+                        _LIB.lbug_value_get_map_key(
+                            ctypes.byref(value), i, ctypes.byref(key_val)
+                        ),
                         "Failed to read map key",
                     )
                     _check_state(
-                        _LIB.lbug_value_get_map_value(ctypes.byref(value), i, ctypes.byref(val_val)),
+                        _LIB.lbug_value_get_map_value(
+                            ctypes.byref(value), i, ctypes.byref(val_val)
+                        ),
                         "Failed to read map value",
                     )
                     try:
-                        out_map[self._convert_value(key_val)] = self._convert_value(val_val)
+                        out_map[self._convert_value(key_val)] = self._convert_value(
+                            val_val
+                        )
                     finally:
                         _LIB.lbug_value_destroy(ctypes.byref(key_val))
                         _LIB.lbug_value_destroy(ctypes.byref(val_val))
                 return out_map
 
-            rendered = self._adopt_c_string(_LIB.lbug_value_to_string(ctypes.byref(value)))
+            rendered = self._adopt_c_string(
+                _LIB.lbug_value_to_string(ctypes.byref(value))
+            )
             return _parse_rendered_value(rendered)
         finally:
             _LIB.lbug_data_type_destroy(ctypes.byref(logical_type))
@@ -1352,7 +1754,9 @@ class Connection:
     def __init__(self, database: Database, num_threads: int = 0):
         self._connection = _LbugConnection()
         _check_state(
-            _LIB.lbug_connection_init(ctypes.byref(database._database), ctypes.byref(self._connection)),
+            _LIB.lbug_connection_init(
+                ctypes.byref(database._database), ctypes.byref(self._connection)
+            ),
             "Failed to initialize connection",
         )
         if num_threads > 0:
@@ -1373,7 +1777,9 @@ class Connection:
 
     def set_query_timeout(self, timeout_in_ms: int) -> None:
         _check_state(
-            _LIB.lbug_connection_set_query_timeout(ctypes.byref(self._connection), int(timeout_in_ms)),
+            _LIB.lbug_connection_set_query_timeout(
+                ctypes.byref(self._connection), int(timeout_in_ms)
+            ),
             "Failed to set query timeout",
         )
 
@@ -1392,10 +1798,14 @@ class Connection:
             _check_state(state, "Failed to execute query")
         return QueryResult(result)
 
-    def prepare(self, query: str, parameters: dict[str, Any] | None = None) -> PreparedStatement:
+    def prepare(
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> PreparedStatement:
         prepared = _LbugPreparedStatement()
         state = _LIB.lbug_connection_prepare(
-            ctypes.byref(self._connection), query.encode("utf-8"), ctypes.byref(prepared)
+            ctypes.byref(self._connection),
+            query.encode("utf-8"),
+            ctypes.byref(prepared),
         )
         if state != _LBUG_SUCCESS and not prepared._prepared_statement:
             _check_state(state, "Failed to prepare query")
@@ -1424,16 +1834,24 @@ class Connection:
         return QueryResult(result)
 
     def create_function(self, *_args: Any, **_kwargs: Any) -> None:
-        raise NotImplementedError("UDF registration is not yet implemented in C-API backend")
+        raise NotImplementedError(
+            "UDF registration is not yet implemented in C-API backend"
+        )
 
     def remove_function(self, *_args: Any, **_kwargs: Any) -> None:
         raise NotImplementedError("UDF removal is not yet implemented in C-API backend")
 
     def create_arrow_table(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise NotImplementedError("Arrow memory table APIs are not yet implemented in C-API backend")
+        raise NotImplementedError(
+            "Arrow memory table APIs are not yet implemented in C-API backend"
+        )
 
     def drop_arrow_table(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise NotImplementedError("Arrow memory table APIs are not yet implemented in C-API backend")
+        raise NotImplementedError(
+            "Arrow memory table APIs are not yet implemented in C-API backend"
+        )
 
     def create_arrow_rel_table(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise NotImplementedError("Arrow memory table APIs are not yet implemented in C-API backend")
+        raise NotImplementedError(
+            "Arrow memory table APIs are not yet implemented in C-API backend"
+        )

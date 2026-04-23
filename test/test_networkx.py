@@ -3,8 +3,8 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from pandas import Timedelta, Timestamp
 from ladybug.constants import LABEL
+from pandas import Timedelta, Timestamp
 from type_aliases import ConnDB
 
 

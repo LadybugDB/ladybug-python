@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import pytest
 import ladybug as lb
+import pytest
 from type_aliases import ConnDB
 
 

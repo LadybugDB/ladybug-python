@@ -32,8 +32,8 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-import pytest
 import ladybug as lb
+import pytest
 
 if TYPE_CHECKING:
     from pathlib import Path
