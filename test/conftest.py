@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from test_helper import LBUG_ROOT
+from test_helper import DATASET_ROOT, LBUG_ROOT
 
 python_build_dir = Path(__file__).parent.parent / "build"
 try:
@@ -98,7 +98,7 @@ data_file_regex = re.compile(rf'"([^"]+\.({data_file_pattern}))"', re.IGNORECASE
 
 
 def init_tinysnb(conn: lb.Connection) -> None:
-    tinysnb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/tinysnb").resolve()
+    tinysnb_path = (DATASET_ROOT / "tinysnb").resolve()
 
     schema_path = tinysnb_path / "schema.cypher"
     with schema_path.open(mode="r") as f:
@@ -120,7 +120,7 @@ def init_tinysnb(conn: lb.Connection) -> None:
 
 
 def init_demo(conn: lb.Connection) -> None:
-    demodb_path = (Path(__file__).parent / f"{LBUG_ROOT}/dataset/demo-db/csv").resolve()
+    demodb_path = (DATASET_ROOT / "demo-db" / "csv").resolve()
 
     schema_path = demodb_path / "schema.cypher"
     with schema_path.open(mode="r") as f:
