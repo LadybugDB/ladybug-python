@@ -40,15 +40,7 @@ The dataset used in this example can be found [here](https://github.com/LadybugD
 
 from __future__ import annotations
 
-import os
-import sys
 from pathlib import Path
-
-# Set RTLD_GLOBAL and RTLD_LAZY flags on Linux to fix the issue with loading
-# extensions
-if sys.platform == "linux":
-    original_dlopen_flags = sys.getdlopenflags()
-    sys.setdlopenflags(os.RTLD_GLOBAL | os.RTLD_LAZY)
 
 # In local dev/test runs the optional pybind extension is built under build/ladybug
 # while the package sources live in src_py. Extend the package path so
@@ -60,23 +52,6 @@ if _repo_build_pkg_dir.is_dir():
 
 from ._backend import get_capi_module, get_pybind_module  # noqa: E402
 
-
-def _get_version_source() -> type:
-    backend = os.getenv("LBUG_PYTHON_BACKEND", "auto").strip().lower()
-    if backend != "capi":
-        pybind_module = get_pybind_module()
-        if pybind_module is not None:
-            return pybind_module.Database
-    return get_capi_module().Database
-
-
-_version_source = _get_version_source()
-# Resolve version info before restoring dlopen flags so a pybind import, when
-# selected, happens under RTLD_GLOBAL and its symbols remain visible to
-# subsequently loaded extensions such as json.
-version = __version__ = _version_source.get_version()
-storage_version = _version_source.get_storage_version()
-
 from .async_connection import AsyncConnection  # noqa: E402
 from .connection import Connection  # noqa: E402
 from .database import Database  # noqa: E402
@@ -84,15 +59,23 @@ from .prepared_statement import PreparedStatement  # noqa: E402
 from .query_result import QueryResult  # noqa: E402
 from .types import Type  # noqa: E402
 
+_VERSION_INFO: tuple[str, int] | None = None
+
+
+def _get_version_info() -> tuple[str, int]:
+    global _VERSION_INFO
+    if _VERSION_INFO is None:
+        _VERSION_INFO = (Database.get_version(), Database.get_storage_version())
+    return _VERSION_INFO
+
 
 def __getattr__(name: str) -> str | int:
+    if name == "version" or name == "__version__":
+        return _get_version_info()[0]
+    if name == "storage_version":
+        return _get_version_info()[1]
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)
-
-
-# Restore the original dlopen flags
-if sys.platform == "linux":
-    sys.setdlopenflags(original_dlopen_flags)
 
 __all__ = [
     "AsyncConnection",
