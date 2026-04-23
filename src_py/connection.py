@@ -70,7 +70,11 @@ class Connection:
             raise RuntimeError(error_msg)
         self.database.init_database()
         if self._connection is None:
-            self._connection = _lbug.Connection(self.database._database, self.num_threads)  # type: ignore[union-attr]
+            backend_module = _lbug_pybind if self.database._use_pybind_backend else _lbug
+            self._connection = backend_module.Connection(self.database._database, self.num_threads)  # type: ignore[union-attr]
+
+    def _using_pybind_backend(self) -> bool:
+        return bool(self.database._use_pybind_backend and _lbug_pybind is not None)
 
     def set_max_threads_for_exec(self, num_threads: int) -> None:
         """
@@ -224,6 +228,8 @@ class Connection:
     def _get_pybind_connection(self) -> Any | None:
         if _lbug_pybind is None:
             return None
+        if self._using_pybind_backend():
+            return self._connection
         self.database.init_database()
         pybind_db = self.database.init_pybind_database()
         if pybind_db is None:
@@ -311,7 +317,15 @@ class Connection:
         if isinstance(query, str):
             query, parameters = self._rewrite_local_scan_object(query, parameters)
 
-        if isinstance(query, str) and (
+        if self._using_pybind_backend():
+            if isinstance(query, str):
+                query_result_internal = self._execute_with_pybind(query, parameters)
+            else:
+                query_result_internal = self._connection.execute(
+                    query._prepared_statement,
+                    parameters,
+                )
+        elif isinstance(query, str) and (
             self._prefer_pybind or self._should_use_pybind_for_scan(query, parameters)
         ):
             self._prefer_pybind = True

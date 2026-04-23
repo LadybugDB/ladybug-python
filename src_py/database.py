@@ -126,6 +126,7 @@ class Database:
 
         self._database: Any = None  # (type: _lbug.Database from pybind11)
         self._pybind_database: Any = None
+        self._use_pybind_backend = _lbug_pybind is not None
         self._connections: WeakSet[Connection] = WeakSet()
         if not lazy_init:
             self.init_database()
@@ -179,19 +180,22 @@ class Database:
         """Initialize the database."""
         self.check_for_database_close()
         if self._database is None:
-            self._database = _lbug.Database(  # type: ignore[union-attr]
-                self.database_path,
-                self.buffer_pool_size,
-                self.max_num_threads,
-                self.compression,
-                self.read_only,
-                self.max_db_size,
-                self.auto_checkpoint,
-                self.checkpoint_threshold,
-                self.throw_on_wal_replay_failure,
-                self.enable_checksums,
-                self.enable_multi_writes,
-            )
+            if self._use_pybind_backend:
+                self._database = self.init_pybind_database()
+            else:
+                self._database = _lbug.Database(  # type: ignore[union-attr]
+                    self.database_path,
+                    self.buffer_pool_size,
+                    self.max_num_threads,
+                    self.compression,
+                    self.read_only,
+                    self.max_db_size,
+                    self.auto_checkpoint,
+                    self.checkpoint_threshold,
+                    self.throw_on_wal_replay_failure,
+                    self.enable_checksums,
+                    self.enable_multi_writes,
+                )
 
     def init_pybind_database(self) -> Any | None:
         """Initialize and return the optional pybind database backend."""

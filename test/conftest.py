@@ -9,36 +9,6 @@ from typing import TYPE_CHECKING
 import pytest
 from test_helper import LBUG_ROOT
 
-# C-API backend parity is still under active development.
-# Temporarily skip suites that depend on pybind-only or not-yet-ported features.
-_CAPI_UNSUPPORTED_TEST_FILES = {
-    "test_arrow.py",
-    "test_arrow_memory_backed_table.py",
-    "test_df.py",
-    "test_json.py",
-    "test_torch_geometric.py",
-    "test_torch_geometric_remote_backend.py",
-    "test_udf.py",
-}
-
-_CAPI_UNSUPPORTED_TEST_NODEIDS: set[str] = {
-    "test/test_parameter.py::test_empty_list_param",
-    "test/test_parameter.py::test_map_param",
-    "test/test_parameter.py::test_general_list_param",
-    "test/test_parameter.py::test_null_resolution",
-    "test/test_parameter.py::test_param_error4",
-    "test/test_networkx.py::test_to_networkx_node",
-    "test/test_networkx.py::test_networkx_undirected",
-    "test/test_networkx.py::test_networkx_directed",
-    "test/test_issue.py::test_param_empty",
-    "test/test_issue.py::test_empty_list2",
-    "test/test_issue.py::test_empty_map",
-    "test/test_async_connection.py::test_async_scan_df",
-    "test/test_blob_parameter.py::test_bytes_param_udf",
-    "test/test_mvcc_bank.py::test_multi_writer_no_anomalies",
-    "test/test_mvcc_bank.py::test_multi_writer_stress_no_anomalies",
-}
-
 python_build_dir = Path(__file__).parent.parent / "build"
 try:
     import ladybug as lb
@@ -268,20 +238,6 @@ def conn_db_in_mem() -> ConnDB:
     )
     conn = lb.Connection(db, num_threads=4)
     return conn, db
-
-
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    skip_reason = "Not yet implemented in C-API backend"
-    skip_marker = pytest.mark.skip(reason=skip_reason)
-
-    for item in items:
-        path_name = Path(str(item.fspath)).name
-        if path_name in _CAPI_UNSUPPORTED_TEST_FILES:
-            item.add_marker(skip_marker)
-            continue
-
-        if item.nodeid in _CAPI_UNSUPPORTED_TEST_NODEIDS:
-            item.add_marker(skip_marker)
 
 
 @pytest.fixture
