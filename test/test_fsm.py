@@ -3,7 +3,7 @@ from pathlib import Path
 import ladybug as lb
 import pytest
 from conftest import get_db_file_path
-from test_helper import LBUG_ROOT
+from lbug_test_paths import LBUG_ROOT
 
 
 def get_used_page_ranges(conn, table, column=None):
