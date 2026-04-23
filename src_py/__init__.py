@@ -58,6 +58,25 @@ _repo_build_pkg_dir = _pkg_dir.parent / "build" / "ladybug"
 if _repo_build_pkg_dir.is_dir():
     __path__.append(str(_repo_build_pkg_dir))
 
+from ._backend import get_capi_module, get_pybind_module  # noqa: E402
+
+
+def _get_version_source() -> type:
+    backend = os.getenv("LBUG_PYTHON_BACKEND", "auto").strip().lower()
+    if backend != "capi":
+        pybind_module = get_pybind_module()
+        if pybind_module is not None:
+            return pybind_module.Database
+    return get_capi_module().Database
+
+
+_version_source = _get_version_source()
+# Resolve version info before restoring dlopen flags so a pybind import, when
+# selected, happens under RTLD_GLOBAL and its symbols remain visible to
+# subsequently loaded extensions such as json.
+version = __version__ = _version_source.get_version()
+storage_version = _version_source.get_storage_version()
+
 from .async_connection import AsyncConnection  # noqa: E402
 from .connection import Connection  # noqa: E402
 from .database import Database  # noqa: E402
@@ -67,13 +86,8 @@ from .types import Type  # noqa: E402
 
 
 def __getattr__(name: str) -> str | int:
-    if name in ("version", "__version__"):
-        return Database.get_version()
-    elif name == "storage_version":
-        return Database.get_storage_version()
-    else:
-        msg = f"module {__name__!r} has no attribute {name!r}"
-        raise AttributeError(msg)
+    msg = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(msg)
 
 
 # Restore the original dlopen flags
