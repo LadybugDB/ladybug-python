@@ -5,8 +5,8 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-import pytest
 import ladybug as lb
+import pytest
 from conftest import get_db_file_path
 
 

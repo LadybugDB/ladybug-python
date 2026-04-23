@@ -7,13 +7,13 @@ from typing import Any
 from uuid import UUID
 
 import ground_truth
+import ladybug as lb
 import polars as pl
 import pyarrow as pa
 import pytest
 import pytz
-import ladybug as lb
-from pandas import Timestamp
 from ladybug.constants import DST, ID, LABEL, NODES, SRC
+from pandas import Timestamp
 from type_aliases import ConnDB
 
 _expected_dtypes = {

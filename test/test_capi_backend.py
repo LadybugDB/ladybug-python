@@ -21,11 +21,15 @@ def test_capi_backend_parameter_binding() -> None:
     conn = lb.Connection(db)
 
     assert conn.execute("RETURN $x + 1 AS v;", {"x": 1}).get_next()[0] == 2
-    assert conn.execute("RETURN $d AS v;", {"d": date(2024, 1, 2)}).get_next()[0] == date(2024, 1, 2)
-    assert conn.execute("RETURN $ts AS v;", {"ts": datetime(2024, 1, 2, 3, 4, 5)}).get_next()[0] == datetime(
-        2024, 1, 2, 3, 4, 5
-    )
-    assert conn.execute("RETURN $v AS v;", {"v": {"a": 1, "b": [1, 2]}}).get_next()[0] == {
+    assert conn.execute("RETURN $d AS v;", {"d": date(2024, 1, 2)}).get_next()[
+        0
+    ] == date(2024, 1, 2)
+    assert conn.execute(
+        "RETURN $ts AS v;", {"ts": datetime(2024, 1, 2, 3, 4, 5)}
+    ).get_next()[0] == datetime(2024, 1, 2, 3, 4, 5)
+    assert conn.execute("RETURN $v AS v;", {"v": {"a": 1, "b": [1, 2]}}).get_next()[
+        0
+    ] == {
         "a": 1,
         "b": [1, 2],
     }

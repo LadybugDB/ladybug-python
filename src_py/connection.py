@@ -12,7 +12,9 @@ from .query_result import QueryResult
 
 try:
     from . import _lbug as _lbug_pybind
-except ImportError:  # pragma: no cover - pybind module may be unavailable in some builds
+except (
+    ImportError
+):  # pragma: no cover - pybind module may be unavailable in some builds
     _lbug_pybind = None
 
 if TYPE_CHECKING:
@@ -70,7 +72,9 @@ class Connection:
             raise RuntimeError(error_msg)
         self.database.init_database()
         if self._connection is None:
-            backend_module = _lbug_pybind if self.database._use_pybind_backend else _lbug
+            backend_module = (
+                _lbug_pybind if self.database._use_pybind_backend else _lbug
+            )
             self._connection = backend_module.Connection(self.database._database, self.num_threads)  # type: ignore[union-attr]
 
     def _using_pybind_backend(self) -> bool:
@@ -141,7 +145,7 @@ class Connection:
         for key, value in list(normalized_params.items()):
             if not isinstance(key, str):
                 msg = f"Parameter name must be of type string but got {type(key)}"
-                raise RuntimeError(msg)
+                raise TypeError(msg)
 
             if isinstance(value, (bytes, bytearray, memoryview)):
                 binary = bytes(value)
@@ -153,15 +157,13 @@ class Connection:
 
     def _is_python_scan_object(self, value: Any) -> bool:
         module_name = type(value).__module__
-        return (
-            module_name.startswith("pandas")
-            or module_name.startswith("polars")
-            or module_name.startswith("pyarrow")
-        )
+        return module_name.startswith(("pandas", "polars", "pyarrow"))
 
     def _has_scan_pattern(self, query: str) -> bool:
         stripped = query.lstrip()
-        if not (stripped.upper().startswith("LOAD ") or stripped.upper().startswith("COPY ")):
+        if not (
+            stripped.upper().startswith("LOAD ") or stripped.upper().startswith("COPY ")
+        ):
             return False
         return re.search(r"(?i)\bFROM\b", query) is not None
 
@@ -207,7 +209,9 @@ class Connection:
         rewritten_parameters[object_name] = value
         return rewritten_query, rewritten_parameters
 
-    def _should_use_pybind_for_scan(self, query: str, parameters: dict[str, Any]) -> bool:
+    def _should_use_pybind_for_scan(
+        self, query: str, parameters: dict[str, Any]
+    ) -> bool:
         if _lbug_pybind is None:
             return False
         if not self._has_scan_pattern(query):
@@ -254,7 +258,9 @@ class Connection:
         return py_connection.execute(prepared, parameters)
 
     def _maybe_raise_scan_unsupported_object(self, query: str) -> None:
-        match = re.search(r"\bLOAD\s+FROM\s+([A-Za-z_][A-Za-z0-9_]*)\b", query, re.IGNORECASE)
+        match = re.search(
+            r"\bLOAD\s+FROM\s+([A-Za-z_][A-Za-z0-9_]*)\b", query, re.IGNORECASE
+        )
         if not match:
             return
 
@@ -273,7 +279,7 @@ class Connection:
 
         value = scope[var_name]
         module_name = type(value).__module__
-        if module_name.startswith("pandas") or module_name.startswith("polars") or module_name.startswith("pyarrow"):
+        if module_name.startswith(("pandas", "polars", "pyarrow")):
             return
 
         msg = (
@@ -338,7 +344,9 @@ class Connection:
             query_result_internal = self._connection.query(query)
         else:
             if isinstance(query, str):
-                query, parameters = self._normalize_parameters_for_capi(query, parameters)
+                query, parameters = self._normalize_parameters_for_capi(
+                    query, parameters
+                )
             prepared_statement = (
                 self._prepare(query, parameters) if isinstance(query, str) else query
             )
@@ -593,7 +601,9 @@ class Connection:
             if py_connection is None:
                 raise
             self._prefer_pybind = True
-            query_result_internal = py_connection.create_arrow_table(table_name, dataframe)
+            query_result_internal = py_connection.create_arrow_table(
+                table_name, dataframe
+            )
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         return QueryResult(self, query_result_internal)

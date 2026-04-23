@@ -46,9 +46,7 @@ def test_multiple_query_results(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
     results = conn.execute("RETURN 1; RETURN 2; RETURN 3;")
     assert len(results) == 3
-    i = 1
-    for result in results:
+    for i, result in enumerate(results, start=1):
         assert result.get_num_tuples() == 1
         assert result.has_next()
         assert result.get_next() == [i]
-        i += 1

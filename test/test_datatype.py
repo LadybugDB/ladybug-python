@@ -5,6 +5,7 @@ import json
 from decimal import Decimal
 from uuid import UUID
 
+import pytest
 import pytz
 from ladybug.constants import DST, ID, LABEL, NODES, RELS, SRC
 from type_aliases import ConnDB
@@ -294,7 +295,7 @@ def test_node(conn_db_readonly: ConnDB) -> None:
     assert n["fName"] == "Alice"
     assert n["gender"] == 1
     assert n["isStudent"] is True
-    assert n["eyeSight"] == 5.0
+    assert n["eyeSight"] == pytest.approx(5.0)
     assert n["birthdate"] == datetime.date(1900, 1, 1)
     assert n["registerTime"] == datetime.datetime(2011, 8, 20, 11, 25, 30)
     assert n["lastJobDuration"] == datetime.timedelta(days=1082, seconds=46920)
@@ -413,8 +414,8 @@ def test_large_array(conn_db_readwrite: ConnDB) -> None:
 
     sample = conn.execute("MATCH (u:_User {id: 42}) RETURN u.embedding").get_next()[0]
     assert len(sample) == 1670
-    assert sample[0] == 42.0
-    assert sample[1669] == 42.0 + 1669.0 / 1000.0
+    assert sample[0] == pytest.approx(42.0)
+    assert sample[1669] == pytest.approx(42.0 + 1669.0 / 1000.0)
 
 
 def test_json(conn_db_readonly: ConnDB) -> None:
