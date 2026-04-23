@@ -179,9 +179,11 @@ class Database:
         str
             The version of the database.
         """
-        from . import __version__
+        pybind_module = get_pybind_module()
+        if pybind_module is not None:
+            return str(pybind_module.Database.get_version())
 
-        return __version__
+        return str(get_capi_module().Database.get_version())
 
     @staticmethod
     def get_storage_version() -> int:
@@ -193,9 +195,11 @@ class Database:
         int
             The storage version of the database.
         """
-        from . import storage_version
+        pybind_module = get_pybind_module()
+        if pybind_module is not None:
+            return int(pybind_module.Database.get_storage_version())
 
-        return storage_version
+        return int(get_capi_module().Database.get_storage_version())
 
     def __getstate__(self) -> dict[str, Any]:
         state = {
