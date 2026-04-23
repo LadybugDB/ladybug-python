@@ -77,6 +77,7 @@ def __getattr__(name: str) -> str | int:
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)
 
+
 __all__ = [
     "AsyncConnection",
     "Connection",

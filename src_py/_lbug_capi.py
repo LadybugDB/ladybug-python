@@ -141,7 +141,8 @@ def _resolve_library_path() -> str:
     raise RuntimeError(msg)
 
 
-_LIB = ctypes.CDLL(_resolve_library_path())
+_dlopen_mode = getattr(ctypes, "RTLD_GLOBAL", 0) | getattr(ctypes, "RTLD_NOW", 0)
+_LIB = ctypes.CDLL(_resolve_library_path(), mode=_dlopen_mode)
 
 _LBUG_SUCCESS = 0
 
