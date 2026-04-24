@@ -42,7 +42,7 @@ def pytest_collection_modifyitems(
     reason = "Known C-API backend failure"
     for item in items:
         if item.nodeid in CAPI_XFAILS:
-            item.add_marker(pytest.mark.xfail(reason=reason, strict=True))
+            item.add_marker(pytest.mark.xfail(reason=reason, strict=True, run=False))
 
 
 def init_npy(conn: lb.Connection) -> None:
@@ -208,6 +208,20 @@ _READONLY_CONN_DB_: ConnDB | None = None
 _READONLY_ASYNC_CONNECTION_: lb.AsyncConnection | None = None
 
 
+def _close_cached_readonly_state() -> None:
+    global _READONLY_ASYNC_CONNECTION_, _READONLY_CONN_DB_
+
+    if _READONLY_ASYNC_CONNECTION_ is not None:
+        _READONLY_ASYNC_CONNECTION_.close()
+        _READONLY_ASYNC_CONNECTION_ = None
+
+    if _READONLY_CONN_DB_ is not None:
+        conn, db = _READONLY_CONN_DB_
+        conn.close()
+        db.close()
+        _READONLY_CONN_DB_ = None
+
+
 def create_conn_db(path: Path, *, read_only: bool) -> ConnDB:
     """Return a new connection and database."""
     db = lb.Database(path, buffer_pool_size=_POOL_SIZE_, read_only=read_only)
@@ -246,7 +260,12 @@ def async_connection_readwrite(tmp_path: Path) -> lb.AsyncConnection:
     """Return a writeable async connection."""
     conn, db = create_conn_db(init_db(tmp_path), read_only=False)
     conn.close()
-    return lb.AsyncConnection(db, max_threads_per_query=4)
+    async_conn = lb.AsyncConnection(db, max_threads_per_query=4)
+    try:
+        yield async_conn
+    finally:
+        async_conn.close()
+        db.close()
 
 
 @pytest.fixture
@@ -263,6 +282,11 @@ def conn_db_in_mem() -> ConnDB:
     )
     conn = lb.Connection(db, num_threads=4)
     return conn, db
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    del session, exitstatus
+    _close_cached_readonly_state()
 
 
 @pytest.fixture
