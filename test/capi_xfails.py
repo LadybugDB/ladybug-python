@@ -25,8 +25,6 @@ CAPI_XFAILS = frozenset(
         "test/test_issue.py::test_empty_list2",
         "test/test_issue.py::test_empty_map",
         "test/test_json.py::test_to_json_string_param_roundtrip",
-        "test/test_mvcc_bank.py::test_multi_writer_no_anomalies",
-        "test/test_mvcc_bank.py::test_multi_writer_stress_no_anomalies",
         "test/test_parameter.py::test_empty_list_param",
         "test/test_parameter.py::test_map_param",
         "test/test_parameter.py::test_general_list_param",
