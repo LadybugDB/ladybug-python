@@ -23,6 +23,7 @@ class _LbugSystemConfig(ctypes.Structure):
         ("checkpoint_threshold", ctypes.c_uint64),
         ("throw_on_wal_replay_failure", ctypes.c_bool),
         ("enable_checksums", ctypes.c_bool),
+        ("enable_multi_writes", ctypes.c_bool),
     ]
     if sys.platform == "darwin":
         _fields_.append(("thread_qos", ctypes.c_uint32))
@@ -972,10 +973,6 @@ class Database:
         enable_checksums: bool = True,
         enable_multi_writes: bool = False,
     ):
-        if enable_multi_writes:
-            raise NotImplementedError(
-                "enable_multi_writes is not yet wired in C-API backend"
-            )
         self._database = _LbugDatabase()
         config = _LIB.lbug_default_system_config()
         config.buffer_pool_size = buffer_pool_size
@@ -988,6 +985,7 @@ class Database:
             config.checkpoint_threshold = checkpoint_threshold
         config.throw_on_wal_replay_failure = throw_on_wal_replay_failure
         config.enable_checksums = enable_checksums
+        config.enable_multi_writes = enable_multi_writes
 
         state = _LIB.lbug_database_init(
             database_path.encode("utf-8"), config, ctypes.byref(self._database)
