@@ -35,6 +35,7 @@ public:
     py::object getAsDF();
 
     lbug::pyarrow::Table getAsArrow(std::int64_t chunkSize, bool fallbackExtensionTypes);
+    py::dict getCSR();
 
     py::list getColumnDataTypes();
 

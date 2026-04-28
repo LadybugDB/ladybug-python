@@ -772,3 +772,67 @@ def test_to_arrow_complex(conn_db_readonly: ConnDB) -> None:
             -1
         )  # what is a chunk size of -1 even supposed to mean?
         assert arrow_tbl == []
+
+
+def test_query_as_arrow_csr_with_rel_ids(conn_db_readonly: ConnDB) -> None:
+    conn, _ = conn_db_readonly
+    query = """
+        MATCH (a:person)-[b:knows]->(c:person)
+        RETURN a.rowid, b.rowid, c.rowid
+    """
+    rows = conn.execute(query).get_all()
+    csr = conn.query_as_arrow(query, 8).csr()
+
+    assert csr.edge_ids is not None
+
+    reconstructed = []
+    indptr = csr.indptr.to_pylist()
+    indices = csr.indices.to_pylist()
+    edge_ids = csr.edge_ids.to_pylist()
+    for src_rowid in range(len(indptr) - 1):
+        for idx in range(indptr[src_rowid], indptr[src_rowid + 1]):
+            reconstructed.append([src_rowid, edge_ids[idx], indices[idx]])
+
+    assert reconstructed == rows
+
+
+def test_query_as_arrow_csr_with_extra_columns(conn_db_readonly: ConnDB) -> None:
+    conn, _ = conn_db_readonly
+    query = """
+        MATCH (a:person)-[b:knows]->(c:person)
+        RETURN a.rowid, b.rowid, c.rowid, b.date, c.fName
+    """
+    result = conn.query_as_arrow(query, 8)
+    csr = result.csr()
+    arrow_tbl = result.get_as_arrow(0)
+
+    assert csr.edge_ids is not None
+    assert arrow_tbl.column_names == ["a.rowid", "b.rowid", "c.rowid", "b.date", "c.fName"]
+    assert len(csr.indptr) >= 2
+
+
+def test_query_as_arrow_csr_without_rel_ids(conn_db_readonly: ConnDB) -> None:
+    conn, _ = conn_db_readonly
+    query = """
+        MATCH (a:person)-[:knows]->(c:person)
+        RETURN a.rowid, c.rowid
+    """
+    rows = conn.execute(query).get_all()
+    csr = conn.query_as_arrow(query, 8).csr()
+
+    assert csr.edge_ids is None
+
+    reconstructed = []
+    indptr = csr.indptr.to_pylist()
+    indices = csr.indices.to_pylist()
+    for src_rowid in range(len(indptr) - 1):
+        for idx in range(indptr[src_rowid], indptr[src_rowid + 1]):
+            reconstructed.append([src_rowid, indices[idx]])
+
+    assert reconstructed == rows
+
+
+def test_query_as_arrow_csr_rejects_non_csr_shape(conn_db_readonly: ConnDB) -> None:
+    conn, _ = conn_db_readonly
+    with pytest.raises(RuntimeError, match="CSR export is only supported"):
+        conn.query_as_arrow("MATCH (a:person) RETURN a.fName", 8).csr()
