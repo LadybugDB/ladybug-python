@@ -29,6 +29,8 @@ public:
         const py::dict& params);
 
     std::unique_ptr<PyQueryResult> query(const std::string& statement);
+    std::unique_ptr<PyQueryResult> queryAsArrow(const std::string& statement,
+        int64_t chunkSize);
 
     void setMaxNumThreadForExec(uint64_t numThreads);
 

@@ -56,7 +56,7 @@ from .async_connection import AsyncConnection  # noqa: E402
 from .connection import Connection  # noqa: E402
 from .database import Database  # noqa: E402
 from .prepared_statement import PreparedStatement  # noqa: E402
-from .query_result import QueryResult  # noqa: E402
+from .query_result import ArrowQueryResult, CSRResult, QueryResult  # noqa: E402
 from .types import Type  # noqa: E402
 
 _VERSION_INFO: tuple[str, int] | None = None
@@ -80,7 +80,9 @@ def __getattr__(name: str) -> str | int:
 
 __all__ = [
     "AsyncConnection",
+    "ArrowQueryResult",
     "Connection",
+    "CSRResult",
     "Database",
     "PreparedStatement",
     "QueryResult",

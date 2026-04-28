@@ -1229,6 +1229,11 @@ class QueryResult:
             "Arrow export is not yet implemented in C-API backend"
         )
 
+    def getCSR(self, *_args: Any, **_kwargs: Any) -> Any:
+        raise NotImplementedError(
+            "CSR export is not yet implemented in C-API backend"
+        )
+
     def getAsDF(self) -> Any:
         raise NotImplementedError(
             "DataFrame export is not yet implemented in C-API backend"

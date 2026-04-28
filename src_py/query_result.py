@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .constants import DST, ID, LABEL, NODES, RELS, SRC
@@ -523,6 +524,59 @@ class QueryResult:
         if state:
             self.columns = self.get_column_names()
         return self
+
+
+class ArrowQueryResult(QueryResult):
+    """QueryResult backed by the native Arrow collector path."""
+
+    def __init__(
+        self, connection: Any, query_result: Any, native_chunk_size: int
+    ) -> None:
+        super().__init__(connection, query_result)
+        self._native_chunk_size = native_chunk_size
+
+    def get_as_arrow(
+        self, chunk_size: int | None = None, *, fallbackExtensionTypes: bool = False
+    ) -> pa.Table:
+        """
+        Get the query result as a PyArrow Table.
+
+        Arrow-native results preserve the execution-time chunking chosen by
+        `Connection.query_as_arrow(...)`. Requesting `None`, `0`, or `-1`
+        reuses that native chunk size instead of rechunking the result.
+        """
+        if chunk_size is None or chunk_size <= 0:
+            chunk_size = self._native_chunk_size
+        return super().get_as_arrow(
+            chunk_size, fallbackExtensionTypes=fallbackExtensionTypes
+        )
+
+    def csr(self) -> CSRResult:
+        """
+        Get native CSR arrays from an Arrow query result.
+
+        This is available only for Arrow results with CSR metadata, typically
+        from `Connection.query_as_arrow(...)` on relationship-shaped projections.
+        """
+        self.check_for_query_result_close()
+
+        import pyarrow as pa
+
+        csr = self._query_result.getCSR()
+        return CSRResult(
+            indptr=pa.array(csr["indptr"]),
+            indices=pa.array(csr["indices"]),
+            edge_ids=(
+                None if csr["edge_ids"] is None else pa.array(csr["edge_ids"])
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class CSRResult:
+    indptr: pa.Array
+    indices: pa.Array
+    edge_ids: pa.Array | None = None
 
 
 def _row_to_dict(columns: list[str], row: list[Any]) -> dict[str, Any]:
