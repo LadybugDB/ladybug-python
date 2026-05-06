@@ -103,6 +103,14 @@ public:
 };
 
 class PyarrowCachedItem : public PythonCachedItem {
+    class ArrayCachedItem : public PythonCachedItem {
+    public:
+        explicit ArrayCachedItem(PythonCachedItem* parent)
+            : PythonCachedItem("Array", parent), _import_from_c("_import_from_c", this) {}
+
+        PythonCachedItem _import_from_c;
+    };
+
     class RecordBatchCachedItem : public PythonCachedItem {
     public:
         explicit RecordBatchCachedItem(PythonCachedItem* parent)
@@ -132,8 +140,10 @@ class PyarrowCachedItem : public PythonCachedItem {
     class LibCachedItem : public PythonCachedItem {
     public:
         explicit LibCachedItem(PythonCachedItem* parent)
-            : PythonCachedItem("lib", parent), RecordBatch(this), Schema(this), Table(this) {}
+            : PythonCachedItem("lib", parent), Array(this), RecordBatch(this), Schema(this),
+              Table(this) {}
 
+        ArrayCachedItem Array;
         RecordBatchCachedItem RecordBatch;
         SchemaCachedItem Schema;
         TableCachedItem Table;

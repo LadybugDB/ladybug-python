@@ -560,13 +560,11 @@ class ArrowQueryResult(QueryResult):
         """
         self.check_for_query_result_close()
 
-        import pyarrow as pa
-
         csr = self._query_result.getCSR()
         return CSRResult(
-            indptr=pa.array(csr["indptr"]),
-            indices=pa.array(csr["indices"]),
-            edge_ids=(None if csr["edge_ids"] is None else pa.array(csr["edge_ids"])),
+            indptr=csr["indptr"],
+            indices=csr["indices"],
+            edge_ids=csr["edge_ids"],
         )
 
 

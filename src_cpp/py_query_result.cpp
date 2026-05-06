@@ -90,20 +90,17 @@ void PyQueryResult::close() {
 
 namespace {
 
-py::array_t<int64_t> copyToNumpyArray(const std::vector<int64_t>& values) {
-    auto result = py::array_t<int64_t>(values.size());
-    auto* data = static_cast<int64_t*>(result.request().ptr);
-    std::copy(values.begin(), values.end(), data);
-    return result;
+py::object importCSRArrowArray(lbug::main::ArrowQueryResult::CSRArrowArray& array) {
+    auto arrayImportFunc = importCache->pyarrow.lib.Array._import_from_c();
+    return arrayImportFunc((std::uint64_t)&array.array, (std::uint64_t)&array.schema);
 }
 
-py::dict buildCSRResult(std::vector<int64_t> indptr, std::vector<int64_t> indices,
-    std::vector<int64_t> edgeIDs, bool includeEdgeIDs) {
+py::dict buildCSRResult(lbug::main::ArrowQueryResult::CSRArrowArrays arrays) {
     py::dict result;
-    result["indptr"] = copyToNumpyArray(indptr);
-    result["indices"] = copyToNumpyArray(indices);
-    if (includeEdgeIDs) {
-        result["edge_ids"] = copyToNumpyArray(edgeIDs);
+    result["indptr"] = importCSRArrowArray(arrays.indptr);
+    result["indices"] = importCSRArrowArray(arrays.indices);
+    if (arrays.edgeIDs.has_value()) {
+        result["edge_ids"] = importCSRArrowArray(*arrays.edgeIDs);
     } else {
         result["edge_ids"] = py::none();
     }
@@ -377,9 +374,7 @@ lbug::pyarrow::Table PyQueryResult::getAsArrow(std::int64_t chunkSize,
 py::dict PyQueryResult::getCSR() {
     if (auto* arrowQueryResult = dynamic_cast<lbug::main::ArrowQueryResult*>(queryResult);
         arrowQueryResult != nullptr && arrowQueryResult->hasCSRMetadata()) {
-        const auto& metadata = arrowQueryResult->getCSRMetadata();
-        return buildCSRResult(metadata.indptr, metadata.indices, metadata.edgeIDs,
-            metadata.hasEdgeIDs);
+        return buildCSRResult(arrowQueryResult->getCSRArrowArrays());
     }
     throw RuntimeException(
         "CSR export is only supported for Arrow query results with native CSR metadata.");
