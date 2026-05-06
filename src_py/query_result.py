@@ -572,6 +572,8 @@ class ArrowQueryResult(QueryResult):
 
 @dataclass(frozen=True)
 class CSRResult:
+    """Native CSR arrays returned by an Arrow query result."""
+
     indptr: pa.Array
     indices: pa.Array
     edge_ids: pa.Array | None = None
