@@ -8,7 +8,7 @@ from weakref import WeakSet
 
 from ._backend import get_capi_module, get_pybind_module
 from .prepared_statement import PreparedStatement
-from .query_result import QueryResult
+from .query_result import ArrowQueryResult, QueryResult
 
 if TYPE_CHECKING:
     import sys
@@ -368,6 +368,27 @@ class Connection:
             self._register_query_result(next_query_result)
             all_query_results.append(next_query_result)
         return all_query_results
+
+    def query_as_arrow(self, query: str, chunk_size: int) -> ArrowQueryResult:
+        """
+        Execute a query with the native Arrow collector path.
+
+        This is the efficient path for CSR-aware Arrow export.
+        """
+        self.init_connection()
+        if not self._using_pybind_backend():
+            msg = "query_as_arrow requires the pybind backend"
+            raise NotImplementedError(msg)
+        query_result_internal = self._get_pybind_connection().query_as_arrow(
+            query, chunk_size
+        )
+        if not query_result_internal.isSuccess():
+            raise RuntimeError(query_result_internal.getErrorMessage())
+        current_query_result = ArrowQueryResult(
+            self, query_result_internal, native_chunk_size=chunk_size
+        )
+        self._register_query_result(current_query_result)
+        return current_query_result
 
     def _prepare(
         self,

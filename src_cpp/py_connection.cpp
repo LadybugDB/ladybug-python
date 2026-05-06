@@ -31,6 +31,8 @@ void PyConnection::initialize(py::handle& m) {
         .def("execute", &PyConnection::execute, py::arg("prepared_statement"),
             py::arg("parameters") = py::dict())
         .def("query", &PyConnection::query, py::arg("statement"))
+        .def("query_as_arrow", &PyConnection::queryAsArrow, py::arg("statement"),
+            py::arg("chunk_size"))
         .def("set_max_threads_for_exec", &PyConnection::setMaxNumThreadForExec,
             py::arg("num_threads"))
         .def("prepare", &PyConnection::prepare, py::arg("query"),
@@ -171,6 +173,14 @@ std::unique_ptr<PyQueryResult> PyConnection::execute(PyPreparedStatement* prepar
 std::unique_ptr<PyQueryResult> PyConnection::query(const std::string& statement) {
     py::gil_scoped_release release;
     auto queryResult = conn->query(statement);
+    py::gil_scoped_acquire acquire;
+    return checkAndWrapQueryResult(queryResult);
+}
+
+std::unique_ptr<PyQueryResult> PyConnection::queryAsArrow(const std::string& statement,
+    int64_t chunkSize) {
+    py::gil_scoped_release release;
+    auto queryResult = conn->queryAsArrow(statement, chunkSize);
     py::gil_scoped_acquire acquire;
     return checkAndWrapQueryResult(queryResult);
 }

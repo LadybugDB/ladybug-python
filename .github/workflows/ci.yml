@@ -113,7 +113,7 @@ jobs:
       - name: Check formatting (black)
         working-directory: ladybug/tools/python_api
         run: |
-          uv pip install black
+          uv pip install black==26.3.0
           .venv/bin/black --check src_py test
 
       - name: Run ruff check
@@ -140,7 +140,7 @@ jobs:
 
       - name: Update submodules
         working-directory: ladybug
-        run: git submodule update --init --recursive dataset
+        run: git submodule update --init --recursive dataset extension
 
       - name: Checkout ladybug-python into ladybug/tools/python_api
         uses: actions/checkout@v4
@@ -177,7 +177,7 @@ jobs:
       - name: Check formatting (black)
         working-directory: ladybug/tools/python_api
         run: |
-          uv pip install black
+          uv pip install black==26.3.0
           .venv/bin/black --check src_py test
 
       - name: Run ruff check
@@ -191,6 +191,7 @@ jobs:
           GEN: Ninja
           CMAKE_C_COMPILER_LAUNCHER: ccache
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
+          EXTRA_CMAKE_FLAGS: -DBUILD_EXTENSIONS=json -DEXTENSION_STATIC_LINK_LIST=json
         run: |
           make python
           cp tools/python_api/src_py/*.py tools/python_api/build/ladybug/

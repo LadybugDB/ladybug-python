@@ -7,12 +7,14 @@
 #include "common/arrow/arrow_row_batch.h"
 #include "common/constants.h"
 #include "common/exception/not_implemented.h"
+#include "common/exception/runtime.h"
 #include "common/types/uuid.h"
 #include "common/types/value/nested.h"
 #include "common/types/value/node.h"
 #include "common/types/value/rel.h"
 #include "datetime.h" // python lib
 #include "include/py_query_result_converter.h"
+#include "main/query_result/arrow_query_result.h"
 
 using namespace lbug::common;
 using lbug::importCache;
@@ -30,6 +32,7 @@ void PyQueryResult::initialize(py::handle& m) {
         .def("close", &PyQueryResult::close)
         .def("getAsDF", &PyQueryResult::getAsDF)
         .def("getAsArrow", &PyQueryResult::getAsArrow)
+        .def("getCSR", &PyQueryResult::getCSR)
         .def("getColumnNames", &PyQueryResult::getColumnNames)
         .def("getColumnDataTypes", &PyQueryResult::getColumnDataTypes)
         .def("resetIterator", &PyQueryResult::resetIterator)
@@ -84,6 +87,30 @@ void PyQueryResult::close() {
         queryResult = nullptr;
     }
 }
+
+namespace {
+
+py::array_t<int64_t> copyToNumpyArray(const std::vector<int64_t>& values) {
+    auto result = py::array_t<int64_t>(values.size());
+    auto* data = static_cast<int64_t*>(result.request().ptr);
+    std::copy(values.begin(), values.end(), data);
+    return result;
+}
+
+py::dict buildCSRResult(std::vector<int64_t> indptr, std::vector<int64_t> indices,
+    std::vector<int64_t> edgeIDs, bool includeEdgeIDs) {
+    py::dict result;
+    result["indptr"] = copyToNumpyArray(indptr);
+    result["indices"] = copyToNumpyArray(indices);
+    if (includeEdgeIDs) {
+        result["edge_ids"] = copyToNumpyArray(edgeIDs);
+    } else {
+        result["edge_ids"] = py::none();
+    }
+    return result;
+}
+
+} // namespace
 
 static py::object converTimestampToPyObject(timestamp_t& timestamp) {
     int32_t year = 0, month = 0, day = 0, hour = 0, min = 0, sec = 0, micros = 0;
@@ -320,6 +347,23 @@ py::object PyQueryResult::getArrowChunks(const std::vector<LogicalType>& types,
 
 lbug::pyarrow::Table PyQueryResult::getAsArrow(std::int64_t chunkSize,
     bool fallbackExtensionTypes) {
+    if (queryResult->getType() == QueryResultType::ARROW) {
+        auto types = queryResult->getColumnDataTypes();
+        auto names = queryResult->getColumnNames();
+        py::list batches;
+        auto batchImportFunc = importCache->pyarrow.lib.RecordBatch._import_from_c();
+        while (queryResult->hasNextArrowChunk()) {
+            auto data = queryResult->getNextArrowChunk(chunkSize);
+            auto schema = ArrowConverter::toArrowSchema(types, names, fallbackExtensionTypes);
+            batches.append(
+                batchImportFunc((std::uint64_t)data.get(), (std::uint64_t)schema.get()));
+        }
+        auto schema = ArrowConverter::toArrowSchema(types, names, fallbackExtensionTypes);
+        auto fromBatchesFunc = importCache->pyarrow.lib.Table.from_batches();
+        auto schemaImportFunc = importCache->pyarrow.lib.Schema._import_from_c();
+        auto schemaObj = schemaImportFunc((std::uint64_t)schema.get());
+        return py::cast<lbug::pyarrow::Table>(fromBatchesFunc(batches, schemaObj));
+    }
     auto types = queryResult->getColumnDataTypes();
     auto names = queryResult->getColumnNames();
     py::list batches = getArrowChunks(types, names, chunkSize, fallbackExtensionTypes);
@@ -328,6 +372,17 @@ lbug::pyarrow::Table PyQueryResult::getAsArrow(std::int64_t chunkSize,
     auto schemaImportFunc = importCache->pyarrow.lib.Schema._import_from_c();
     auto schemaObj = schemaImportFunc((std::uint64_t)schema.get());
     return py::cast<lbug::pyarrow::Table>(fromBatchesFunc(batches, schemaObj));
+}
+
+py::dict PyQueryResult::getCSR() {
+    if (auto* arrowQueryResult = dynamic_cast<lbug::main::ArrowQueryResult*>(queryResult);
+        arrowQueryResult != nullptr && arrowQueryResult->hasCSRMetadata()) {
+        const auto& metadata = arrowQueryResult->getCSRMetadata();
+        return buildCSRResult(metadata.indptr, metadata.indices, metadata.edgeIDs,
+            metadata.hasEdgeIDs);
+    }
+    throw RuntimeException(
+        "CSR export is only supported for Arrow query results with native CSR metadata.");
 }
 
 py::list PyQueryResult::getColumnDataTypes() {
