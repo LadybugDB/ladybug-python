@@ -16,6 +16,8 @@ CAPI_XFAILS = frozenset(
         "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_with_pyarrow",
         "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_empty_result",
         "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_count",
+        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_arrow_node_and_rel_table",
+        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_native_node_and_arrow_rel_table",
         "test/test_async_connection.py::test_async_scan_df",
         "test/test_blob_parameter.py::test_bytes_param_udf",
         "test/test_df.py::test_to_df",

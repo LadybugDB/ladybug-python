@@ -273,3 +273,132 @@ def test_arrow_memory_backed_table_count(conn_db_empty: ConnDB) -> None:
 
     # Clean up
     conn.drop_arrow_table("transactions")
+
+
+def test_arrow_memory_backed_arrow_node_and_rel_table(conn_db_empty: ConnDB) -> None:
+    """Test an Arrow memory-backed relationship over Arrow-backed nodes."""
+    conn, _ = conn_db_empty
+
+    pa = pytest.importorskip("pyarrow")
+
+    people = pa.Table.from_arrays(
+        [
+            pa.array([1, 2, 3], type=pa.int64()),
+            pa.array(["Alice", "Bob", "Carol"], type=pa.string()),
+        ],
+        names=["id", "name"],
+    )
+    conn.create_arrow_table("arrow_people", people)
+
+    knows = pa.Table.from_arrays(
+        [
+            pa.array([1, 1, 2], type=pa.int64()),
+            pa.array([2, 3, 3], type=pa.int64()),
+            pa.array([10, 20, 30], type=pa.int64()),
+        ],
+        names=["from", "to", "weight"],
+    )
+    conn.create_arrow_rel_table("arrow_knows", knows, "arrow_people", "arrow_people")
+
+    result = conn.execute(
+        "MATCH (a:arrow_people)-[r:arrow_knows]->(b:arrow_people) "
+        "RETURN a.name, b.name, r.weight ORDER BY a.id, b.id"
+    )
+    rows = []
+    while result.has_next():
+        rows.append(result.get_next())
+
+    assert rows == [
+        ["Alice", "Bob", 10],
+        ["Alice", "Carol", 20],
+        ["Bob", "Carol", 30],
+    ]
+
+    result = conn.execute(
+        "MATCH (:arrow_people)-[r:arrow_knows]->(:arrow_people) "
+        "RETURN COUNT(*), SUM(r.weight)"
+    )
+    assert result.get_next() == [3, 60]
+    assert not result.has_next()
+
+    result = conn.execute(
+        "MATCH (a:arrow_people)-[r:arrow_knows]->(b:arrow_people) "
+        "WHERE r.weight >= 20 "
+        "RETURN a.name, b.name, r.weight ORDER BY r.weight"
+    )
+    rows = []
+    while result.has_next():
+        rows.append(result.get_next())
+
+    assert rows == [
+        ["Alice", "Carol", 20],
+        ["Bob", "Carol", 30],
+    ]
+
+    conn.drop_arrow_table("arrow_knows")
+    conn.drop_arrow_table("arrow_people")
+
+
+def test_arrow_memory_backed_native_node_and_arrow_rel_table(
+    conn_db_empty: ConnDB,
+) -> None:
+    """Test an Arrow memory-backed relationship over native node tables."""
+    conn, _ = conn_db_empty
+
+    pa = pytest.importorskip("pyarrow")
+
+    conn.execute(
+        "CREATE NODE TABLE native_people(id INT64, name STRING, PRIMARY KEY(id));"
+        "CREATE (:native_people {id: 1, name: 'Alice'});"
+        "CREATE (:native_people {id: 2, name: 'Bob'});"
+        "CREATE (:native_people {id: 3, name: 'Carol'});"
+    )
+
+    knows = pa.Table.from_arrays(
+        [
+            pa.array([1, 1, 2], type=pa.int64()),
+            pa.array([2, 3, 3], type=pa.int64()),
+            pa.array([10, 20, 30], type=pa.int64()),
+        ],
+        names=["from", "to", "weight"],
+    )
+    conn.create_arrow_rel_table(
+        "native_people_arrow_knows", knows, "native_people", "native_people"
+    )
+
+    result = conn.execute(
+        "MATCH (a:native_people)-[r:native_people_arrow_knows]->(b:native_people) "
+        "RETURN a.name, b.name, r.weight ORDER BY a.id, b.id"
+    )
+    rows = []
+    while result.has_next():
+        rows.append(result.get_next())
+
+    assert rows == [
+        ["Alice", "Bob", 10],
+        ["Alice", "Carol", 20],
+        ["Bob", "Carol", 30],
+    ]
+
+    result = conn.execute(
+        "MATCH (:native_people)-[r:native_people_arrow_knows]->(:native_people) "
+        "RETURN COUNT(*), SUM(r.weight)"
+    )
+    assert result.get_next() == [3, 60]
+    assert not result.has_next()
+
+    result = conn.execute(
+        "MATCH (a:native_people)-[r:native_people_arrow_knows]->(b:native_people) "
+        "WHERE r.weight >= 20 "
+        "RETURN a.name, b.name, r.weight ORDER BY r.weight"
+    )
+    rows = []
+    while result.has_next():
+        rows.append(result.get_next())
+
+    assert rows == [
+        ["Alice", "Carol", 20],
+        ["Bob", "Carol", 30],
+    ]
+
+    conn.drop_arrow_table("native_people_arrow_knows")
