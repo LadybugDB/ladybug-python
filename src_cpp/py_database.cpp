@@ -2,6 +2,7 @@
 
 #include <memory>
 
+#include "common/exception/runtime.h"
 #include "extension/extension.h"
 #include "include/cached_import/py_cached_import.h"
 #include "main/version.h"
@@ -59,19 +60,22 @@ PyDatabase::PyDatabase(const std::string& databasePath, uint64_t bufferPoolSize,
     systemConfig.throwOnWalReplayFailure = throwOnWalReplayFailure;
     systemConfig.enableChecksums = enableChecksums;
     systemConfig.enableMultiWrites = enableMultiWrites;
-    database = std::make_unique<Database>(databasePath, systemConfig);
-    lbug::extension::ExtensionUtils::addTableFunc<lbug::PandasScanFunction>(*database);
-    storageDriver = std::make_unique<StorageDriver>(database.get());
+    state = std::make_shared<PyDatabaseState>();
+    state->database = std::make_unique<Database>(databasePath, systemConfig);
+    lbug::extension::ExtensionUtils::addTableFunc<lbug::PandasScanFunction>(*state->database);
+    state->storageDriver = std::make_unique<StorageDriver>(state->database.get());
     py::gil_scoped_acquire acquire;
     if (lbug::importCache.get() == nullptr) {
         lbug::importCache = std::make_shared<lbug::PythonCachedImport>();
     }
 }
 
-PyDatabase::~PyDatabase() {}
+PyDatabase::~PyDatabase() {
+    close();
+}
 
 void PyDatabase::close() {
-    database.reset();
+    state.reset();
 }
 
 template<class T>
@@ -83,5 +87,8 @@ void PyDatabase::scanNodeTable(const std::string& tableName, const std::string& 
     auto result_buffer_info = result.request();
     auto result_buffer = (uint8_t*)result_buffer_info.ptr;
     auto size = indices.size();
-    storageDriver->scan(tableName, propName, nodeOffsets, size, result_buffer, numThreads);
+    if (state == nullptr) {
+        throw RuntimeException("Database is closed.");
+    }
+    state->storage().scan(tableName, propName, nodeOffsets, size, result_buffer, numThreads);
 }

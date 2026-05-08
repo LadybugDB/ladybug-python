@@ -41,9 +41,10 @@ void PyQueryResult::initialize(py::handle& m) {
         .def("getCompilingTime", &PyQueryResult::getCompilingTime)
         .def("getExecutionTime", &PyQueryResult::getExecutionTime)
         .def("getNumTuples", &PyQueryResult::getNumTuples);
-    // PyDateTime_IMPORT is a macro that must be invoked before calling any other cpython datetime
-    // macros. One could also invoke this in a separate function like constructor. See
-    // https://docs.python.org/3/c-api/datetime.html for details.
+    // PyDateTime_IMPORT is a macro that must be invoked before calling any other
+    // cpython datetime macros. One could also invoke this in a separate function
+    // like constructor. See https://docs.python.org/3/c-api/datetime.html for
+    // details.
     PyDateTime_IMPORT;
 }
 
@@ -51,12 +52,20 @@ PyQueryResult::~PyQueryResult() {
     close();
 }
 
+PyQueryResultState& PyQueryResult::refState() const {
+    if (state == nullptr) {
+        throw RuntimeException("Query result is closed.");
+    }
+    state->ref();
+    return *state;
+}
+
 bool PyQueryResult::hasNext() {
-    return queryResult->hasNext();
+    return refState().ref().hasNext();
 }
 
 py::list PyQueryResult::getNext() {
-    auto tuple = queryResult->getNext();
+    auto tuple = refState().ref().getNext();
     py::tuple result(tuple->len());
     for (auto i = 0u; i < tuple->len(); ++i) {
         result[i] = convertValueToPyObject(*tuple->getValue(i));
@@ -65,27 +74,27 @@ py::list PyQueryResult::getNext() {
 }
 
 bool PyQueryResult::hasNextQueryResult() {
-    return queryResult->hasNextQueryResult();
+    return refState().ref().hasNextQueryResult();
 }
 
 std::unique_ptr<PyQueryResult> PyQueryResult::getNextQueryResult() {
+    auto& stateRef = refState();
     py::gil_scoped_release release;
-    auto nextQueryResult = queryResult->getNextQueryResult();
+    auto nextQueryResult = stateRef.ref().getNextQueryResult();
     py::gil_scoped_acquire acquire;
     auto pyQueryResult = std::make_unique<PyQueryResult>();
-    pyQueryResult->queryResult = nextQueryResult;
-    pyQueryResult->isOwned = false;
+    pyQueryResult->state = std::make_shared<PyQueryResultState>();
+    pyQueryResult->state->connection = stateRef.connection;
+    pyQueryResult->state->parent = state;
+    pyQueryResult->state->borrowed = nextQueryResult;
     return pyQueryResult;
 }
 
 void PyQueryResult::close() {
-    // Note: Python does not guarantee objects to be deleted in the reverse order. Therefore, we
-    // expose close() interface so that users can explicitly call close() and ensure that
-    // QueryResult is destroyed before Database.
-    if (isOwned) {
-        delete queryResult;
-        queryResult = nullptr;
-    }
+    // Note: Python does not guarantee objects to be deleted in the reverse order.
+    // Therefore, we expose close() interface so that users can explicitly call
+    // close() and ensure that QueryResult is destroyed before Database.
+    state.reset();
 }
 
 namespace {
@@ -311,19 +320,20 @@ py::object PyQueryResult::convertValueToPyObject(const Value& value) {
 }
 
 py::object PyQueryResult::getAsDF() {
-    return QueryResultConverter(queryResult).toDF();
+    return QueryResultConverter(&refState().ref()).toDF();
 }
 
 void PyQueryResult::getNextArrowChunk(const std::vector<LogicalType>& types,
     const std::vector<std::string>& names, py::list& batches, std::int64_t chunkSize,
     bool fallbackExtensionTypes) {
+    auto& queryResult = refState().ref();
     auto rowBatch = std::make_unique<ArrowRowBatch>(types, chunkSize, fallbackExtensionTypes);
     auto rowBatchSize = 0u;
     while (rowBatchSize < chunkSize) {
-        if (!queryResult->hasNext()) {
+        if (!queryResult.hasNext()) {
             break;
         }
-        auto tuple = queryResult->getNext();
+        auto tuple = queryResult.getNext();
         rowBatch->append(*tuple);
         rowBatchSize++;
     }
@@ -335,8 +345,9 @@ void PyQueryResult::getNextArrowChunk(const std::vector<LogicalType>& types,
 
 py::object PyQueryResult::getArrowChunks(const std::vector<LogicalType>& types,
     const std::vector<std::string>& names, std::int64_t chunkSize, bool fallbackExtensionTypes) {
+    auto& queryResult = refState().ref();
     py::list batches;
-    while (queryResult->hasNext()) {
+    while (queryResult.hasNext()) {
         getNextArrowChunk(types, names, batches, chunkSize, fallbackExtensionTypes);
     }
     return batches;
@@ -344,16 +355,16 @@ py::object PyQueryResult::getArrowChunks(const std::vector<LogicalType>& types,
 
 lbug::pyarrow::Table PyQueryResult::getAsArrow(std::int64_t chunkSize,
     bool fallbackExtensionTypes) {
-    if (queryResult->getType() == QueryResultType::ARROW) {
-        auto types = queryResult->getColumnDataTypes();
-        auto names = queryResult->getColumnNames();
+    auto& queryResult = refState().ref();
+    if (queryResult.getType() == QueryResultType::ARROW) {
+        auto types = queryResult.getColumnDataTypes();
+        auto names = queryResult.getColumnNames();
         py::list batches;
         auto batchImportFunc = importCache->pyarrow.lib.RecordBatch._import_from_c();
-        while (queryResult->hasNextArrowChunk()) {
-            auto data = queryResult->getNextArrowChunk(chunkSize);
+        while (queryResult.hasNextArrowChunk()) {
+            auto data = queryResult.getNextArrowChunk(chunkSize);
             auto schema = ArrowConverter::toArrowSchema(types, names, fallbackExtensionTypes);
-            batches.append(
-                batchImportFunc((std::uint64_t)data.get(), (std::uint64_t)schema.get()));
+            batches.append(batchImportFunc((std::uint64_t)data.get(), (std::uint64_t)schema.get()));
         }
         auto schema = ArrowConverter::toArrowSchema(types, names, fallbackExtensionTypes);
         auto fromBatchesFunc = importCache->pyarrow.lib.Table.from_batches();
@@ -361,8 +372,8 @@ lbug::pyarrow::Table PyQueryResult::getAsArrow(std::int64_t chunkSize,
         auto schemaObj = schemaImportFunc((std::uint64_t)schema.get());
         return py::cast<lbug::pyarrow::Table>(fromBatchesFunc(batches, schemaObj));
     }
-    auto types = queryResult->getColumnDataTypes();
-    auto names = queryResult->getColumnNames();
+    auto types = queryResult.getColumnDataTypes();
+    auto names = queryResult.getColumnNames();
     py::list batches = getArrowChunks(types, names, chunkSize, fallbackExtensionTypes);
     auto schema = ArrowConverter::toArrowSchema(types, names, fallbackExtensionTypes);
     auto fromBatchesFunc = importCache->pyarrow.lib.Table.from_batches();
@@ -372,16 +383,17 @@ lbug::pyarrow::Table PyQueryResult::getAsArrow(std::int64_t chunkSize,
 }
 
 py::dict PyQueryResult::getCSR() {
-    if (auto* arrowQueryResult = dynamic_cast<lbug::main::ArrowQueryResult*>(queryResult);
+    auto& queryResult = refState().ref();
+    if (auto* arrowQueryResult = dynamic_cast<lbug::main::ArrowQueryResult*>(&queryResult);
         arrowQueryResult != nullptr && arrowQueryResult->hasCSRMetadata()) {
         return buildCSRResult(arrowQueryResult->getCSRArrowArrays());
     }
-    throw RuntimeException(
-        "CSR export is only supported for Arrow query results with native CSR metadata.");
+    throw RuntimeException("CSR export is only supported for Arrow query results "
+                           "with native CSR metadata.");
 }
 
 py::list PyQueryResult::getColumnDataTypes() {
-    auto columnDataTypes = queryResult->getColumnDataTypes();
+    auto columnDataTypes = refState().ref().getColumnDataTypes();
     py::tuple result(columnDataTypes.size());
     for (auto i = 0u; i < columnDataTypes.size(); ++i) {
         result[i] = py::cast(columnDataTypes[i].toString());
@@ -390,7 +402,7 @@ py::list PyQueryResult::getColumnDataTypes() {
 }
 
 py::list PyQueryResult::getColumnNames() {
-    auto columnNames = queryResult->getColumnNames();
+    auto columnNames = refState().ref().getColumnNames();
     py::tuple result(columnNames.size());
     for (auto i = 0u; i < columnNames.size(); ++i) {
         result[i] = py::cast(columnNames[i]);
@@ -399,15 +411,15 @@ py::list PyQueryResult::getColumnNames() {
 }
 
 void PyQueryResult::resetIterator() {
-    queryResult->resetIterator();
+    refState().ref().resetIterator();
 }
 
 bool PyQueryResult::isSuccess() const {
-    return queryResult->isSuccess();
+    return refState().ref().isSuccess();
 }
 
 std::string PyQueryResult::getErrorMessage() const {
-    return queryResult->getErrorMessage();
+    return refState().ref().getErrorMessage();
 }
 
 py::dict PyQueryResult::convertNodeIdToPyDict(const nodeID_t& nodeId) {
@@ -418,13 +430,13 @@ py::dict PyQueryResult::convertNodeIdToPyDict(const nodeID_t& nodeId) {
 }
 
 double PyQueryResult::getExecutionTime() {
-    return queryResult->getQuerySummary()->getExecutionTime();
+    return refState().ref().getQuerySummary()->getExecutionTime();
 }
 
 double PyQueryResult::getCompilingTime() {
-    return queryResult->getQuerySummary()->getCompilingTime();
+    return refState().ref().getQuerySummary()->getCompilingTime();
 }
 
 size_t PyQueryResult::getNumTuples() {
-    return queryResult->getNumTuples();
+    return refState().ref().getNumTuples();
 }

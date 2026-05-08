@@ -1,9 +1,11 @@
 #pragma once
 
+#include <memory>
 #include <unordered_map>
 
 #include "main/storage_driver.h"
 #include "py_database.h"
+#include "py_handle_state.h"
 #include "py_prepared_statement.h"
 #include "py_query_result.h"
 
@@ -20,7 +22,7 @@ public:
 
     void close();
 
-    ~PyConnection() = default;
+    ~PyConnection();
 
     void setQueryTimeout(uint64_t timeoutInMS);
     void interrupt();
@@ -29,8 +31,7 @@ public:
         const py::dict& params);
 
     std::unique_ptr<PyQueryResult> query(const std::string& statement);
-    std::unique_ptr<PyQueryResult> queryAsArrow(const std::string& statement,
-        int64_t chunkSize);
+    std::unique_ptr<PyQueryResult> queryAsArrow(const std::string& statement, int64_t chunkSize);
 
     void setMaxNumThreadForExec(uint64_t numThreads);
 
@@ -65,10 +66,10 @@ public:
         const LogicalType& type);
 
 private:
-    std::unique_ptr<StorageDriver> storageDriver;
-    std::unique_ptr<Connection> conn;
-    std::unordered_map<std::string, py::object> arrowTableRefs;
+    PyConnectionState& refState() const;
+
+    std::shared_ptr<PyConnectionState> state;
 
     static std::unique_ptr<PyQueryResult> checkAndWrapQueryResult(
-        std::unique_ptr<QueryResult>& queryResult);
+        std::unique_ptr<QueryResult>& queryResult, std::shared_ptr<PyConnectionState> state);
 };

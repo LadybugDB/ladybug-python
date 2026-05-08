@@ -135,26 +135,44 @@ static std::unique_ptr<function::ScanReplacementData> replacePythonObject(
 }
 
 PyConnection::PyConnection(PyDatabase* pyDatabase, uint64_t numThreads) {
-    storageDriver = std::make_unique<lbug::main::StorageDriver>(pyDatabase->database.get());
-    conn = std::make_unique<Connection>(pyDatabase->database.get());
-    conn->getClientContext()->addScanReplace(
+    if (pyDatabase == nullptr || pyDatabase->state == nullptr) {
+        throw RuntimeException("Database is closed.");
+    }
+    state = std::make_shared<PyConnectionState>();
+    state->database = pyDatabase->state;
+    auto& database = state->database->ref();
+    state->storageDriver = std::make_unique<lbug::main::StorageDriver>(&database);
+    state->conn = std::make_unique<Connection>(&database);
+    state->conn->getClientContext()->addScanReplace(
         function::ScanReplacement(lookupPythonObject, replacePythonObject));
     if (numThreads > 0) {
-        conn->setMaxNumThreadForExec(numThreads);
+        state->conn->setMaxNumThreadForExec(numThreads);
     }
 }
 
+PyConnection::~PyConnection() {
+    close();
+}
+
 void PyConnection::close() {
-    arrowTableRefs.clear();
-    conn.reset();
+    state.reset();
+}
+
+PyConnectionState& PyConnection::refState() const {
+    if (state == nullptr) {
+        throw RuntimeException("Connection is closed.");
+    }
+    state->ref();
+    state->storage();
+    return *state;
 }
 
 void PyConnection::setQueryTimeout(uint64_t timeoutInMS) {
-    conn->setQueryTimeOut(timeoutInMS);
+    refState().ref().setQueryTimeOut(timeoutInMS);
 }
 
 void PyConnection::interrupt() {
-    conn->interrupt();
+    refState().ref().interrupt();
 }
 
 static std::unordered_map<std::string, std::unique_ptr<Value>> transformPythonParameters(
@@ -162,52 +180,62 @@ static std::unordered_map<std::string, std::unique_ptr<Value>> transformPythonPa
 
 std::unique_ptr<PyQueryResult> PyConnection::execute(PyPreparedStatement* preparedStatement,
     const py::dict& params) {
-    auto parameters = transformPythonParameters(params, conn.get());
+    auto& stateRef = refState();
+    if (preparedStatement == nullptr || preparedStatement->state == nullptr) {
+        throw RuntimeException("Prepared statement is closed.");
+    }
+    auto parameters = transformPythonParameters(params, &stateRef.ref());
     py::gil_scoped_release release;
     auto queryResult =
-        conn->executeWithParams(preparedStatement->preparedStatement.get(), std::move(parameters));
+        stateRef.ref().executeWithParams(&preparedStatement->state->ref(), std::move(parameters));
     py::gil_scoped_acquire acquire;
-    return checkAndWrapQueryResult(queryResult);
+    return checkAndWrapQueryResult(queryResult, state);
 }
 
 std::unique_ptr<PyQueryResult> PyConnection::query(const std::string& statement) {
+    auto& stateRef = refState();
     py::gil_scoped_release release;
-    auto queryResult = conn->query(statement);
+    auto queryResult = stateRef.ref().query(statement);
     py::gil_scoped_acquire acquire;
-    return checkAndWrapQueryResult(queryResult);
+    return checkAndWrapQueryResult(queryResult, state);
 }
 
 std::unique_ptr<PyQueryResult> PyConnection::queryAsArrow(const std::string& statement,
     int64_t chunkSize) {
+    auto& stateRef = refState();
     py::gil_scoped_release release;
-    auto queryResult = conn->queryAsArrow(statement, chunkSize);
+    auto queryResult = stateRef.ref().queryAsArrow(statement, chunkSize);
     py::gil_scoped_acquire acquire;
-    return checkAndWrapQueryResult(queryResult);
+    return checkAndWrapQueryResult(queryResult, state);
 }
 
 void PyConnection::setMaxNumThreadForExec(uint64_t numThreads) {
-    conn->setMaxNumThreadForExec(numThreads);
+    refState().ref().setMaxNumThreadForExec(numThreads);
 }
 
 PyPreparedStatement PyConnection::prepare(const std::string& query, const py::dict& parameters) {
-    auto params = transformPythonParameters(parameters, conn.get());
-    auto preparedStatement = conn->prepareWithParams(query, std::move(params));
+    auto& stateRef = refState();
+    auto params = transformPythonParameters(parameters, &stateRef.ref());
+    auto preparedStatement = stateRef.ref().prepareWithParams(query, std::move(params));
     PyPreparedStatement pyPreparedStatement;
-    pyPreparedStatement.preparedStatement = std::move(preparedStatement);
+    pyPreparedStatement.state = std::make_shared<PyPreparedStatementState>();
+    pyPreparedStatement.state->connection = state;
+    pyPreparedStatement.state->preparedStatement = std::move(preparedStatement);
     return pyPreparedStatement;
 }
 
 uint64_t PyConnection::getNumNodes(const std::string& nodeName) {
-    return storageDriver->getNumNodes(nodeName);
+    return refState().storage().getNumNodes(nodeName);
 }
 
 uint64_t PyConnection::getNumRels(const std::string& relName) {
-    return storageDriver->getNumRels(relName);
+    return refState().storage().getNumRels(relName);
 }
 
 void PyConnection::getAllEdgesForTorchGeometric(py::array_t<int64_t>& npArray,
     const std::string& srcTableName, const std::string& relName, const std::string& dstTableName,
     size_t queryBatchSize) {
+    auto& stateRef = refState();
     // Get the number of nodes in the dst table for batching.
     auto numDstNodes = getNumNodes(dstTableName);
     uint64_t batches = numDstNodes / queryBatchSize;
@@ -220,13 +248,13 @@ void PyConnection::getAllEdgesForTorchGeometric(py::array_t<int64_t>& npArray,
     auto buffer = (int64_t*)bufferInfo.ptr;
 
     // Set the number of threads to 1 for fetching edges to ensure ordering.
-    auto numThreadsForExec = conn->getMaxNumThreadForExec();
-    conn->setMaxNumThreadForExec(1);
-    auto query =
-        std::format("MATCH (a:{})-[:{}]->(b:{}) WHERE offset(id(b)) >= $s AND offset(id(b)) < "
-                    "$e RETURN offset(id(a)), offset(id(b))",
-            srcTableName, relName, dstTableName);
-    auto preparedStatement = conn->prepare(query);
+    auto numThreadsForExec = stateRef.ref().getMaxNumThreadForExec();
+    stateRef.ref().setMaxNumThreadForExec(1);
+    auto query = std::format("MATCH (a:{})-[:{}]->(b:{}) WHERE offset(id(b)) >= "
+                             "$s AND offset(id(b)) < "
+                             "$e RETURN offset(id(a)), offset(id(b))",
+        srcTableName, relName, dstTableName);
+    auto preparedStatement = stateRef.ref().prepare(query);
     auto srcBuffer = buffer;
     auto dstBuffer = buffer + numRels;
     for (uint64_t batch = 0; batch < batches; ++batch) {
@@ -237,7 +265,8 @@ void PyConnection::getAllEdgesForTorchGeometric(py::array_t<int64_t>& npArray,
         std::unordered_map<std::string, std::unique_ptr<Value>> parameters;
         parameters["s"] = std::make_unique<Value>(start);
         parameters["e"] = std::make_unique<Value>(end);
-        auto result = conn->executeWithParams(preparedStatement.get(), std::move(parameters));
+        auto result =
+            stateRef.ref().executeWithParams(preparedStatement.get(), std::move(parameters));
         if (!result->isSuccess()) {
             throw std::runtime_error(result->getErrorMessage());
         }
@@ -274,7 +303,7 @@ void PyConnection::getAllEdgesForTorchGeometric(py::array_t<int64_t>& npArray,
             throw std::runtime_error("Wrong result table schema.");
         }
     }
-    conn->setMaxNumThreadForExec(numThreadsForExec);
+    stateRef.ref().setMaxNumThreadForExec(numThreadsForExec);
 }
 
 bool PyConnection::isPandasDataframe(const py::handle& object) {
@@ -303,7 +332,8 @@ static std::unordered_map<std::string, std::unique_ptr<Value>> transformPythonPa
     std::unordered_map<std::string, std::unique_ptr<Value>> result;
     for (auto& [key, value] : params) {
         if (!py::isinstance<py::str>(key)) {
-            // TODO(Chang): remove ROLLBACK once we can guarantee database is deleted after conn
+            // TODO(Chang): remove ROLLBACK once we can guarantee database is deleted
+            // after conn
             conn->query("ROLLBACK");
             throw std::runtime_error("Parameter name must be of type string but got " +
                                      py::str(key.get_type()).cast<std::string>());
@@ -422,15 +452,17 @@ static LogicalType pyLogicalType(const py::handle& val) {
                  curChildValueType = pyLogicalType(child.second);
             LogicalType resultKey, resultValue;
             if (!LogicalTypeUtils::tryGetMaxLogicalType(childKeyType, curChildKeyType, resultKey)) {
-                throw RuntimeException(std::format(
-                    "Cannot convert Python object to Lbug value : {}  is incompatible with {}",
-                    childKeyType.toString(), curChildKeyType.toString()));
+                throw RuntimeException(
+                    std::format("Cannot convert Python object to Lbug value : {}  is "
+                                "incompatible with {}",
+                        childKeyType.toString(), curChildKeyType.toString()));
             }
             if (!LogicalTypeUtils::tryGetMaxLogicalType(childValueType, curChildValueType,
                     resultValue)) {
-                throw RuntimeException(std::format(
-                    "Cannot convert Python object to Lbug value : {}  is incompatible with {}",
-                    childValueType.toString(), curChildValueType.toString()));
+                throw RuntimeException(
+                    std::format("Cannot convert Python object to Lbug value : {}  is incompatible "
+                                "with {}",
+                        childValueType.toString(), curChildValueType.toString()));
             }
             childKeyType = std::move(resultKey);
             childValueType = std::move(resultValue);
@@ -443,9 +475,10 @@ static LogicalType pyLogicalType(const py::handle& val) {
             auto curChildType = pyLogicalType(child);
             LogicalType result;
             if (!LogicalTypeUtils::tryGetMaxLogicalType(childType, curChildType, result)) {
-                throw RuntimeException(std::format(
-                    "Cannot convert Python object to Lbug value : {}  is incompatible with {}",
-                    childType.toString(), curChildType.toString()));
+                throw RuntimeException(
+                    std::format("Cannot convert Python object to Lbug value : {}  is "
+                                "incompatible with {}",
+                        childType.toString(), curChildType.toString()));
             }
             childType = std::move(result);
         }
@@ -485,12 +518,12 @@ static bool validateMapFields(py::dict& dict) {
 
 static LogicalType pyLogicalTypeFromParameter(const py::handle& val);
 
-// If we want to interpret a python dict as MAP, it has to satisfy the following two conditions:
+// If we want to interpret a python dict as MAP, it has to satisfy the following
+// two conditions:
 // 1. The dictionary has only two fields.
 // 2. The first field name is "key", while the second field name is "value".
-// 3. Values of both first and second fields are list of values with the same type.
-// Sample:
-// my_map_dict = {
+// 3. Values of both first and second fields are list of values with the same
+// type. Sample: my_map_dict = {
 //    "key": [
 //        1, 2, 3
 //    ],
@@ -551,9 +584,10 @@ static LogicalType pyLogicalTypeFromParameter(const py::handle& val) {
             }
             LogicalType result;
             if (!LogicalTypeUtils::tryGetMaxLogicalType(childType, curChildType, result)) {
-                throw RuntimeException(std::format(
-                    "Cannot convert Python object to Lbug value : {}  is incompatible with {}",
-                    childType.toString(), curChildType.toString()));
+                throw RuntimeException(
+                    std::format("Cannot convert Python object to Lbug value : {}  is "
+                                "incompatible with {}",
+                        childType.toString(), curChildType.toString()));
             }
             childType = std::move(result);
         }
@@ -688,8 +722,8 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
         const auto& childKeyType = MapType::getKeyType(type);
         const auto& childValueType = MapType::getValueType(type);
         for (auto child : dict) {
-            // type construction is inefficient, we have to create duplicates because it asks for
-            // a unique ptr
+            // type construction is inefficient, we have to create duplicates because
+            // it asks for a unique ptr
             std::vector<StructField> fields;
             fields.emplace_back(InternalKeyword::MAP_KEY, childKeyType.copy());
             fields.emplace_back(InternalKeyword::MAP_VALUE, childValueType.copy());
@@ -810,28 +844,32 @@ Value PyConnection::transformPythonValueFromParameter(const py::handle& val) {
 }
 
 std::unique_ptr<PyQueryResult> PyConnection::checkAndWrapQueryResult(
-    std::unique_ptr<QueryResult>& queryResult) {
+    std::unique_ptr<QueryResult>& queryResult, std::shared_ptr<PyConnectionState> state) {
     if (!queryResult->isSuccess()) {
         throw std::runtime_error(queryResult->getErrorMessage());
     }
     auto pyQueryResult = std::make_unique<PyQueryResult>();
-    pyQueryResult->queryResult = queryResult.release();
-    pyQueryResult->isOwned = true;
+    pyQueryResult->state = std::make_shared<PyQueryResultState>();
+    pyQueryResult->state->connection = std::move(state);
+    pyQueryResult->state->owned = std::move(queryResult);
     return pyQueryResult;
 }
 
 void PyConnection::createScalarFunction(const std::string& name, const py::function& udf,
     const py::list& params, const std::string& retval, bool defaultNull, bool catchExceptions) {
-    conn->addUDFFunctionSet(name, PyUDF::toFunctionSet(name, udf, params, retval, defaultNull,
-                                      catchExceptions, conn->getClientContext()));
+    auto& stateRef = refState();
+    stateRef.ref().addUDFFunctionSet(name,
+        PyUDF::toFunctionSet(name, udf, params, retval, defaultNull, catchExceptions,
+            stateRef.ref().getClientContext()));
 }
 
 void PyConnection::removeScalarFunction(const std::string& name) {
-    conn->removeUDFFunction(name);
+    refState().ref().removeUDFFunction(name);
 }
 
 std::unique_ptr<PyQueryResult> PyConnection::createArrowTable(const std::string& tableName,
     py::object arrowTable) {
+    auto& stateRef = refState();
     py::gil_scoped_acquire acquire;
 
     // Convert pandas/polars to pyarrow if needed
@@ -864,17 +902,18 @@ std::unique_ptr<PyQueryResult> PyConnection::createArrowTable(const std::string&
     keepAlive.append(arrowTable);
     keepAlive.append(batches);
 
-    auto result = ArrowTableSupport::createViewFromArrowTable(*conn, tableName, std::move(schema),
-        std::move(arrays));
+    auto result = ArrowTableSupport::createViewFromArrowTable(stateRef.ref(), tableName,
+        std::move(schema), std::move(arrays));
     if (result.queryResult && result.queryResult->isSuccess()) {
-        arrowTableRefs[tableName] = std::move(keepAlive);
+        stateRef.arrowTableRefs[tableName] = std::move(keepAlive);
     }
 
-    return checkAndWrapQueryResult(result.queryResult);
+    return checkAndWrapQueryResult(result.queryResult, state);
 }
 
 std::unique_ptr<PyQueryResult> PyConnection::createArrowRelTable(const std::string& tableName,
     py::object arrowTable, const std::string& srcTableName, const std::string& dstTableName) {
+    auto& stateRef = refState();
     py::gil_scoped_acquire acquire;
 
     if (PyConnection::isPandasDataframe(arrowTable)) {
@@ -899,19 +938,20 @@ std::unique_ptr<PyQueryResult> PyConnection::createArrowRelTable(const std::stri
     keepAlive.append(arrowTable);
     keepAlive.append(batches);
 
-    auto result = ArrowTableSupport::createRelTableFromArrowTable(*conn, tableName, srcTableName,
-        dstTableName, std::move(schema), std::move(arrays));
+    auto result = ArrowTableSupport::createRelTableFromArrowTable(stateRef.ref(), tableName,
+        srcTableName, dstTableName, std::move(schema), std::move(arrays));
     if (result.queryResult && result.queryResult->isSuccess()) {
-        arrowTableRefs[tableName] = std::move(keepAlive);
+        stateRef.arrowTableRefs[tableName] = std::move(keepAlive);
     }
 
-    return checkAndWrapQueryResult(result.queryResult);
+    return checkAndWrapQueryResult(result.queryResult, state);
 }
 
 std::unique_ptr<PyQueryResult> PyConnection::dropArrowTable(const std::string& tableName) {
-    auto result = ArrowTableSupport::unregisterArrowTable(*conn, tableName);
+    auto& stateRef = refState();
+    auto result = ArrowTableSupport::unregisterArrowTable(stateRef.ref(), tableName);
     if (result && result->isSuccess()) {
-        arrowTableRefs.erase(tableName);
+        stateRef.arrowTableRefs.erase(tableName);
     }
-    return checkAndWrapQueryResult(result);
+    return checkAndWrapQueryResult(result, state);
 }

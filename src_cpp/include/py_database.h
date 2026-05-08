@@ -1,7 +1,10 @@
 #pragma once
 
+#include <memory>
+
 #include "main/lbug.h"
 #include "main/storage_driver.h"
+#include "py_handle_state.h"
 #include "pybind_include.h" // IWYU pragma: keep (used for py:: namespace)
 #define PYBIND11_DETAILED_ERROR_MESSAGES
 using namespace lbug::main;
@@ -30,6 +33,5 @@ public:
         const py::array_t<uint64_t>& indices, py::array_t<T>& result, int numThreads);
 
 private:
-    std::unique_ptr<Database> database;
-    std::unique_ptr<StorageDriver> storageDriver;
+    std::shared_ptr<PyDatabaseState> state;
 };

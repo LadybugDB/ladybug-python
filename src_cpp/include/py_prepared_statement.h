@@ -2,6 +2,7 @@
 
 #include "main/lbug.h"
 #include "main/prepared_statement.h"
+#include "py_handle_state.h"
 #include "pybind_include.h"
 
 using namespace lbug::main;
@@ -17,5 +18,5 @@ public:
     bool isSuccess() const;
 
 private:
-    std::unique_ptr<PreparedStatement> preparedStatement;
+    std::shared_ptr<PyPreparedStatementState> state;
 };

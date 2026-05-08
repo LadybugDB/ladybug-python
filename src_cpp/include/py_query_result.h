@@ -6,6 +6,7 @@
 #include "arrow_array.h"
 #include "common/arrow/arrow.h"
 #include "main/lbug.h"
+#include "py_handle_state.h"
 #include "pybind_include.h"
 
 using namespace lbug::main;
@@ -54,6 +55,8 @@ public:
     size_t getNumTuples();
 
 private:
+    PyQueryResultState& refState() const;
+
     static py::dict convertNodeIdToPyDict(const lbug::common::nodeID_t& nodeId);
 
     void getNextArrowChunk(const std::vector<lbug::common::LogicalType>& types,
@@ -63,6 +66,5 @@ private:
         const std::vector<std::string>& names, std::int64_t chunkSize, bool fallbackExtensionTypes);
 
 private:
-    QueryResult* queryResult = nullptr;
-    bool isOwned = false;
+    std::shared_ptr<PyQueryResultState> state;
 };

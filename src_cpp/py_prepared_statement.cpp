@@ -10,9 +10,15 @@ void PyPreparedStatement::initialize(py::handle& m) {
 }
 
 py::str PyPreparedStatement::getErrorMessage() const {
-    return preparedStatement->getErrorMessage();
+    if (state == nullptr) {
+        throw lbug::common::RuntimeException("Prepared statement is closed.");
+    }
+    return state->ref().getErrorMessage();
 }
 
 bool PyPreparedStatement::isSuccess() const {
-    return preparedStatement->isSuccess();
+    if (state == nullptr) {
+        throw lbug::common::RuntimeException("Prepared statement is closed.");
+    }
+    return state->ref().isSuccess();
 }
