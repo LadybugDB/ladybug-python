@@ -1407,10 +1407,28 @@ class QueryResult:
 
     def getAsDF(self) -> Any:
         import pandas as pd
+        import pyarrow as pa
 
-        df = pd.DataFrame(
-            self._get_all_rows_from_start(), columns=self.getColumnNames()
-        )
+        def normalize_object_value(value: Any) -> Any:
+            if isinstance(value, dict):
+                return {key: normalize_object_value(val) for key, val in value.items()}
+            if isinstance(value, list):
+                if all(isinstance(item, tuple) and len(item) == 2 for item in value):
+                    return {key: normalize_object_value(val) for key, val in value}
+                return [normalize_object_value(item) for item in value]
+            if hasattr(value, "tolist") and type(value).__module__.startswith("numpy"):
+                return normalize_object_value(value.tolist())
+            return value
+
+        table = self.getAsArrow(0, True)
+        try:
+            df = table.to_pandas()
+        except pa.ArrowNotImplementedError:
+            df = pd.DataFrame(
+                {name: table.column(name).to_pylist() for name in table.column_names}
+            )
+        for name in df.select_dtypes(include="object").columns:
+            df[name] = df[name].map(normalize_object_value)
         for name, dtype in zip(
             self.getColumnNames(), self.getColumnDataTypes(), strict=False
         ):
@@ -1449,7 +1467,7 @@ class QueryResult:
                     )
                 df[name] = datetime_col.astype("datetime64[us]")
             elif dtype == "INTERVAL":
-                df[name] = pd.to_timedelta(df[name])
+                df[name] = pd.to_timedelta(df[name]).astype("timedelta64[ns]")
             elif dtype == "INT128":
                 df[name] = df[name].astype("float64")
         return df
