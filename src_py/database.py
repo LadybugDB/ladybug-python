@@ -179,7 +179,8 @@ class Database:
         str
             The version of the database.
         """
-        pybind_module = get_pybind_module()
+        backend = os.getenv("LBUG_PYTHON_BACKEND", "").strip().lower()
+        pybind_module = None if backend == "capi" else get_pybind_module()
         if pybind_module is not None:
             return str(pybind_module.Database.get_version())
 
@@ -195,7 +196,8 @@ class Database:
         int
             The storage version of the database.
         """
-        pybind_module = get_pybind_module()
+        backend = os.getenv("LBUG_PYTHON_BACKEND", "").strip().lower()
+        pybind_module = None if backend == "capi" else get_pybind_module()
         if pybind_module is not None:
             return int(pybind_module.Database.get_storage_version())
 

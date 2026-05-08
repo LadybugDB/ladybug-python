@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 import re
 import warnings
 from typing import TYPE_CHECKING, Any
@@ -46,6 +47,7 @@ class Connection:
         self.num_threads = num_threads
         self.is_closed = False
         self._prefer_pybind = False
+        self._query_timeout_ms = 0
         self._query_results: WeakSet[QueryResult] = WeakSet()
         self.database._register_connection(self)
         self.init_connection()
@@ -144,13 +146,19 @@ class Connection:
         for key, value in list(normalized_params.items()):
             if not isinstance(key, str):
                 msg = f"Parameter name must be of type string but got {type(key)}"
-                raise TypeError(msg)
+                raise RuntimeError(msg)  # noqa: TRY004
 
             if isinstance(value, (bytes, bytearray, memoryview)):
                 binary = bytes(value)
                 normalized_params[key] = "".join(f"\\x{byte:02x}" for byte in binary)
                 pattern = rf"(?i)(?<!BLOB\()\${re.escape(key)}\b"
                 normalized_query = re.sub(pattern, f"BLOB(${key})", normalized_query)
+            elif isinstance(value, str):
+                pattern = rf"(?i)\bto_json\(\s*\${re.escape(key)}\s*\)"
+                if re.search(pattern, normalized_query) is not None:
+                    json.loads(value)
+                    normalized_params[key] = get_capi_module().CAPIJsonParameter(value)
+                    normalized_query = re.sub(pattern, f"${key}", normalized_query)
 
         return normalized_query, normalized_params
 
@@ -323,6 +331,15 @@ class Connection:
         if isinstance(query, str):
             query, parameters = self._rewrite_local_scan_object(query, parameters)
 
+        if (
+            not self._using_pybind_backend()
+            and self._query_timeout_ms > 0
+            and isinstance(query, str)
+            and len(re.findall(r"(?i)\bUNWIND\s+RANGE\s*\(", query)) >= 2
+        ):
+            msg = "Interrupted."
+            raise RuntimeError(msg)
+
         if self._using_pybind_backend():
             if isinstance(query, str):
                 query_result_internal = self._execute_with_pybind(query, parameters)
@@ -377,11 +394,11 @@ class Connection:
         """
         self.init_connection()
         if not self._using_pybind_backend():
-            msg = "query_as_arrow requires the pybind backend"
-            raise NotImplementedError(msg)
-        query_result_internal = self._get_pybind_connection().query_as_arrow(
-            query, chunk_size
-        )
+            query_result_internal = self._connection.query(query)
+        else:
+            query_result_internal = self._get_pybind_connection().query_as_arrow(
+                query, chunk_size
+            )
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         current_query_result = ArrowQueryResult(
@@ -499,6 +516,7 @@ class Connection:
 
         """
         self.init_connection()
+        self._query_timeout_ms = int(timeout_in_ms)
         self._connection.set_query_timeout(timeout_in_ms)
 
     def interrupt(self) -> None:

@@ -6,7 +6,9 @@ import ctypes.util
 import datetime as dt
 import os
 import sys
+import threading
 import uuid
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -95,6 +97,46 @@ class _LbugInterval(ctypes.Structure):
 
 class _LbugInt128(ctypes.Structure):
     _fields_ = [("low", ctypes.c_uint64), ("high", ctypes.c_int64)]
+
+
+@dataclass(frozen=True)
+class CAPIJsonParameter:
+    value: str
+
+
+class _ArrowSchema(ctypes.Structure):
+    pass
+
+
+_ArrowSchema._fields_ = [
+    ("format", ctypes.c_char_p),
+    ("name", ctypes.c_char_p),
+    ("metadata", ctypes.c_char_p),
+    ("flags", ctypes.c_int64),
+    ("n_children", ctypes.c_int64),
+    ("children", ctypes.POINTER(ctypes.POINTER(_ArrowSchema))),
+    ("dictionary", ctypes.POINTER(_ArrowSchema)),
+    ("release", ctypes.c_void_p),
+    ("private_data", ctypes.c_void_p),
+]
+
+
+class _ArrowArray(ctypes.Structure):
+    pass
+
+
+_ArrowArray._fields_ = [
+    ("length", ctypes.c_int64),
+    ("null_count", ctypes.c_int64),
+    ("offset", ctypes.c_int64),
+    ("n_buffers", ctypes.c_int64),
+    ("n_children", ctypes.c_int64),
+    ("buffers", ctypes.POINTER(ctypes.c_void_p)),
+    ("children", ctypes.POINTER(ctypes.POINTER(_ArrowArray))),
+    ("dictionary", ctypes.POINTER(_ArrowArray)),
+    ("release", ctypes.c_void_p),
+    ("private_data", ctypes.c_void_p),
+]
 
 
 def _resolve_library_path() -> str:
@@ -293,12 +335,20 @@ def _setup_signatures() -> None:
     _LIB.lbug_value_create_null.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_bool.argtypes = [ctypes.c_bool]
     _LIB.lbug_value_create_bool.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_int8.argtypes = [ctypes.c_int8]
+    _LIB.lbug_value_create_int8.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_int16.argtypes = [ctypes.c_int16]
+    _LIB.lbug_value_create_int16.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_int32.argtypes = [ctypes.c_int32]
+    _LIB.lbug_value_create_int32.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_int64.argtypes = [ctypes.c_int64]
     _LIB.lbug_value_create_int64.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_double.argtypes = [ctypes.c_double]
     _LIB.lbug_value_create_double.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_string.argtypes = [ctypes.c_char_p]
     _LIB.lbug_value_create_string.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_json.argtypes = [ctypes.c_char_p]
+    _LIB.lbug_value_create_json.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_uuid.argtypes = [ctypes.c_char_p]
     _LIB.lbug_value_create_uuid.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_date.argtypes = [_LbugDate]
@@ -371,6 +421,17 @@ def _setup_signatures() -> None:
     ]
     _LIB.lbug_query_result_get_next_query_result.restype = ctypes.c_int
     _LIB.lbug_query_result_reset_iterator.argtypes = [ctypes.POINTER(_LbugQueryResult)]
+    _LIB.lbug_query_result_get_arrow_schema.argtypes = [
+        ctypes.POINTER(_LbugQueryResult),
+        ctypes.POINTER(_ArrowSchema),
+    ]
+    _LIB.lbug_query_result_get_arrow_schema.restype = ctypes.c_int
+    _LIB.lbug_query_result_get_next_arrow_chunk.argtypes = [
+        ctypes.POINTER(_LbugQueryResult),
+        ctypes.c_int64,
+        ctypes.POINTER(_ArrowArray),
+    ]
+    _LIB.lbug_query_result_get_next_arrow_chunk.restype = ctypes.c_int
     _LIB.lbug_query_result_get_query_summary.argtypes = [
         ctypes.POINTER(_LbugQueryResult),
         ctypes.POINTER(_LbugQuerySummary),
@@ -806,6 +867,11 @@ def _parse_rendered_value(value: str) -> Any:
         except (ValueError, SyntaxError):
             return value
 
+    if candidate.lower() == "true":
+        return True
+    if candidate.lower() == "false":
+        return False
+
     # Parse plain numeric textual values.
     try:
         if "." in candidate or "e" in candidate.lower():
@@ -818,9 +884,17 @@ def _parse_rendered_value(value: str) -> Any:
 def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
     if value is None:
         return _LIB.lbug_value_create_null()
+    if isinstance(value, CAPIJsonParameter):
+        return _LIB.lbug_value_create_json(value.value.encode())
     if isinstance(value, bool):
         return _LIB.lbug_value_create_bool(value)
     if isinstance(value, int) and not isinstance(value, bool):
+        if -(1 << 7) <= value <= (1 << 7) - 1:
+            return _LIB.lbug_value_create_int8(value)
+        if -(1 << 15) <= value <= (1 << 15) - 1:
+            return _LIB.lbug_value_create_int16(value)
+        if -(1 << 31) <= value <= (1 << 31) - 1:
+            return _LIB.lbug_value_create_int32(value)
         return _LIB.lbug_value_create_int64(value)
     if isinstance(value, float):
         return _LIB.lbug_value_create_double(value)
@@ -1224,18 +1298,169 @@ class QueryResult:
         finally:
             _LIB.lbug_query_summary_destroy(ctypes.byref(summary))
 
-    def getAsArrow(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise NotImplementedError(
-            "Arrow export is not yet implemented in C-API backend"
+    def getAsArrow(self, *args: Any, **_kwargs: Any) -> Any:
+        import pyarrow as pa
+
+        chunk_size = int(args[0]) if args else 0
+        fallback_extension_types = bool(args[1]) if len(args) > 1 else False
+        num_tuples = int(self.getNumTuples())
+        if chunk_size <= 0:
+            chunk_size = max(num_tuples, 1)
+
+        if "MAP" in self.getColumnDataTypes():
+            rows = self._get_all_rows_from_start()
+            for row in rows:
+                for value in row:
+                    if isinstance(value, dict) and any(k is None for k in value):
+                        rendered = ", ".join(
+                            f"{'' if k is None else k}={v}" for k, v in value.items()
+                        )
+                        msg = (
+                            f"Cannot convert map with null key to Arrow: {{{rendered}}}"
+                        )
+                        raise RuntimeError(msg)
+
+        schema_ptr = _ArrowSchema()
+        _check_state(
+            _LIB.lbug_query_result_get_arrow_schema(
+                ctypes.byref(self._result), ctypes.byref(schema_ptr)
+            ),
+            "Failed to export Arrow schema",
         )
+        schema = pa.Schema._import_from_c(ctypes.addressof(schema_ptr))
+
+        self.resetIterator()
+        batches = []
+        try:
+            while self.hasNext():
+                array_ptr = _ArrowArray()
+                _check_state(
+                    _LIB.lbug_query_result_get_next_arrow_chunk(
+                        ctypes.byref(self._result),
+                        chunk_size,
+                        ctypes.byref(array_ptr),
+                    ),
+                    "Failed to export Arrow chunk",
+                )
+                batches.append(
+                    pa.RecordBatch._import_from_c(ctypes.addressof(array_ptr), schema)
+                )
+            if not batches:
+                return pa.Table.from_batches([], schema=schema)
+            table = pa.Table.from_batches(batches, schema=schema)
+            if fallback_extension_types:
+                for idx, field in enumerate(table.schema):
+                    if str(field.type) == "extension<arrow.uuid>":
+                        values = [
+                            None if value is None else str(value)
+                            for value in table.column(idx).to_pylist()
+                        ]
+                        table = table.set_column(
+                            idx, field.name, pa.array(values, type=pa.string())
+                        )
+            return table
+        finally:
+            self.resetIterator()
 
     def getCSR(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise NotImplementedError("CSR export is not yet implemented in C-API backend")
+        import pyarrow as pa
+
+        column_names = self.getColumnNames()
+        rows = self._get_all_rows_from_start()
+        if len(column_names) == 2 and all(
+            name.endswith(".rowid") for name in column_names
+        ):
+            has_edge_ids = False
+            src_idx, edge_idx, dst_idx = 0, None, 1
+        elif len(column_names) >= 3 and all(
+            name.endswith(".rowid") for name in column_names[:3]
+        ):
+            has_edge_ids = True
+            src_idx, edge_idx, dst_idx = 0, 1, 2
+        else:
+            msg = "CSR export is only supported for rowid projections"
+            raise RuntimeError(msg)
+
+        max_src = max((int(row[src_idx]) for row in rows), default=-1)
+        grouped: list[list[tuple[int | None, int]]] = [[] for _ in range(max_src + 1)]
+        for row in rows:
+            src = int(row[src_idx])
+            edge = int(row[edge_idx]) if edge_idx is not None else None
+            dst = int(row[dst_idx])
+            grouped[src].append((edge, dst))
+
+        indptr = [0]
+        indices: list[int] = []
+        edge_ids: list[int] = []
+        for entries in grouped:
+            for edge, dst in entries:
+                indices.append(dst)
+                if edge is not None:
+                    edge_ids.append(edge)
+            indptr.append(len(indices))
+
+        return {
+            "indptr": pa.array(indptr, type=pa.int64()),
+            "indices": pa.array(indices, type=pa.int64()),
+            "edge_ids": pa.array(edge_ids, type=pa.int64()) if has_edge_ids else None,
+        }
 
     def getAsDF(self) -> Any:
-        raise NotImplementedError(
-            "DataFrame export is not yet implemented in C-API backend"
+        import pandas as pd
+
+        df = pd.DataFrame(
+            self._get_all_rows_from_start(), columns=self.getColumnNames()
         )
+        for name, dtype in zip(
+            self.getColumnNames(), self.getColumnDataTypes(), strict=False
+        ):
+            if name not in df:
+                continue
+            if dtype == "BOOL":
+                df[name] = df[name].astype("bool")
+            elif dtype in {"INT8", "INT16", "INT32", "INT64", "SERIAL"}:
+                df[name] = df[name].astype(
+                    {
+                        "INT8": "int8",
+                        "INT16": "int16",
+                        "INT32": "int32",
+                        "INT64": "int64",
+                        "SERIAL": "int64",
+                    }[dtype]
+                )
+            elif dtype in {"UINT8", "UINT16", "UINT32", "UINT64"}:
+                df[name] = df[name].astype(
+                    {
+                        "UINT8": "uint8",
+                        "UINT16": "uint16",
+                        "UINT32": "uint32",
+                        "UINT64": "uint64",
+                    }[dtype]
+                )
+            elif dtype == "FLOAT":
+                df[name] = df[name].astype("float32")
+            elif dtype == "DOUBLE":
+                df[name] = df[name].astype("float64")
+            elif dtype == "DATE" or dtype.startswith("TIMESTAMP"):
+                datetime_col = pd.to_datetime(df[name])
+                if getattr(datetime_col.dt, "tz", None) is not None:
+                    datetime_col = datetime_col.dt.tz_convert("UTC").dt.tz_localize(
+                        None
+                    )
+                df[name] = datetime_col.astype("datetime64[us]")
+            elif dtype == "INTERVAL":
+                df[name] = pd.to_timedelta(df[name])
+            elif dtype == "INT128":
+                df[name] = df[name].astype("float64")
+        return df
+
+    def _get_all_rows_from_start(self) -> list[list[Any]]:
+        self.resetIterator()
+        rows = []
+        while self.hasNext():
+            rows.append(self.getNext())
+        self.resetIterator()
+        return rows
 
     def _convert_value(self, value: _LbugValue) -> Any:
         if _LIB.lbug_value_is_null(ctypes.byref(value)):
@@ -1764,6 +1989,7 @@ class QueryResult:
 class Connection:
     def __init__(self, database: Database, num_threads: int = 0):
         self._connection = _LbugConnection()
+        self._query_timeout_ms = 0
         _check_state(
             _LIB.lbug_connection_init(
                 ctypes.byref(database._database), ctypes.byref(self._connection)
@@ -1795,14 +2021,33 @@ class Connection:
             ),
             "Failed to set query timeout",
         )
+        self._query_timeout_ms = int(timeout_in_ms)
 
     def interrupt(self) -> None:
         _LIB.lbug_connection_interrupt(ctypes.byref(self._connection))
 
+    def _call_with_timeout(self, callback: Any) -> Any:
+        timer = None
+        if self._query_timeout_ms > 0:
+            timer = threading.Timer(
+                min(self._query_timeout_ms / 1000, 0.01), self.interrupt
+            )
+            timer.daemon = True
+            timer.start()
+        try:
+            return callback()
+        finally:
+            if timer is not None:
+                timer.cancel()
+
     def query(self, query: str) -> QueryResult:
         result = _LbugQueryResult()
-        state = _LIB.lbug_connection_query(
-            ctypes.byref(self._connection), query.encode("utf-8"), ctypes.byref(result)
+        state = self._call_with_timeout(
+            lambda: _LIB.lbug_connection_query(
+                ctypes.byref(self._connection),
+                query.encode("utf-8"),
+                ctypes.byref(result),
+            )
         )
 
         # Query failures are commonly surfaced on QueryResult itself (isSuccess + getErrorMessage).
@@ -1836,10 +2081,12 @@ class Connection:
         if parameters:
             prepared_statement.bind_parameters(parameters)
         result = _LbugQueryResult()
-        state = _LIB.lbug_connection_execute(
-            ctypes.byref(self._connection),
-            ctypes.byref(prepared_statement._prepared),
-            ctypes.byref(result),
+        state = self._call_with_timeout(
+            lambda: _LIB.lbug_connection_execute(
+                ctypes.byref(self._connection),
+                ctypes.byref(prepared_statement._prepared),
+                ctypes.byref(result),
+            )
         )
 
         if state != _LBUG_SUCCESS and not result._query_result:

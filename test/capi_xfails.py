@@ -2,14 +2,7 @@ from __future__ import annotations
 
 CAPI_XFAILS = frozenset(
     {
-        "test/test_arrow.py::test_to_arrow",
-        "test/test_arrow.py::test_to_arrow_map",
-        "test/test_arrow.py::test_to_arrow_array",
-        "test/test_arrow.py::test_to_arrow_complex",
-        "test/test_arrow.py::test_query_as_arrow_csr_with_rel_ids",
-        "test/test_arrow.py::test_query_as_arrow_csr_with_extra_columns",
-        "test/test_arrow.py::test_query_as_arrow_csr_without_rel_ids",
-        "test/test_arrow.py::test_query_as_arrow_csr_rejects_non_csr_shape",
+        # Arrow memory-backed table APIs are pybind-only today.
         "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_basic",
         "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_filtering",
         "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_with_pandas",
@@ -18,25 +11,8 @@ CAPI_XFAILS = frozenset(
         "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_count",
         "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_arrow_node_and_rel_table",
         "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_native_node_and_arrow_rel_table",
+        # Scanning from Python-owned DataFrame/Arrow/Polars objects is still pybind-only.
         "test/test_async_connection.py::test_async_scan_df",
-        "test/test_blob_parameter.py::test_bytes_param_udf",
-        "test/test_df.py::test_to_df",
-        "test/test_df.py::test_df_multiple_times",
-        "test/test_df.py::test_df_get_node",
-        "test/test_df.py::test_df_get_node_rel",
-        "test/test_df.py::test_df_get_recursive_join",
-        "test/test_df.py::test_get_df_unicode",
-        "test/test_df.py::test_get_df_decimal",
-        "test/test_issue.py::test_param_empty",
-        "test/test_issue.py::test_empty_list2",
-        "test/test_issue.py::test_empty_map",
-        "test/test_json.py::test_to_json_string_param_roundtrip",
-        "test/test_parameter.py::test_empty_list_param",
-        "test/test_parameter.py::test_map_param",
-        "test/test_parameter.py::test_general_list_param",
-        "test/test_parameter.py::test_null_resolution",
-        "test/test_parameter.py::test_param_error1",
-        "test/test_parameter.py::test_param_error4",
         "test/test_scan_pandas.py::test_scan_pandas",
         "test/test_scan_pandas.py::test_scan_pandas_timestamp",
         "test/test_scan_pandas.py::test_replace_failure",
@@ -105,11 +81,14 @@ CAPI_XFAILS = frozenset(
         "test/test_scan_pyarrow.py::test_copy_from_pyarrow_multi_pairs",
         "test/test_scan_pyarrow.py::test_create_arrow_rel_table_from_pyarrow_table_query_results",
         "test/test_scan_pyarrow.py::test_arrow_node_and_arrow_rel_with_filtering_query",
-        "test/test_torch_geometric.py::test_to_torch_geometric_homogeneous_graph",
-        "test/test_torch_geometric.py::test_to_torch_geometric_heterogeneous_graph",
+        # UDF registration is still routed through pybind.
+        "test/test_blob_parameter.py::test_bytes_param_udf",
         "test/test_udf.py::test_udf",
         "test/test_udf.py::test_udf_null",
         "test/test_udf.py::test_udf_except",
         "test/test_udf.py::test_udf_remove",
+        # C API temporal conversion still differs from pybind for torch geometric export.
+        "test/test_torch_geometric.py::test_to_torch_geometric_homogeneous_graph",
+        "test/test_torch_geometric.py::test_to_torch_geometric_heterogeneous_graph",
     }
 )
