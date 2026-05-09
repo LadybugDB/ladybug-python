@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import json
 import re
+import uuid
 import warnings
 from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
@@ -49,6 +50,7 @@ class Connection:
         self._prefer_pybind = False
         self._query_timeout_ms = 0
         self._query_results: WeakSet[QueryResult] = WeakSet()
+        self._capi_scan_tables: set[str] = set()
         self.database._register_connection(self)
         self.init_connection()
 
@@ -173,6 +175,120 @@ class Connection:
         ):
             return False
         return re.search(r"(?i)\bFROM\b", query) is not None
+
+    @staticmethod
+    def _quote_identifier(identifier: str) -> str:
+        escaped = identifier.replace("`", "``")
+        return f"`{escaped}`"
+
+    def _arrow_table_column_names(self, value: Any) -> list[str]:
+        table = get_capi_module().Connection._as_arrow_table(value)
+        return [field.name for field in table.schema]
+
+    def _create_capi_scan_table(self, value: Any) -> tuple[str, list[str]]:
+        table_name = f"__lbug_capi_scan_{uuid.uuid4().hex}"
+        self._connection.create_arrow_table(table_name, value)
+        self._capi_scan_tables.add(table_name)
+        return table_name, self._arrow_table_column_names(value)
+
+    def _replace_column_refs(self, text: str, columns: list[str], alias: str) -> str:
+        result = text
+        for column in sorted(columns, key=len, reverse=True):
+            quoted = self._quote_identifier(column)
+            result = re.sub(
+                rf"(?<![\w.`]){re.escape(column)}(?![\w`])",
+                f"{alias}.{quoted}",
+                result,
+            )
+        return result
+
+    def _rewrite_load_from_capi_scan(
+        self,
+        query: str,
+        source_start: int,
+        source_end: int,
+        table_name: str,
+        columns: list[str],
+    ) -> str:
+        alias = "_scan"
+        match_prefix = f"MATCH ({alias}:{self._quote_identifier(table_name)})"
+        rest = query[source_end:]
+        return_star = ", ".join(
+            f"{alias}.{self._quote_identifier(column)} AS {self._quote_identifier(column)}"
+            for column in columns
+        )
+        return_match = re.search(r"(?i)\bRETURN\s+\*", rest)
+        if return_match is not None:
+            rest = (
+                rest[: return_match.start()]
+                + f"RETURN {return_star}"
+                + rest[return_match.end() :]
+            )
+        rest = self._replace_column_refs(rest, columns, alias)
+        return query[:source_start] + match_prefix + rest
+
+    def _rewrite_copy_from_capi_scan(
+        self,
+        query: str,
+        source_start: int,
+        source_end: int,
+        table_name: str,
+        columns: list[str],
+    ) -> str:
+        alias = "_scan"
+        return_cols = ", ".join(
+            f"{alias}.{self._quote_identifier(column)}" for column in columns
+        )
+        replacement = f"(MATCH ({alias}:{self._quote_identifier(table_name)}) RETURN {return_cols})"
+        return query[:source_start] + replacement + query[source_end:]
+
+    def _rewrite_capi_python_scan(
+        self,
+        query: str,
+        parameters: dict[str, Any],
+    ) -> tuple[str, dict[str, Any]]:
+        if self._using_pybind_backend() or not self._has_scan_pattern(query):
+            return query, parameters
+
+        for key, value in list(parameters.items()):
+            if not isinstance(key, str):
+                continue
+            match = re.search(rf"(?i)\bFROM\s+(\${re.escape(key)})\b", query)
+            if match is None:
+                continue
+            if not self._is_python_scan_object(value):
+                msg = (
+                    "Binder exception: Trying to scan from unsupported data type "
+                    "INT8[]. The only parameter types that can be scanned from "
+                    "are pandas/polars dataframes and pyarrow tables."
+                )
+                raise RuntimeError(msg)
+            if self.database.read_only:
+                return query, parameters
+            options_match = re.match(r"\s*\((.*?)\)", query[match.end() :], re.DOTALL)
+            if options_match is not None and re.search(
+                r"(?i)\bINVALID_OPTION\b", options_match.group(1)
+            ):
+                msg = "INVALID_OPTION Option not recognized by pyArrow scanner."
+                raise RuntimeError(msg)
+            table_name, columns = self._create_capi_scan_table(value)
+            if query.lstrip().upper().startswith("LOAD "):
+                source_start = len(query) - len(query.lstrip())
+                query = self._rewrite_load_from_capi_scan(
+                    query, source_start, match.end(), table_name, columns
+                )
+            else:
+                query = self._rewrite_copy_from_capi_scan(
+                    query,
+                    match.start(1),
+                    match.end(1),
+                    table_name,
+                    columns,
+                )
+            parameters = dict(parameters)
+            parameters.pop(key, None)
+            break
+        return query, parameters
 
     def _lookup_python_object_in_frames(self, name: str) -> Any | None:
         frame = inspect.currentframe()
@@ -328,8 +444,11 @@ class Connection:
             msg = f"Parameters must be a dict; found {type(parameters)}."
             raise RuntimeError(msg)  # noqa: TRY004
 
+        scan_tables_before = set(self._capi_scan_tables)
         if isinstance(query, str):
             query, parameters = self._rewrite_local_scan_object(query, parameters)
+            query, parameters = self._rewrite_capi_python_scan(query, parameters)
+        scan_tables_to_drop = self._capi_scan_tables - scan_tables_before
 
         if (
             not self._using_pybind_backend()
@@ -372,6 +491,17 @@ class Connection:
             )
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
+        for table_name in scan_tables_to_drop:
+            try:
+                drop_result = self._connection.drop_arrow_table(table_name)
+                if not drop_result.isSuccess():
+                    warnings.warn(
+                        drop_result.getErrorMessage(),
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
+            finally:
+                self._capi_scan_tables.discard(table_name)
         current_query_result = QueryResult(self, query_result_internal)
         self._register_query_result(current_query_result)
         if not query_result_internal.hasNextQueryResult():

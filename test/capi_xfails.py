@@ -2,16 +2,7 @@ from __future__ import annotations
 
 CAPI_XFAILS = frozenset(
     {
-        # Arrow memory-backed table APIs are pybind-only today.
-        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_basic",
-        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_filtering",
-        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_with_pandas",
-        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_with_pyarrow",
-        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_empty_result",
-        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_table_count",
-        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_arrow_node_and_rel_table",
-        "test/test_arrow_memory_backed_table.py::test_arrow_memory_backed_native_node_and_arrow_rel_table",
-        # Scanning from Python-owned DataFrame/Arrow/Polars objects is still pybind-only.
+        # Some Python-owned DataFrame/Polars scan cases still need pybind-compatible conversion.
         "test/test_async_connection.py::test_async_scan_df",
         "test/test_scan_pandas.py::test_scan_pandas",
         "test/test_scan_pandas.py::test_scan_pandas_timestamp",
@@ -69,18 +60,9 @@ CAPI_XFAILS = frozenset(
         "test/test_scan_polars.py::test_scan_from_parameterized_df_docs_example_1",
         "test/test_scan_polars.py::test_scan_from_parameterized_df_docs_example_2",
         "test/test_scan_polars.py::test_scan_from_df_docs_example",
-        "test/test_scan_pyarrow.py::test_create_arrow_table_keeps_pyarrow_memory_alive",
+        # C API scan rewriting uses temporary Arrow-backed tables, which cannot be
+        # created through a read-only connection.
         "test/test_scan_pyarrow.py::test_pyarrow_basic",
-        "test/test_scan_pyarrow.py::test_pyarrow_copy_from_parameterized_df",
-        "test/test_scan_pyarrow.py::test_create_arrow_table_from_pyarrow_table",
-        "test/test_scan_pyarrow.py::test_pyarrow_to_filtered_pyarrow_table",
-        "test/test_scan_pyarrow.py::test_pyarrow_copy_from_invalid_source",
-        "test/test_scan_pyarrow.py::test_pyarrow_copy_from",
-        "test/test_scan_pyarrow.py::test_pyarrow_scan_ignore_errors",
-        "test/test_scan_pyarrow.py::test_pyarrow_scan_invalid_option",
-        "test/test_scan_pyarrow.py::test_copy_from_pyarrow_multi_pairs",
-        "test/test_scan_pyarrow.py::test_create_arrow_rel_table_from_pyarrow_table_query_results",
-        "test/test_scan_pyarrow.py::test_arrow_node_and_arrow_rel_with_filtering_query",
         # UDF registration is still routed through pybind.
         "test/test_blob_parameter.py::test_bytes_param_udf",
         "test/test_udf.py::test_udf",

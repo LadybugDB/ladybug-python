@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import atexit
 import ctypes
 import ctypes.util
 import datetime as dt
@@ -8,6 +9,7 @@ import os
 import sys
 import threading
 import uuid
+import weakref
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -186,6 +188,24 @@ def _resolve_library_path() -> str:
 
 _dlopen_mode = getattr(ctypes, "RTLD_GLOBAL", 0) | getattr(ctypes, "RTLD_NOW", 0)
 _LIB = ctypes.CDLL(_resolve_library_path(), mode=_dlopen_mode)
+_CAPI_DATABASES: weakref.WeakSet[Any] = weakref.WeakSet()
+_CAPI_CONNECTIONS: weakref.WeakSet[Any] = weakref.WeakSet()
+_ARROW_ATEXIT_REGISTERED = False
+
+
+def _close_capi_connections() -> None:
+    for connection in list(_CAPI_CONNECTIONS):
+        connection.close()
+    for database in list(_CAPI_DATABASES):
+        database.close()
+
+
+def _ensure_arrow_atexit_cleanup() -> None:
+    global _ARROW_ATEXIT_REGISTERED
+    if not _ARROW_ATEXIT_REGISTERED:
+        atexit.register(_close_capi_connections)
+        _ARROW_ATEXIT_REGISTERED = True
+
 
 _LBUG_SUCCESS = 0
 
@@ -287,6 +307,35 @@ def _setup_signatures() -> None:
         ctypes.POINTER(_LbugQueryResult),
     ]
     _LIB.lbug_connection_execute.restype = ctypes.c_int
+
+    _LIB.lbug_connection_create_arrow_table.argtypes = [
+        ctypes.POINTER(_LbugConnection),
+        ctypes.c_char_p,
+        ctypes.POINTER(_ArrowSchema),
+        ctypes.POINTER(_ArrowArray),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugQueryResult),
+    ]
+    _LIB.lbug_connection_create_arrow_table.restype = ctypes.c_int
+
+    _LIB.lbug_connection_create_arrow_rel_table.argtypes = [
+        ctypes.POINTER(_LbugConnection),
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.POINTER(_ArrowSchema),
+        ctypes.POINTER(_ArrowArray),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugQueryResult),
+    ]
+    _LIB.lbug_connection_create_arrow_rel_table.restype = ctypes.c_int
+
+    _LIB.lbug_connection_drop_arrow_table.argtypes = [
+        ctypes.POINTER(_LbugConnection),
+        ctypes.c_char_p,
+        ctypes.POINTER(_LbugQueryResult),
+    ]
+    _LIB.lbug_connection_drop_arrow_table.restype = ctypes.c_int
 
     _LIB.lbug_prepared_statement_destroy.argtypes = [
         ctypes.POINTER(_LbugPreparedStatement)
@@ -1065,6 +1114,7 @@ class Database:
             database_path.encode("utf-8"), config, ctypes.byref(self._database)
         )
         _check_state(state, "Failed to initialize database")
+        _CAPI_DATABASES.add(self)
 
     def close(self) -> None:
         lib = _LIB
@@ -1072,6 +1122,7 @@ class Database:
             if lib is not None:
                 lib.lbug_database_destroy(ctypes.byref(self._database))
             self._database._database = None
+        _CAPI_DATABASES.discard(self)
 
     @staticmethod
     def get_version() -> str:
@@ -2014,6 +2065,7 @@ class Connection:
             ),
             "Failed to initialize connection",
         )
+        _CAPI_CONNECTIONS.add(self)
         if num_threads > 0:
             self.set_max_threads_for_exec(num_threads)
 
@@ -2023,6 +2075,7 @@ class Connection:
             if lib is not None:
                 lib.lbug_connection_destroy(ctypes.byref(self._connection))
             self._connection._connection = None
+        _CAPI_CONNECTIONS.discard(self)
 
     def set_max_threads_for_exec(self, num_threads: int) -> None:
         _check_state(
@@ -2119,17 +2172,81 @@ class Connection:
     def remove_function(self, *_args: Any, **_kwargs: Any) -> None:
         raise NotImplementedError("UDF removal is not yet implemented in C-API backend")
 
-    def create_arrow_table(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise NotImplementedError(
-            "Arrow memory table APIs are not yet implemented in C-API backend"
-        )
+    @staticmethod
+    def _as_arrow_table(dataframe: Any) -> Any:
+        import pyarrow as pa
 
-    def drop_arrow_table(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise NotImplementedError(
-            "Arrow memory table APIs are not yet implemented in C-API backend"
-        )
+        _ensure_arrow_atexit_cleanup()
+        module_name = type(dataframe).__module__
+        if module_name.startswith("pandas"):
+            return pa.Table.from_pandas(dataframe)
+        if module_name.startswith("polars"):
+            return dataframe.to_arrow()
+        if (
+            module_name.startswith("pyarrow")
+            and dataframe.__class__.__name__ == "Table"
+        ):
+            return dataframe
+        msg = "Expected a pyarrow Table, polars DataFrame, or pandas DataFrame"
+        raise RuntimeError(msg)
 
-    def create_arrow_rel_table(self, *_args: Any, **_kwargs: Any) -> Any:
-        raise NotImplementedError(
-            "Arrow memory table APIs are not yet implemented in C-API backend"
+    @staticmethod
+    def _export_arrow_table(dataframe: Any) -> tuple[Any, _ArrowSchema, Any, Any]:
+        table = Connection._as_arrow_table(dataframe)
+        schema = _ArrowSchema()
+        table.schema._export_to_c(ctypes.addressof(schema))
+        batches = table.to_batches()
+        array_type = _ArrowArray * len(batches)
+        arrays = array_type()
+        for idx, batch in enumerate(batches):
+            batch._export_to_c(ctypes.addressof(arrays[idx]))
+        return table, schema, arrays, batches
+
+    def create_arrow_table(self, table_name: str, dataframe: Any) -> QueryResult:
+        _table, schema, arrays, _batches = self._export_arrow_table(dataframe)
+        result = _LbugQueryResult()
+        state = _LIB.lbug_connection_create_arrow_table(
+            ctypes.byref(self._connection),
+            table_name.encode("utf-8"),
+            ctypes.byref(schema),
+            arrays,
+            len(arrays),
+            ctypes.byref(result),
         )
+        if state != _LBUG_SUCCESS and not result._query_result:
+            _check_state(state, "Failed to create Arrow table")
+        return QueryResult(result)
+
+    def drop_arrow_table(self, table_name: str) -> QueryResult:
+        result = _LbugQueryResult()
+        state = _LIB.lbug_connection_drop_arrow_table(
+            ctypes.byref(self._connection),
+            table_name.encode("utf-8"),
+            ctypes.byref(result),
+        )
+        if state != _LBUG_SUCCESS and not result._query_result:
+            _check_state(state, "Failed to drop Arrow table")
+        return QueryResult(result)
+
+    def create_arrow_rel_table(
+        self,
+        table_name: str,
+        dataframe: Any,
+        src_table_name: str,
+        dst_table_name: str,
+    ) -> QueryResult:
+        _table, schema, arrays, _batches = self._export_arrow_table(dataframe)
+        result = _LbugQueryResult()
+        state = _LIB.lbug_connection_create_arrow_rel_table(
+            ctypes.byref(self._connection),
+            table_name.encode("utf-8"),
+            src_table_name.encode("utf-8"),
+            dst_table_name.encode("utf-8"),
+            ctypes.byref(schema),
+            arrays,
+            len(arrays),
+            ctypes.byref(result),
+        )
+        if state != _LBUG_SUCCESS and not result._query_result:
+            _check_state(state, "Failed to create Arrow relationship table")
+        return QueryResult(result)
