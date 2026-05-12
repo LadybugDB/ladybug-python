@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 try:
     from tools.python_api.test.type_aliases import ConnDB
 except ImportError:
@@ -126,6 +128,27 @@ def test_int8_type_sniffing(conn_db_readwrite: ConnDB) -> None:
         {"chunk_ids": [1]},
     )
     assert result.get_num_tuples() == 0
+    result.close()
+
+
+def test_issue_483_numpy_ndarray_parameter(conn_db_readwrite: ConnDB) -> None:
+    np = pytest.importorskip("numpy")
+
+    conn, _ = conn_db_readwrite
+    conn.execute("CREATE NODE TABLE T(id INT64, v FLOAT[3], PRIMARY KEY(id))")
+    conn.execute("CREATE (:T {id: 1})")
+
+    arr = np.array([0.1, 0.2, 0.3], dtype=np.float32)
+    result = conn.execute(
+        "MATCH (n:T {id: 1}) SET n.v = $v RETURN n.v",
+        {"v": arr},
+    )
+
+    assert result.has_next()
+    assert result.get_next() == [
+        [pytest.approx(0.1), pytest.approx(0.2), pytest.approx(0.3)]
+    ]
+    assert not result.has_next()
     result.close()
 
 
