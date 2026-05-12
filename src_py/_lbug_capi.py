@@ -244,6 +244,8 @@ _LBUG_STRUCT = 54
 _LBUG_MAP = 55
 _LBUG_UNION = 56
 _LBUG_UUID = 59
+_NUMPY_MODULE: Any | None = None
+_NUMPY_IMPORT_ATTEMPTED = False
 
 
 def _setup_signatures() -> None:
@@ -392,6 +394,16 @@ def _setup_signatures() -> None:
     _LIB.lbug_value_create_int32.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_int64.argtypes = [ctypes.c_int64]
     _LIB.lbug_value_create_int64.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_uint8.argtypes = [ctypes.c_uint8]
+    _LIB.lbug_value_create_uint8.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_uint16.argtypes = [ctypes.c_uint16]
+    _LIB.lbug_value_create_uint16.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_uint32.argtypes = [ctypes.c_uint32]
+    _LIB.lbug_value_create_uint32.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_uint64.argtypes = [ctypes.c_uint64]
+    _LIB.lbug_value_create_uint64.restype = ctypes.POINTER(_LbugValue)
+    _LIB.lbug_value_create_float.argtypes = [ctypes.c_float]
+    _LIB.lbug_value_create_float.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_double.argtypes = [ctypes.c_double]
     _LIB.lbug_value_create_double.restype = ctypes.POINTER(_LbugValue)
     _LIB.lbug_value_create_string.argtypes = [ctypes.c_char_p]
@@ -930,11 +942,89 @@ def _parse_rendered_value(value: str) -> Any:
         return value
 
 
+def _numpy_module() -> Any | None:
+    global _NUMPY_IMPORT_ATTEMPTED, _NUMPY_MODULE
+    if _NUMPY_IMPORT_ATTEMPTED:
+        return _NUMPY_MODULE
+    _NUMPY_IMPORT_ATTEMPTED = True
+    try:
+        import numpy as np
+    except ModuleNotFoundError:
+        return None
+    _NUMPY_MODULE = np
+    return np
+
+
+def _is_numpy_scalar(value: Any) -> bool:
+    np = _numpy_module()
+    return bool(np is not None and isinstance(value, np.generic))
+
+
+def _is_numpy_array(value: Any) -> bool:
+    np = _numpy_module()
+    return bool(np is not None and isinstance(value, np.ndarray))
+
+
+def _numpy_scalar_value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
+    dtype = value.dtype
+    kind = dtype.kind
+    item = value.item()
+    if kind == "b":
+        return _LIB.lbug_value_create_bool(bool(item))
+    if kind == "i":
+        if dtype.itemsize == 1:
+            return _LIB.lbug_value_create_int8(item)
+        if dtype.itemsize == 2:
+            return _LIB.lbug_value_create_int16(item)
+        if dtype.itemsize == 4:
+            return _LIB.lbug_value_create_int32(item)
+        return _LIB.lbug_value_create_int64(item)
+    if kind == "u":
+        if dtype.itemsize == 1:
+            return _LIB.lbug_value_create_uint8(item)
+        if dtype.itemsize == 2:
+            return _LIB.lbug_value_create_uint16(item)
+        if dtype.itemsize == 4:
+            return _LIB.lbug_value_create_uint32(item)
+        return _LIB.lbug_value_create_uint64(item)
+    if kind == "f":
+        if dtype.itemsize == 4:
+            return _LIB.lbug_value_create_float(item)
+        return _LIB.lbug_value_create_double(item)
+
+    return _value_from_python(item)
+
+
+def _numpy_array_value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
+    if value.ndim == 0:
+        return _numpy_scalar_value_from_python(value[()])
+
+    child_ptrs: list[ctypes.POINTER(_LbugValue)] = []
+    try:
+        for item in value:
+            child_ptrs.append(_value_from_python(item))
+        out = ctypes.POINTER(_LbugValue)()
+        arr_type = ctypes.POINTER(_LbugValue) * len(child_ptrs)
+        arr = arr_type(*child_ptrs) if child_ptrs else arr_type()
+        _check_state(
+            _LIB.lbug_value_create_list(len(child_ptrs), arr, ctypes.byref(out)),
+            "Failed to create numpy ndarray list value",
+        )
+        return out
+    finally:
+        for ptr in child_ptrs:
+            _LIB.lbug_value_destroy(ptr)
+
+
 def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
     if value is None:
         return _LIB.lbug_value_create_null()
     if isinstance(value, CAPIJsonParameter):
         return _LIB.lbug_value_create_json(value.value.encode())
+    if _is_numpy_array(value):
+        return _numpy_array_value_from_python(value)
+    if _is_numpy_scalar(value):
+        return _numpy_scalar_value_from_python(value)
     if isinstance(value, bool):
         return _LIB.lbug_value_create_bool(value)
     if isinstance(value, int) and not isinstance(value, bool):

@@ -15,6 +15,7 @@
 #include "include/py_udf.h"
 #include "main/connection.h"
 #include "main/query_result/materialized_query_result.h"
+#include "numpy/numpy_type.h"
 #include "pandas/pandas_scan.h"
 #include "processor/result/factorized_table.h"
 #include "pyarrow/pyarrow_scan.h"
@@ -388,6 +389,47 @@ bool integerFitsIn<uint8_t>(int64_t val) {
     return val >= 0 && val <= UINT8_MAX;
 }
 
+static LogicalType pyHomogeneousListType(const py::list& lst) {
+    py::handle firstNonNull;
+    for (auto child : lst) {
+        if (!child.is_none()) {
+            firstNonNull = child;
+            break;
+        }
+    }
+    if (!firstNonNull) {
+        return LogicalType::LIST(LogicalType::ANY());
+    }
+    if (!py::isinstance<py::bool_>(firstNonNull) && !py::isinstance<py::int_>(firstNonNull) &&
+        !py::isinstance<py::float_>(firstNonNull)) {
+        return LogicalType::ANY();
+    }
+    for (auto child : lst) {
+        if (child.is_none()) {
+            continue;
+        }
+        if (child.get_type().ptr() != firstNonNull.get_type().ptr()) {
+            return LogicalType::ANY();
+        }
+    }
+    if (py::isinstance<py::bool_>(firstNonNull)) {
+        return LogicalType::LIST(LogicalType::BOOL());
+    }
+    if (py::isinstance<py::int_>(firstNonNull)) {
+        return LogicalType::LIST(LogicalType::INT64());
+    }
+    return LogicalType::LIST(LogicalType::DOUBLE());
+}
+
+static LogicalType pyNumpyArrayLogicalType(const py::array& arr) {
+    auto npType = NumpyTypeUtils::convertNumpyType(arr.attr("dtype"));
+    auto type = NumpyTypeUtils::numpyToLogicalType(npType);
+    for (auto i = 0; i < arr.ndim(); ++i) {
+        type = LogicalType::LIST(std::move(type));
+    }
+    return type;
+}
+
 static LogicalType pyLogicalType(const py::handle& val) {
     auto datetime_datetime = importCache->datetime.datetime();
     auto time_delta = importCache->datetime.timedelta();
@@ -468,8 +510,14 @@ static LogicalType pyLogicalType(const py::handle& val) {
             childValueType = std::move(resultValue);
         }
         return LogicalType::MAP(std::move(childKeyType), std::move(childValueType));
+    } else if (py::isinstance<py::array>(val)) {
+        return pyNumpyArrayLogicalType(py::reinterpret_borrow<py::array>(val));
     } else if (py::isinstance<py::list>(val)) {
         py::list lst = py::reinterpret_borrow<py::list>(val);
+        auto homogeneousType = pyHomogeneousListType(lst);
+        if (homogeneousType.getLogicalTypeID() != LogicalTypeID::ANY) {
+            return homogeneousType;
+        }
         auto childType = LogicalType::ANY();
         for (auto child : lst) {
             auto curChildType = pyLogicalType(child);
@@ -568,8 +616,14 @@ static LogicalType pyLogicalTypeFromParameter(const py::handle& val) {
             structFields.emplace_back(std::move(keyName), std::move(keyType));
         }
         return LogicalType::STRUCT(std::move(structFields));
+    } else if (py::isinstance<py::array>(val)) {
+        return pyNumpyArrayLogicalType(py::reinterpret_borrow<py::array>(val));
     } else if (py::isinstance<py::list>(val)) {
         py::list lst = py::reinterpret_borrow<py::list>(val);
+        auto homogeneousType = pyHomogeneousListType(lst);
+        if (homogeneousType.getLogicalTypeID() != LogicalTypeID::ANY) {
+            return homogeneousType;
+        }
         auto childType = LogicalType::ANY();
         for (auto child : lst) {
             auto curChildType = pyLogicalTypeFromParameter(child);
@@ -603,6 +657,90 @@ static std::string pythonObjectToJsonString(const py::handle& val) {
     return py::cast<std::string>(jsonStr);
 }
 
+template<typename T>
+static Value transformNumpyScalarAs(const void* ptr, const LogicalType& type) {
+    auto value = *reinterpret_cast<const T*>(ptr);
+    switch (type.getLogicalTypeID()) {
+    case LogicalTypeID::BOOL:
+        return Value::createValue<bool>(static_cast<bool>(value));
+    case LogicalTypeID::INT64:
+        return Value::createValue<int64_t>(static_cast<int64_t>(value));
+    case LogicalTypeID::UINT32:
+        return Value::createValue<uint32_t>(static_cast<uint32_t>(value));
+    case LogicalTypeID::INT32:
+        return Value::createValue<int32_t>(static_cast<int32_t>(value));
+    case LogicalTypeID::UINT16:
+        return Value::createValue<uint16_t>(static_cast<uint16_t>(value));
+    case LogicalTypeID::INT16:
+        return Value::createValue<int16_t>(static_cast<int16_t>(value));
+    case LogicalTypeID::UINT8:
+        return Value::createValue<uint8_t>(static_cast<uint8_t>(value));
+    case LogicalTypeID::INT8:
+        return Value::createValue<int8_t>(static_cast<int8_t>(value));
+    case LogicalTypeID::FLOAT:
+        return Value(static_cast<float>(value));
+    case LogicalTypeID::DOUBLE:
+        return Value::createValue<double>(static_cast<double>(value));
+    default:
+        throw RuntimeException("Unsupported numpy ndarray parameter child type " + type.toString());
+    }
+}
+
+static Value transformNumpyScalarAs(const void* ptr, NumpyNullableType npType,
+    const LogicalType& type) {
+    switch (npType) {
+    case NumpyNullableType::BOOL:
+        return transformNumpyScalarAs<bool>(ptr, type);
+    case NumpyNullableType::INT_8:
+        return transformNumpyScalarAs<int8_t>(ptr, type);
+    case NumpyNullableType::UINT_8:
+        return transformNumpyScalarAs<uint8_t>(ptr, type);
+    case NumpyNullableType::INT_16:
+        return transformNumpyScalarAs<int16_t>(ptr, type);
+    case NumpyNullableType::UINT_16:
+        return transformNumpyScalarAs<uint16_t>(ptr, type);
+    case NumpyNullableType::INT_32:
+        return transformNumpyScalarAs<int32_t>(ptr, type);
+    case NumpyNullableType::UINT_32:
+        return transformNumpyScalarAs<uint32_t>(ptr, type);
+    case NumpyNullableType::INT_64:
+        return transformNumpyScalarAs<int64_t>(ptr, type);
+    case NumpyNullableType::UINT_64:
+        return transformNumpyScalarAs<uint64_t>(ptr, type);
+    case NumpyNullableType::FLOAT_32:
+        return transformNumpyScalarAs<float>(ptr, type);
+    case NumpyNullableType::FLOAT_64:
+        return transformNumpyScalarAs<double>(ptr, type);
+    default:
+        throw RuntimeException("Unsupported numpy ndarray parameter dtype");
+    }
+}
+
+static Value transformNumpyArrayAs(const LogicalType& type, uint64_t dimension, const uint8_t* ptr,
+    const py::buffer_info& info, NumpyNullableType npType) {
+    if (dimension == static_cast<uint64_t>(info.ndim)) {
+        return transformNumpyScalarAs(ptr, npType, type);
+    }
+    if (type.getLogicalTypeID() != LogicalTypeID::LIST) {
+        throw RuntimeException("Cannot convert numpy ndarray parameter to " + type.toString());
+    }
+    std::vector<std::unique_ptr<Value>> children;
+    children.reserve(info.shape[dimension]);
+    const auto& childType = ListType::getChildType(type);
+    for (auto i = 0; i < info.shape[dimension]; ++i) {
+        auto childPtr = ptr + i * info.strides[dimension];
+        children.push_back(std::make_unique<Value>(
+            transformNumpyArrayAs(childType, dimension + 1, childPtr, info, npType)));
+    }
+    return Value(type.copy(), std::move(children));
+}
+
+static Value transformNumpyArrayAs(const py::array& arr, const LogicalType& type) {
+    auto info = arr.request();
+    auto npType = NumpyTypeUtils::convertNumpyType(arr.attr("dtype")).type;
+    return transformNumpyArrayAs(type, 0, reinterpret_cast<const uint8_t*>(info.ptr), info, npType);
+}
+
 Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalType& type) {
     // ignore the type of the actual python object, just directly cast
     auto datetime_datetime = importCache->datetime.datetime();
@@ -632,6 +770,8 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
         return Value::createValue<int8_t>(py::cast<py::int_>(val).cast<int8_t>());
     case LogicalTypeID::DOUBLE:
         return Value::createValue<double>(py::cast<py::float_>(val).cast<double>());
+    case LogicalTypeID::FLOAT:
+        return Value(py::cast<py::float_>(val).cast<float>());
     case LogicalTypeID::DECIMAL: {
         auto str = py::cast<std::string>(py::str(val));
         int128_t result = 0;
@@ -708,6 +848,9 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
         return Value{uuidToAppend};
     }
     case LogicalTypeID::LIST: {
+        if (py::isinstance<py::array>(val)) {
+            return transformNumpyArrayAs(py::reinterpret_borrow<py::array>(val), type);
+        }
         py::list lst = py::reinterpret_borrow<py::list>(val);
         std::vector<std::unique_ptr<Value>> children;
         for (auto child : lst) {
@@ -762,6 +905,9 @@ Value PyConnection::transformPythonValueFromParameterAs(const py::handle& val,
         if (ListType::getChildType(type).getLogicalTypeID() == LogicalTypeID::JSON) {
             auto jsonStr = pythonObjectToJsonString(val);
             return Value::createValue<std::string>(jsonStr);
+        }
+        if (py::isinstance<py::array>(val)) {
+            return transformNumpyArrayAs(py::reinterpret_borrow<py::array>(val), type);
         }
         py::list lst = py::reinterpret_borrow<py::list>(val);
         std::vector<std::unique_ptr<Value>> children;

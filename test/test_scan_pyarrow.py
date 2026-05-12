@@ -137,7 +137,7 @@ def test_pyarrow_copy_from_invalid_source(conn_db_readwrite: ConnDB) -> None:
     )
     with pytest.raises(
         RuntimeError,
-        match=r"Binder exception: Trying to scan from unsupported data type INT8\[\]. The only parameter types that can be scanned from are pandas/polars dataframes and pyarrow tables.",
+        match=r"Binder exception: Trying to scan from unsupported data type INT(8|64)\[\]. The only parameter types that can be scanned from are pandas/polars dataframes and pyarrow tables.",
     ):
         conn.execute("COPY pyarrowtab FROM $tab", {"tab": [1, 2, 3]})
 

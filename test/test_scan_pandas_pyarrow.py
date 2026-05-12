@@ -228,7 +228,7 @@ def test_pyarrow_blob(conn_db_readonly: ConnDB) -> None:
             "col4": arrowtopd(col4),
         }
     ).sort_values(by=["index"])
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index").get_as_df()
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`").get_as_df()
     for colname in ["col1", "col2", "col3", "col4"]:
         for expected, actual in zip(df[colname], result[colname], strict=False):
             if is_null(expected) or is_null(actual):
@@ -277,7 +277,7 @@ def test_pyarrow_string(conn_db_readonly: ConnDB) -> None:
             "col3": arrowtopd(col3),
         }
     ).sort_values(by=["index"])
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index").get_as_df()
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`").get_as_df()
     for colname in ["col1", "col2", "col3"]:
         for expected, actual in zip(df[colname], result[colname], strict=False):
             if is_null(expected) or is_null(actual):
@@ -305,7 +305,7 @@ def test_pyarrow_dict(conn_db_readonly: ConnDB) -> None:
     df = pd.DataFrame(
         {"index": arrowtopd(index), "col1": arrowtopd(col1), "col2": arrowtopd(col2)}
     )
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index").get_as_df()
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`").get_as_df()
     for colname in ["col1", "col2"]:
         for expected, actual in zip(df[colname], result[colname], strict=False):
             assert expected == actual
@@ -320,7 +320,7 @@ def test_pyarrow_dict_offset(conn_db_readonly: ConnDB) -> None:
     dictionary = pa.array([1, 2, 3, 4])
     col1 = pa.DictionaryArray.from_arrays(indices, dictionary.slice(1, 3))
     df = pd.DataFrame({"index": arrowtopd(index), "col1": arrowtopd(col1)})
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -370,7 +370,7 @@ def test_pyarrow_list(conn_db_readonly: ConnDB) -> None:
     df = pd.DataFrame(
         {"index": arrowtopd(index), "col1": arrowtopd(col1), "col2": arrowtopd(col2)}
     )
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -412,7 +412,7 @@ def test_pyarrow_list_offset(conn_db_readonly: ConnDB) -> None:
             "col1": arrowtopd(col1),
         }
     )
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -561,7 +561,7 @@ def test_pyarrow_fixed_list(conn_db_readonly: ConnDB) -> None:
             "map_col": arrowtopd(map_col),
         }
     )
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
 
     idx = 0
     while result.has_next():
@@ -621,7 +621,7 @@ def test_pyarrow_fixed_list_offset(conn_db_readonly: ConnDB) -> None:
             "col2": arrowtopd(col2),
         }
     )
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -654,7 +654,7 @@ def test_pyarrow_struct(conn_db_readonly: ConnDB) -> None:
         pa.struct([("a", pa.int32()), ("b", pa.struct([("c", pa.string())]))]),
     )
     df = pd.DataFrame({"index": arrowtopd(index), "col1": arrowtopd(col1)})
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -691,7 +691,7 @@ def test_pyarrow_struct_offset(conn_db_readonly: ConnDB) -> None:
         mask=mask,
     )
     df = pd.DataFrame({"index": arrowtopd(index), "col1": arrowtopd(col1)})
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -730,7 +730,7 @@ def test_pyarrow_union_sparse(conn_db_readonly: ConnDB) -> None:
         ],
     )
     df = pd.DataFrame({"index": arrowtopd(index), "col1": arrowtopd(col1)})
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -774,7 +774,7 @@ def test_pyarrow_union_dense(conn_db_readonly: ConnDB) -> None:
         ],
     )
     df = pd.DataFrame({"index": arrowtopd(index), "col1": arrowtopd(col1)})
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -810,7 +810,7 @@ def test_pyarrow_map(conn_db_readonly: ConnDB) -> None:
         type=pa.map_(pa.string(), pa.string()),
     )
     df = pd.DataFrame({"index": arrowtopd(index), "col1": arrowtopd(col1)})
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -854,7 +854,7 @@ def test_pyarrow_map_offset(conn_db_readonly: ConnDB) -> None:
             "col1": arrowtopd(col1),
         }
     )
-    result = conn.execute("LOAD FROM df RETURN * ORDER BY index")
+    result = conn.execute("LOAD FROM df RETURN * ORDER BY `index`")
     idx = 0
     while result.has_next():
         assert idx < len(index)
@@ -887,9 +887,9 @@ def test_pyarrow_decimal(conn_db_readwrite: ConnDB) -> None:
     conn.execute(
         "CREATE NODE TABLE tab(id INT64, col1 DECIMAL(7, 2), col2 DECIMAL(38, 0), primary key(id))"
     )
-    conn.execute("LOAD FROM df CREATE (t:tab {id: index, col1: col1, col2: col2})")
+    conn.execute("LOAD FROM df CREATE (t:tab {id: `index`, col1: col1, col2: col2})")
     result = conn.execute(
-        "MATCH (t:tab) RETURN t.id as index, t.col1 as col1, t.col2 as col2"
+        "MATCH (t:tab) RETURN t.id as `index`, t.col1 as col1, t.col2 as col2"
     ).get_as_arrow()
     expected = pa.Table.from_arrays(
         [index, decimal52, decimal380], names=["index", "col1", "col2"]
@@ -923,7 +923,7 @@ def test_pyarrow_skip_limit(conn_db_readonly: ConnDB) -> None:
         }
     )
     result = conn.execute(
-        "LOAD FROM df (SKIP=5000, LIMIT=5000) RETURN * ORDER BY index"
+        "LOAD FROM df (SKIP=5000, LIMIT=5000) RETURN * ORDER BY `index`"
     ).get_as_arrow()
     expected = pa.Table.from_pandas(df).slice(5000, 5000)
     assert result["index"].to_pylist() == expected["index"].to_pylist()
@@ -933,13 +933,13 @@ def test_pyarrow_skip_limit(conn_db_readonly: ConnDB) -> None:
 
     # skip bounds check
     result = conn.execute(
-        "LOAD FROM df (SKIP=500000, LIMIT=5000) RETURN * ORDER BY index"
+        "LOAD FROM df (SKIP=500000, LIMIT=5000) RETURN * ORDER BY `index`"
     ).get_as_arrow()
     assert len(result) == 0
 
     # limit bounds check
     result = conn.execute(
-        "LOAD FROM df (SKIP=0, LIMIT=500000) RETURN * ORDER BY index"
+        "LOAD FROM df (SKIP=0, LIMIT=500000) RETURN * ORDER BY `index`"
     ).get_as_arrow()
     expected = pa.Table.from_pandas(df)
     assert result["index"].to_pylist() == expected["index"].to_pylist()

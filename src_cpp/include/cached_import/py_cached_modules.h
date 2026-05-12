@@ -25,14 +25,13 @@ public:
 class ImportLibCachedItem : public PythonCachedItem {
     class UtilCachedItem : public PythonCachedItem {
     public:
-        explicit UtilCachedItem(PythonCachedItem* parent)
-            : PythonCachedItem{"util", parent}, find_spec{"find_spec", this} {}
+        UtilCachedItem() : PythonCachedItem{"importlib.util"}, find_spec{"find_spec", this} {}
 
         PythonCachedItem find_spec;
     };
 
 public:
-    ImportLibCachedItem() : PythonCachedItem("importlib"), util(this) {}
+    ImportLibCachedItem() : PythonCachedItem("importlib"), util() {}
 
     UtilCachedItem util;
 };
