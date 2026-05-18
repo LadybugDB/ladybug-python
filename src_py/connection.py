@@ -155,12 +155,84 @@ class Connection:
                 normalized_params[key] = "".join(f"\\x{byte:02x}" for byte in binary)
                 pattern = rf"(?i)(?<!BLOB\()\${re.escape(key)}\b"
                 normalized_query = re.sub(pattern, f"BLOB(${key})", normalized_query)
-            elif isinstance(value, str):
-                pattern = rf"(?i)\bto_json\(\s*\${re.escape(key)}\s*\)"
-                if re.search(pattern, normalized_query) is not None:
+            else:
+                pattern = self._to_json_parameter_pattern(key)
+                has_to_json_param = re.search(pattern, normalized_query) is not None
+                if isinstance(value, str) and has_to_json_param:
                     json.loads(value)
                     normalized_params[key] = get_capi_module().CAPIJsonParameter(value)
                     normalized_query = re.sub(pattern, f"${key}", normalized_query)
+                elif (
+                    has_to_json_param
+                    and self._is_json_serializable_parameter(value)
+                    and self._contains_unresolved_json_type(value)
+                ):
+                    normalized_params[key] = get_capi_module().CAPIJsonParameter(
+                        json.dumps(value, allow_nan=False)
+                    )
+                    normalized_query = re.sub(pattern, f"${key}", normalized_query)
+
+        return normalized_query, normalized_params
+
+    @staticmethod
+    def _to_json_parameter_pattern(key: str) -> str:
+        return rf"(?i)\bto_json\(\s*\${re.escape(key)}\s*\)"
+
+    @staticmethod
+    def _is_json_serializable_parameter(value: Any) -> bool:
+        return value is None or isinstance(value, (bool, int, float, list, tuple, dict))
+
+    @classmethod
+    def _contains_unresolved_json_type(cls, value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, (list, tuple)):
+            return len(value) == 0 or any(
+                cls._contains_unresolved_json_type(item) for item in value
+            )
+        if isinstance(value, dict):
+            return len(value) == 0 or any(
+                cls._contains_unresolved_json_type(item) for item in value.values()
+            )
+        return False
+
+    @staticmethod
+    def _json_string_literal(value: str) -> str:
+        return "'" + value.replace("\\", "\\\\").replace("'", "\\u0027") + "'"
+
+    def _normalize_parameters_for_pybind(
+        self,
+        query: str,
+        parameters: dict[str, Any],
+    ) -> tuple[str, dict[str, Any]]:
+        normalized_query = query
+        normalized_params = dict(parameters)
+
+        for key, value in list(normalized_params.items()):
+            if not isinstance(key, str):
+                msg = f"Parameter name must be of type string but got {type(key)}"
+                raise RuntimeError(msg)  # noqa: TRY004
+
+            pattern = self._to_json_parameter_pattern(key)
+            if re.search(pattern, normalized_query) is None:
+                continue
+            if isinstance(value, str):
+                json.loads(value)
+                json_value = value
+            elif self._is_json_serializable_parameter(
+                value
+            ) and self._contains_unresolved_json_type(value):
+                json_value = json.dumps(value, allow_nan=False)
+            else:
+                continue
+            json_expr = f"CAST({self._json_string_literal(json_value)} AS JSON)"
+            normalized_query = re.sub(
+                pattern,
+                lambda _, json_expr=json_expr: json_expr,
+                normalized_query,
+            )
+            if re.search(rf"\${re.escape(key)}\b", normalized_query) is None:
+                normalized_params.pop(key, None)
 
         return normalized_query, normalized_params
 
@@ -378,6 +450,7 @@ class Connection:
         if len(parameters) == 0:
             return py_connection.query(query)
 
+        query, parameters = self._normalize_parameters_for_pybind(query, parameters)
         prepared = py_connection.prepare(query, parameters)
         return py_connection.execute(prepared, parameters)
 
