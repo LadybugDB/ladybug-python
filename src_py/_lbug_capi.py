@@ -339,6 +339,27 @@ def _setup_signatures() -> None:
     ]
     _LIB.lbug_connection_drop_arrow_table.restype = ctypes.c_int
 
+    _LIB.lbug_connection_create_arrow_csr_rel_table.argtypes = [
+        ctypes.POINTER(_LbugConnection),  # connection
+        ctypes.c_char_p,  # table_name
+        ctypes.c_char_p,  # src_table_name
+        ctypes.c_char_p,  # dst_table_name
+        ctypes.POINTER(_ArrowSchema),  # fwd_indices_schema
+        ctypes.POINTER(_ArrowArray),  # fwd_indices_arrays
+        ctypes.c_uint64,  # fwd_indices_num_arrays
+        ctypes.POINTER(_ArrowSchema),  # fwd_indptr_schema
+        ctypes.POINTER(_ArrowArray),  # fwd_indptr_arrays
+        ctypes.c_uint64,  # fwd_indptr_num_arrays
+        ctypes.POINTER(_ArrowSchema),  # bwd_indices_schema (nullable)
+        ctypes.POINTER(_ArrowArray),  # bwd_indices_arrays (nullable)
+        ctypes.c_uint64,  # bwd_indices_num_arrays
+        ctypes.POINTER(_ArrowSchema),  # bwd_indptr_schema (nullable)
+        ctypes.POINTER(_ArrowArray),  # bwd_indptr_arrays (nullable)
+        ctypes.c_uint64,  # bwd_indptr_num_arrays
+        ctypes.POINTER(_LbugQueryResult),  # out_query_result
+    ]
+    _LIB.lbug_connection_create_arrow_csr_rel_table.restype = ctypes.c_int
+
     _LIB.lbug_prepared_statement_destroy.argtypes = [
         ctypes.POINTER(_LbugPreparedStatement)
     ]
@@ -2339,4 +2360,63 @@ class Connection:
         )
         if state != _LBUG_SUCCESS and not result._query_result:
             _check_state(state, "Failed to create Arrow relationship table")
+        return QueryResult(result)
+
+    def create_arrow_csr_rel_table(
+        self,
+        table_name: str,
+        src_table_name: str,
+        dst_table_name: str,
+        fwd_indices: Any,
+        fwd_indptr: Any,
+        bwd_indices: Any = None,
+        bwd_indptr: Any = None,
+    ) -> QueryResult:
+        has_bwd = bwd_indices is not None
+        if has_bwd != (bwd_indptr is not None):
+            msg = "bwd_indices and bwd_indptr must both be provided or both be None"
+            raise ValueError(msg)
+
+        _fi_tbl, fi_schema, fi_arrays, _fi_b = self._export_arrow_table(fwd_indices)
+        _fp_tbl, fp_schema, fp_arrays, _fp_b = self._export_arrow_table(fwd_indptr)
+
+        if has_bwd:
+            _bi_tbl, bi_schema, bi_arrays, _bi_b = self._export_arrow_table(bwd_indices)
+            _bp_tbl, bp_schema, bp_arrays, _bp_b = self._export_arrow_table(bwd_indptr)
+            bi_schema_ref = ctypes.byref(bi_schema)
+            bi_arrays_ref = bi_arrays
+            bi_num = len(bi_arrays)
+            bp_schema_ref = ctypes.byref(bp_schema)
+            bp_arrays_ref = bp_arrays
+            bp_num = len(bp_arrays)
+        else:
+            bi_schema_ref = None
+            bi_arrays_ref = None
+            bi_num = 0
+            bp_schema_ref = None
+            bp_arrays_ref = None
+            bp_num = 0
+
+        result = _LbugQueryResult()
+        state = _LIB.lbug_connection_create_arrow_csr_rel_table(
+            ctypes.byref(self._connection),
+            table_name.encode("utf-8"),
+            src_table_name.encode("utf-8"),
+            dst_table_name.encode("utf-8"),
+            ctypes.byref(fi_schema),
+            fi_arrays,
+            len(fi_arrays),
+            ctypes.byref(fp_schema),
+            fp_arrays,
+            len(fp_arrays),
+            bi_schema_ref,
+            bi_arrays_ref,
+            bi_num,
+            bp_schema_ref,
+            bp_arrays_ref,
+            bp_num,
+            ctypes.byref(result),
+        )
+        if state != _LBUG_SUCCESS and not result._query_result:
+            _check_state(state, "Failed to create Arrow CSR relationship table")
         return QueryResult(result)

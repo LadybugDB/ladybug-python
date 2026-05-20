@@ -857,3 +857,75 @@ class Connection:
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         return QueryResult(self, query_result_internal)
+
+    def create_arrow_csr_rel_table(
+        self,
+        table_name: str,
+        src_table_name: str,
+        dst_table_name: str,
+        fwd_indices: Any,
+        fwd_indptr: Any,
+        bwd_indices: Any = None,
+        bwd_indptr: Any = None,
+    ) -> QueryResult:
+        """
+        Create an Arrow CSR memory-backed relationship table.
+
+        Parameters
+        ----------
+        table_name : str
+            Name of the relationship table to create.
+        src_table_name : str
+            Source node table name.
+        dst_table_name : str
+            Destination node table name.
+        fwd_indices : Any
+            Forward adjacency indices table (struct array: child[0] = UINT64 dst offsets,
+            optional further children are edge properties). Accepts pandas, polars, or pyarrow.
+        fwd_indptr : Any
+            Forward adjacency indptr table (struct array: child[0] = UINT64 row pointers).
+        bwd_indices : Any, optional
+            Backward adjacency indices table. Must be provided together with bwd_indptr.
+        bwd_indptr : Any, optional
+            Backward adjacency indptr table. Must be provided together with bwd_indices.
+
+        Returns
+        -------
+        QueryResult
+            Result of the table creation query.
+        """
+        has_bwd = bwd_indices is not None
+        if has_bwd != (bwd_indptr is not None):
+            msg = "bwd_indices and bwd_indptr must both be provided or both be None"
+            raise ValueError(msg)
+
+        self.init_connection()
+        try:
+            query_result_internal = self._connection.create_arrow_csr_rel_table(
+                table_name,
+                src_table_name,
+                dst_table_name,
+                fwd_indices,
+                fwd_indptr,
+                bwd_indices,
+                bwd_indptr,
+            )
+        except NotImplementedError:
+            py_connection = self._get_pybind_connection()
+            if py_connection is None:
+                raise
+            self._prefer_pybind = True
+            query_result_internal = py_connection.create_arrow_csr_rel_table(
+                table_name,
+                src_table_name,
+                dst_table_name,
+                fwd_indices,
+                fwd_indptr,
+                bwd_indices,
+                bwd_indptr,
+            )
+
+        if not query_result_internal.isSuccess():
+            raise RuntimeError(query_result_internal.getErrorMessage())
+
+        return QueryResult(self, query_result_internal)

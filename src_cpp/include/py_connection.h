@@ -57,6 +57,10 @@ public:
         py::object arrowTable);
     std::unique_ptr<PyQueryResult> createArrowRelTable(const std::string& tableName,
         py::object arrowTable, const std::string& srcTableName, const std::string& dstTableName);
+    std::unique_ptr<PyQueryResult> createArrowCsrRelTable(const std::string& tableName,
+        const std::string& srcTableName, const std::string& dstTableName, py::object fwdIndices,
+        py::object fwdIndptr, py::object bwdIndices = py::none(),
+        py::object bwdIndptr = py::none());
     std::unique_ptr<PyQueryResult> dropArrowTable(const std::string& tableName);
 
     static Value transformPythonValue(const py::handle& val);

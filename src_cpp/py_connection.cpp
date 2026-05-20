@@ -53,6 +53,10 @@ void PyConnection::initialize(py::handle& m) {
             py::arg("arrow_table"))
         .def("create_arrow_rel_table", &PyConnection::createArrowRelTable, py::arg("table_name"),
             py::arg("arrow_table"), py::arg("src_table_name"), py::arg("dst_table_name"))
+        .def("create_arrow_csr_rel_table", &PyConnection::createArrowCsrRelTable,
+            py::arg("table_name"), py::arg("src_table_name"), py::arg("dst_table_name"),
+            py::arg("fwd_indices"), py::arg("fwd_indptr"), py::arg("bwd_indices") = py::none(),
+            py::arg("bwd_indptr") = py::none())
         .def("drop_arrow_table", &PyConnection::dropArrowTable, py::arg("table_name"));
     PyDateTime_IMPORT;
 }
@@ -1086,6 +1090,89 @@ std::unique_ptr<PyQueryResult> PyConnection::createArrowRelTable(const std::stri
 
     auto result = ArrowTableSupport::createRelTableFromArrowTable(stateRef.ref(), tableName,
         srcTableName, dstTableName, std::move(schema), std::move(arrays));
+    if (result.queryResult && result.queryResult->isSuccess()) {
+        stateRef.arrowTableRefs[tableName] = std::move(keepAlive);
+    }
+
+    return checkAndWrapQueryResult(result.queryResult, state);
+}
+
+static std::pair<ArrowSchemaWrapper, std::vector<ArrowArrayWrapper>> exportPyArrowTable(
+    py::object& tbl) {
+    ArrowSchemaWrapper schema;
+    tbl.attr("schema").attr("_export_to_c")(reinterpret_cast<uint64_t>(&schema));
+    std::vector<ArrowArrayWrapper> arrays;
+    py::list batches = tbl.attr("to_batches")();
+    for (auto& batch : batches) {
+        arrays.emplace_back();
+        batch.attr("_export_to_c")(reinterpret_cast<uint64_t>(&arrays.back()));
+    }
+    return {std::move(schema), std::move(arrays)};
+}
+
+static py::object toPyArrow(const py::object& obj,
+    const std::shared_ptr<PythonCachedImport>& importCache) {
+    if (PyConnection::isPandasDataframe(obj)) {
+        return importCache->pyarrow.lib.Table.from_pandas()(obj);
+    }
+
+    if (PyConnection::isPolarsDataframe(obj)) {
+        return obj.attr("to_arrow")();
+    }
+
+    if (PyConnection::isPyArrowTable(obj)) {
+        return obj;
+    }
+
+    throw RuntimeException("Expected a pyarrow Table, polars DataFrame, or pandas DataFrame");
+}
+
+std::unique_ptr<PyQueryResult> PyConnection::createArrowCsrRelTable(const std::string& tableName,
+    const std::string& srcTableName, const std::string& dstTableName, py::object fwdIndices,
+    py::object fwdIndptr, py::object bwdIndices, py::object bwdIndptr) {
+    auto& stateRef = refState();
+    py::gil_scoped_acquire acquire;
+
+    bool hasBwd = !bwdIndices.is_none();
+    if (hasBwd != !bwdIndptr.is_none()) {
+        throw RuntimeException("bwd_indices and bwd_indptr must both be provided or both be None");
+    }
+
+    fwdIndices = toPyArrow(fwdIndices, importCache);
+    fwdIndptr = toPyArrow(fwdIndptr, importCache);
+
+    py::list keepAlive;
+    keepAlive.append(fwdIndices);
+    keepAlive.append(fwdIndices.attr("to_batches")());
+    keepAlive.append(fwdIndptr);
+    keepAlive.append(fwdIndptr.attr("to_batches")());
+
+    auto [fwdIdxSchema, fwdIdxArrays] = exportPyArrowTable(fwdIndices);
+    auto [fwdIpSchema, fwdIpArrays] = exportPyArrowTable(fwdIndptr);
+
+    std::optional<ArrowSchemaWrapper> bwdIdxSchema;
+    std::optional<std::vector<ArrowArrayWrapper>> bwdIdxArrays;
+    std::optional<ArrowSchemaWrapper> bwdIpSchema;
+    std::optional<std::vector<ArrowArrayWrapper>> bwdIpArrays;
+    if (hasBwd) {
+        bwdIndices = toPyArrow(bwdIndices, importCache);
+        bwdIndptr = toPyArrow(bwdIndptr, importCache);
+        keepAlive.append(bwdIndices);
+        keepAlive.append(bwdIndices.attr("to_batches")());
+        keepAlive.append(bwdIndptr);
+        keepAlive.append(bwdIndptr.attr("to_batches")());
+        auto [bis, bia] = exportPyArrowTable(bwdIndices);
+        auto [bps, bpa] = exportPyArrowTable(bwdIndptr);
+        bwdIdxSchema = std::move(bis);
+        bwdIdxArrays = std::move(bia);
+        bwdIpSchema = std::move(bps);
+        bwdIpArrays = std::move(bpa);
+    }
+
+    auto result = ArrowTableSupport::createArrowCsrRelTable(stateRef.ref(), tableName, srcTableName,
+        dstTableName, std::move(fwdIdxSchema), std::move(fwdIdxArrays), std::move(fwdIpSchema),
+        std::move(fwdIpArrays), std::move(bwdIdxSchema), std::move(bwdIdxArrays),
+        std::move(bwdIpSchema), std::move(bwdIpArrays));
     if (result.queryResult && result.queryResult->isSuccess()) {
         stateRef.arrowTableRefs[tableName] = std::move(keepAlive);
     }

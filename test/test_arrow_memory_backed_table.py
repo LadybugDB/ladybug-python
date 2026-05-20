@@ -1,4 +1,5 @@
 import polars as pl
+import pyarrow as pa
 import pytest
 from type_aliases import ConnDB
 
@@ -402,3 +403,170 @@ def test_arrow_memory_backed_native_node_and_arrow_rel_table(
     ]
 
     conn.drop_arrow_table("native_people_arrow_knows")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers for CSR tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _make_csr_node_table(conn, table_name: str) -> None:
+    """4 Arrow nodes: offsets 0=A, 1=B, 2=C, 3=D (id=0..3)."""
+    df = pl.DataFrame({"id": [0, 1, 2, 3]})
+    conn.create_arrow_table(table_name, df)
+
+
+def _make_csr_fwd_indices() -> pa.Table:
+    """FWD adjacency: (dst=1,w=10),(dst=2,w=20),(dst=2,w=30),(dst=3,w=40)."""
+    return pa.table(
+        {
+            "dst_offset": pa.array([1, 2, 2, 3], type=pa.uint64()),
+            "weight": pa.array([10, 20, 30, 40], type=pa.int64()),
+        }
+    )
+
+
+def _make_csr_fwd_indptr() -> pa.Table:
+    """FWD indptr: node0→edges[0..1], node1→edges[2], node2→edges[3], node3→(empty)."""
+    return pa.table({"v": pa.array([0, 2, 3, 4, 4], type=pa.uint64())})
+
+
+def _make_csr_bwd_indices() -> pa.Table:
+    """BWD adjacency: (src=0,w=10),(src=0,w=20),(src=1,w=30),(src=2,w=40)."""
+    return pa.table(
+        {
+            "src_offset": pa.array([0, 0, 1, 2], type=pa.uint64()),
+            "weight": pa.array([10, 20, 30, 40], type=pa.int64()),
+        }
+    )
+
+
+def _make_csr_bwd_indptr() -> pa.Table:
+    """BWD indptr: node0→(empty), node1→edges[0], node2→edges[1..2], node3→edges[3]."""
+    return pa.table({"v": pa.array([0, 0, 1, 3, 4], type=pa.uint64())})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CSR tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_arrow_csr_rel_table_fwd_only(conn_db_empty: ConnDB) -> None:
+    """FWD-only CSR table: count=4, sum=100."""
+    conn, _ = conn_db_empty
+    _make_csr_node_table(conn, "csr_node")
+
+    conn.create_arrow_csr_rel_table(
+        "csr_rel",
+        "csr_node",
+        "csr_node",
+        _make_csr_fwd_indices(),
+        _make_csr_fwd_indptr(),
+    )
+
+    result = conn.execute("MATCH (:csr_node)-[:csr_rel]->(:csr_node) RETURN count(*)")
+    assert result.get_next()[0] == 4
+
+    result = conn.execute(
+        "MATCH (:csr_node)-[e:csr_rel]->(:csr_node) RETURN sum(e.weight)"
+    )
+    assert result.get_next()[0] == 100
+
+    conn.drop_arrow_table("csr_rel")
+    conn.drop_arrow_table("csr_node")
+
+
+def test_arrow_csr_rel_table_with_bwd(conn_db_empty: ConnDB) -> None:
+    """CSR table with explicit BWD adjacency: BWD count=4, BWD sum=100."""
+    conn, _ = conn_db_empty
+    _make_csr_node_table(conn, "csr_node")
+
+    conn.create_arrow_csr_rel_table(
+        "csr_rel",
+        "csr_node",
+        "csr_node",
+        _make_csr_fwd_indices(),
+        _make_csr_fwd_indptr(),
+        _make_csr_bwd_indices(),
+        _make_csr_bwd_indptr(),
+    )
+
+    result = conn.execute("MATCH (:csr_node)<-[:csr_rel]-(:csr_node) RETURN count(*)")
+    assert result.get_next()[0] == 4
+
+    result = conn.execute(
+        "MATCH (:csr_node)<-[e:csr_rel]-(:csr_node) RETURN sum(e.weight)"
+    )
+    assert result.get_next()[0] == 100
+
+    conn.drop_arrow_table("csr_rel")
+    conn.drop_arrow_table("csr_node")
+
+
+def test_arrow_csr_rel_table_bwd_fallback(conn_db_empty: ConnDB) -> None:
+    """CSR table without BWD data: fallback full-scan returns correct BWD count."""
+    conn, _ = conn_db_empty
+    _make_csr_node_table(conn, "csr_node")
+
+    conn.create_arrow_csr_rel_table(
+        "csr_rel",
+        "csr_node",
+        "csr_node",
+        _make_csr_fwd_indices(),
+        _make_csr_fwd_indptr(),
+    )
+
+    result = conn.execute("MATCH (:csr_node)<-[:csr_rel]-(:csr_node) RETURN count(*)")
+    assert result.get_next()[0] == 4
+
+    conn.drop_arrow_table("csr_rel")
+    conn.drop_arrow_table("csr_node")
+
+
+def test_arrow_csr_rel_table_partial_bwd_raises(conn_db_empty: ConnDB) -> None:
+    """Providing only bwd_indices or only bwd_indptr must raise ValueError."""
+    conn, _ = conn_db_empty
+    _make_csr_node_table(conn, "csr_node")
+
+    with pytest.raises((ValueError, RuntimeError)):
+        conn.create_arrow_csr_rel_table(
+            "csr_rel",
+            "csr_node",
+            "csr_node",
+            _make_csr_fwd_indices(),
+            _make_csr_fwd_indptr(),
+            bwd_indices=_make_csr_bwd_indices(),
+            bwd_indptr=None,
+        )
+
+    with pytest.raises((ValueError, RuntimeError)):
+        conn.create_arrow_csr_rel_table(
+            "csr_rel2",
+            "csr_node",
+            "csr_node",
+            _make_csr_fwd_indices(),
+            _make_csr_fwd_indptr(),
+            bwd_indices=None,
+            bwd_indptr=_make_csr_bwd_indptr(),
+        )
+
+    conn.drop_arrow_table("csr_node")
+
+
+def test_arrow_csr_over_native_node_table_raises(conn_db_empty: ConnDB) -> None:
+    """CSR rel table over a native (non-Arrow) node table must fail."""
+    conn, _ = conn_db_empty
+    conn.execute(
+        "CREATE NODE TABLE native_node(id INT64, PRIMARY KEY(id));"
+        "CREATE (:native_node {id: 0});"
+        "CREATE (:native_node {id: 1});"
+    )
+
+    with pytest.raises((RuntimeError, Exception)):
+        conn.create_arrow_csr_rel_table(
+            "csr_rel",
+            "native_node",
+            "native_node",
+            _make_csr_fwd_indices(),
+            _make_csr_fwd_indptr(),
+        )
