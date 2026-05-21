@@ -332,6 +332,21 @@ def _setup_signatures() -> None:
     ]
     _LIB.lbug_connection_create_arrow_rel_table.restype = ctypes.c_int
 
+    _LIB.lbug_connection_create_arrow_rel_table_csr.argtypes = [
+        ctypes.POINTER(_LbugConnection),
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.POINTER(_ArrowSchema),
+        ctypes.POINTER(_ArrowArray),
+        ctypes.c_uint64,
+        ctypes.POINTER(_ArrowSchema),
+        ctypes.POINTER(_ArrowArray),
+        ctypes.c_uint64,
+        ctypes.POINTER(_LbugQueryResult),
+    ]
+    _LIB.lbug_connection_create_arrow_rel_table_csr.restype = ctypes.c_int
+
     _LIB.lbug_connection_drop_arrow_table.argtypes = [
         ctypes.POINTER(_LbugConnection),
         ctypes.c_char_p,
@@ -2324,19 +2339,54 @@ class Connection:
         dataframe: Any,
         src_table_name: str,
         dst_table_name: str,
+        layout: Any = "FLAT",
+        indptr_dataframe: Any | None = None,
     ) -> QueryResult:
+        layout_value = getattr(layout, "value", layout)
+        layout_value = str(layout_value).upper()
+        if layout_value not in {"FLAT", "CSR"}:
+            msg = "Arrow relationship table layout must be FLAT or CSR"
+            raise RuntimeError(msg)
+        if layout_value == "FLAT" and indptr_dataframe is not None:
+            msg = "indptr_dataframe is only valid for CSR Arrow relationship tables"
+            raise RuntimeError(msg)
+        if layout_value == "CSR" and indptr_dataframe is None:
+            msg = "indptr_dataframe is required for CSR Arrow relationship tables"
+            raise RuntimeError(msg)
+
         _table, schema, arrays, _batches = self._export_arrow_table(dataframe)
         result = _LbugQueryResult()
-        state = _LIB.lbug_connection_create_arrow_rel_table(
-            ctypes.byref(self._connection),
-            table_name.encode("utf-8"),
-            src_table_name.encode("utf-8"),
-            dst_table_name.encode("utf-8"),
-            ctypes.byref(schema),
-            arrays,
-            len(arrays),
-            ctypes.byref(result),
-        )
+        if layout_value == "FLAT":
+            state = _LIB.lbug_connection_create_arrow_rel_table(
+                ctypes.byref(self._connection),
+                table_name.encode("utf-8"),
+                src_table_name.encode("utf-8"),
+                dst_table_name.encode("utf-8"),
+                ctypes.byref(schema),
+                arrays,
+                len(arrays),
+                ctypes.byref(result),
+            )
+        else:
+            (
+                _indptr_table,
+                indptr_schema,
+                indptr_arrays,
+                _indptr_batches,
+            ) = self._export_arrow_table(indptr_dataframe)
+            state = _LIB.lbug_connection_create_arrow_rel_table_csr(
+                ctypes.byref(self._connection),
+                table_name.encode("utf-8"),
+                src_table_name.encode("utf-8"),
+                dst_table_name.encode("utf-8"),
+                ctypes.byref(schema),
+                arrays,
+                len(arrays),
+                ctypes.byref(indptr_schema),
+                indptr_arrays,
+                len(indptr_arrays),
+                ctypes.byref(result),
+            )
         if state != _LBUG_SUCCESS and not result._query_result:
             _check_state(state, "Failed to create Arrow relationship table")
         return QueryResult(result)
