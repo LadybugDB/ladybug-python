@@ -11,6 +11,7 @@ from weakref import WeakSet
 from ._backend import get_capi_module, get_pybind_module
 from .prepared_statement import PreparedStatement
 from .query_result import ArrowQueryResult, QueryResult
+from .types import ArrowRelTableLayout
 
 if TYPE_CHECKING:
     import sys
@@ -811,6 +812,8 @@ class Connection:
         dataframe: Any,
         src_table_name: str,
         dst_table_name: str,
+        layout: ArrowRelTableLayout | str = ArrowRelTableLayout.FLAT,
+        indptr_dataframe: Any | None = None,
     ) -> QueryResult:
         """
         Create an Arrow memory-backed relationship table from a DataFrame.
@@ -829,6 +832,16 @@ class Connection:
         dst_table_name : str
             Destination node table name in the FROM/TO pair.
 
+        layout : ArrowRelTableLayout | str
+            Relationship layout. FLAT expects ``dataframe`` to contain ``from``
+            and ``to`` endpoint columns. CSR expects ``dataframe`` to contain a
+            ``to`` destination offset column plus properties, and
+            ``indptr_dataframe`` to contain source offsets.
+
+        indptr_dataframe : Any | None
+            A pandas DataFrame, polars DataFrame, or PyArrow table containing
+            CSR source offsets. Required when ``layout`` is CSR.
+
         Returns
         -------
         QueryResult
@@ -836,12 +849,20 @@ class Connection:
 
         """
         self.init_connection()
+        layout_value = (
+            layout.value if isinstance(layout, ArrowRelTableLayout) else str(layout)
+        ).upper()
+        if layout_value == ArrowRelTableLayout.CSR.value and indptr_dataframe is None:
+            msg = "indptr_dataframe is required when layout is CSR"
+            raise ValueError(msg)
         try:
             query_result_internal = self._connection.create_arrow_rel_table(
                 table_name,
                 dataframe,
                 src_table_name,
                 dst_table_name,
+                layout_value,
+                indptr_dataframe,
             )
         except NotImplementedError:
             py_connection = self._get_pybind_connection()
@@ -853,6 +874,8 @@ class Connection:
                 dataframe,
                 src_table_name,
                 dst_table_name,
+                layout_value,
+                indptr_dataframe,
             )
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())

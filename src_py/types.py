@@ -37,3 +37,10 @@ class Type(Enum):
     STRUCT = "STRUCT"
     MAP = "MAP"
     UNION = "UNION"
+
+
+class ArrowRelTableLayout(Enum):
+    """Arrow-backed relationship table layout."""
+
+    FLAT = "FLAT"
+    CSR = "CSR"

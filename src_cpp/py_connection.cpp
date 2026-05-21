@@ -1,5 +1,7 @@
 #include "include/py_connection.h"
 
+#include <algorithm>
+#include <cctype>
 #include <utility>
 
 #include "cached_import/py_cached_import.h"
@@ -52,7 +54,8 @@ void PyConnection::initialize(py::handle& m) {
         .def("create_arrow_table", &PyConnection::createArrowTable, py::arg("table_name"),
             py::arg("arrow_table"))
         .def("create_arrow_rel_table", &PyConnection::createArrowRelTable, py::arg("table_name"),
-            py::arg("arrow_table"), py::arg("src_table_name"), py::arg("dst_table_name"))
+            py::arg("arrow_table"), py::arg("src_table_name"), py::arg("dst_table_name"),
+            py::arg("layout") = "FLAT", py::arg("indptr_table") = py::none())
         .def("drop_arrow_table", &PyConnection::dropArrowTable, py::arg("table_name"));
     PyDateTime_IMPORT;
 }
@@ -1013,79 +1016,91 @@ void PyConnection::removeScalarFunction(const std::string& name) {
     refState().ref().removeUDFFunction(name);
 }
 
+struct ExportedArrowTable {
+    ArrowSchemaWrapper schema;
+    std::vector<ArrowArrayWrapper> arrays;
+    py::list keepAlive;
+};
+
+static py::object normalizeArrowTable(py::object arrowTable) {
+    if (PyConnection::isPandasDataframe(arrowTable)) {
+        return importCache->pyarrow.lib.Table.from_pandas()(arrowTable);
+    }
+    if (PyConnection::isPolarsDataframe(arrowTable)) {
+        return arrowTable.attr("to_arrow")();
+    }
+    if (!PyConnection::isPyArrowTable(arrowTable)) {
+        throw RuntimeException("Expected a pyarrow Table, polars DataFrame, or pandas DataFrame");
+    }
+    return arrowTable;
+}
+
+static ExportedArrowTable exportArrowTable(py::object arrowTable) {
+    arrowTable = normalizeArrowTable(std::move(arrowTable));
+
+    ExportedArrowTable exported;
+    arrowTable.attr("schema").attr("_export_to_c")(reinterpret_cast<uint64_t>(&exported.schema));
+
+    py::list batches = arrowTable.attr("to_batches")();
+    for (auto& batch : batches) {
+        exported.arrays.emplace_back();
+        batch.attr("_export_to_c")(reinterpret_cast<uint64_t>(&exported.arrays.back()));
+    }
+
+    // Keep pyarrow producers alive while C++ accesses exported Arrow memory.
+    exported.keepAlive.append(arrowTable);
+    exported.keepAlive.append(batches);
+    return exported;
+}
+
 std::unique_ptr<PyQueryResult> PyConnection::createArrowTable(const std::string& tableName,
     py::object arrowTable) {
     auto& stateRef = refState();
     py::gil_scoped_acquire acquire;
 
-    // Convert pandas/polars to pyarrow if needed
-    if (PyConnection::isPandasDataframe(arrowTable)) {
-        arrowTable = importCache->pyarrow.lib.Table.from_pandas()(arrowTable);
-    } else if (PyConnection::isPolarsDataframe(arrowTable)) {
-        arrowTable = arrowTable.attr("to_arrow")();
-    }
-
-    // Ensure we have a pyarrow table
-    if (!PyConnection::isPyArrowTable(arrowTable)) {
-        throw RuntimeException("Expected a pyarrow Table, polars DataFrame, or pandas DataFrame");
-    }
-
-    // Export Arrow table to C Data Interface
-    // First, get the schema
-    ArrowSchemaWrapper schema;
-    arrowTable.attr("schema").attr("_export_to_c")(reinterpret_cast<uint64_t>(&schema));
-
-    // Get the batches (arrays)
-    std::vector<ArrowArrayWrapper> arrays;
-    py::list batches = arrowTable.attr("to_batches")();
-    for (auto& batch : batches) {
-        arrays.emplace_back();
-        batch.attr("_export_to_c")(reinterpret_cast<uint64_t>(&arrays.back()));
-    }
-
-    // Keep pyarrow producers alive while C++ accesses exported Arrow memory.
-    py::list keepAlive;
-    keepAlive.append(arrowTable);
-    keepAlive.append(batches);
-
+    auto exported = exportArrowTable(std::move(arrowTable));
     auto result = ArrowTableSupport::createViewFromArrowTable(stateRef.ref(), tableName,
-        std::move(schema), std::move(arrays));
+        std::move(exported.schema), std::move(exported.arrays));
     if (result.queryResult && result.queryResult->isSuccess()) {
-        stateRef.arrowTableRefs[tableName] = std::move(keepAlive);
+        stateRef.arrowTableRefs[tableName] = std::move(exported.keepAlive);
     }
 
     return checkAndWrapQueryResult(result.queryResult, state);
 }
 
 std::unique_ptr<PyQueryResult> PyConnection::createArrowRelTable(const std::string& tableName,
-    py::object arrowTable, const std::string& srcTableName, const std::string& dstTableName) {
+    py::object arrowTable, const std::string& srcTableName, const std::string& dstTableName,
+    const std::string& layout, py::object indptrTable) {
     auto& stateRef = refState();
     py::gil_scoped_acquire acquire;
 
-    if (PyConnection::isPandasDataframe(arrowTable)) {
-        arrowTable = importCache->pyarrow.lib.Table.from_pandas()(arrowTable);
-    } else if (PyConnection::isPolarsDataframe(arrowTable)) {
-        arrowTable = arrowTable.attr("to_arrow")();
-    }
-    if (!PyConnection::isPyArrowTable(arrowTable)) {
-        throw RuntimeException("Expected a pyarrow Table, polars DataFrame, or pandas DataFrame");
-    }
+    auto layoutUpper = layout;
+    std::transform(layoutUpper.begin(), layoutUpper.end(), layoutUpper.begin(),
+        [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
 
-    ArrowSchemaWrapper schema;
-    arrowTable.attr("schema").attr("_export_to_c")(reinterpret_cast<uint64_t>(&schema));
-    std::vector<ArrowArrayWrapper> arrays;
-    py::list batches = arrowTable.attr("to_batches")();
-    for (auto& batch : batches) {
-        arrays.emplace_back();
-        batch.attr("_export_to_c")(reinterpret_cast<uint64_t>(&arrays.back()));
-    }
-
+    auto exported = exportArrowTable(std::move(arrowTable));
+    ArrowTableCreationResult result;
     py::list keepAlive;
-    keepAlive.append(arrowTable);
-    keepAlive.append(batches);
+    keepAlive.append(exported.keepAlive);
 
-    auto result = ArrowTableSupport::createRelTableFromArrowTable(stateRef.ref(), tableName,
-        srcTableName, dstTableName, std::move(schema), std::move(arrays));
+    if (layoutUpper == "FLAT") {
+        if (!py::none().is(indptrTable)) {
+            throw RuntimeException("indptr_table is only valid for CSR Arrow relationship tables");
+        }
+        result = ArrowTableSupport::createRelTableFromArrowTable(stateRef.ref(), tableName,
+            srcTableName, dstTableName, std::move(exported.schema), std::move(exported.arrays));
+    } else if (layoutUpper == "CSR") {
+        if (py::none().is(indptrTable)) {
+            throw RuntimeException("indptr_table is required for CSR Arrow relationship tables");
+        }
+        auto exportedIndptr = exportArrowTable(std::move(indptrTable));
+        keepAlive.append(exportedIndptr.keepAlive);
+        result = ArrowTableSupport::createRelTableFromArrowCSR(stateRef.ref(), tableName,
+            srcTableName, dstTableName, std::move(exported.schema), std::move(exported.arrays),
+            std::move(exportedIndptr.schema), std::move(exportedIndptr.arrays));
+    } else {
+        throw RuntimeException("Arrow relationship table layout must be FLAT or CSR");
+    }
     if (result.queryResult && result.queryResult->isSuccess()) {
         stateRef.arrowTableRefs[tableName] = std::move(keepAlive);
     }

@@ -339,6 +339,68 @@ def test_arrow_memory_backed_arrow_node_and_rel_table(conn_db_empty: ConnDB) -> 
     conn.drop_arrow_table("arrow_people")
 
 
+def test_arrow_memory_backed_csr_arrow_rel_table(conn_db_empty: ConnDB) -> None:
+    """Test an Arrow memory-backed CSR relationship over Arrow-backed nodes."""
+    conn, _ = conn_db_empty
+
+    import ladybug as lb
+
+    pa = pytest.importorskip("pyarrow")
+
+    people = pa.Table.from_arrays(
+        [
+            pa.array([1, 2, 3], type=pa.int64()),
+            pa.array(["Alice", "Bob", "Carol"], type=pa.string()),
+        ],
+        names=["id", "name"],
+    )
+    conn.create_arrow_table("arrow_csr_people", people)
+
+    indices = pa.Table.from_arrays(
+        [
+            pa.array([1, 2, 2], type=pa.uint64()),
+            pa.array([10, 20, 30], type=pa.int64()),
+        ],
+        names=["to", "weight"],
+    )
+    indptr = pa.Table.from_arrays(
+        [pa.array([0, 2, 3, 3], type=pa.uint64())],
+        names=["indptr"],
+    )
+    conn.create_arrow_rel_table(
+        "arrow_csr_knows",
+        indices,
+        "arrow_csr_people",
+        "arrow_csr_people",
+        layout=lb.ArrowRelTableLayout.CSR,
+        indptr_dataframe=indptr,
+    )
+
+    result = conn.execute(
+        "MATCH (a:arrow_csr_people)-[r:arrow_csr_knows]->(b:arrow_csr_people) "
+        "RETURN a.name, b.name, r.weight ORDER BY a.id, b.id"
+    )
+    rows = []
+    while result.has_next():
+        rows.append(result.get_next())
+
+    assert rows == [
+        ["Alice", "Bob", 10],
+        ["Alice", "Carol", 20],
+        ["Bob", "Carol", 30],
+    ]
+
+    result = conn.execute(
+        "MATCH (:arrow_csr_people)<-[r:arrow_csr_knows]-(:arrow_csr_people) "
+        "RETURN COUNT(*), SUM(r.weight)"
+    )
+    assert result.get_next() == [3, 60]
+    assert not result.has_next()
+
+    conn.drop_arrow_table("arrow_csr_knows")
+    conn.drop_arrow_table("arrow_csr_people")
+
+
 def test_arrow_memory_backed_native_node_and_arrow_rel_table(
     conn_db_empty: ConnDB,
 ) -> None:
