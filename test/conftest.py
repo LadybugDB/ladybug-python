@@ -194,13 +194,17 @@ def init_db(path: Path) -> Path:
         Path.mkdir(path)
 
     db_path = get_db_file_path(path)
-    conn, _ = create_conn_db(db_path, read_only=False)
-    init_tinysnb(conn)
-    init_demo(conn)
-    init_npy(conn)
-    init_tensor(conn)
-    init_long_str(conn)
-    init_movie_serial(conn)
+    conn, db = create_conn_db(db_path, read_only=False)
+    try:
+        init_tinysnb(conn)
+        init_demo(conn)
+        init_npy(conn)
+        init_tensor(conn)
+        init_long_str(conn)
+        init_movie_serial(conn)
+    finally:
+        conn.close()
+        db.close()
     return db_path
 
 
@@ -241,7 +245,12 @@ def conn_db_readonly(tmp_path: Path) -> ConnDB:
 @pytest.fixture
 def conn_db_readwrite(tmp_path: Path) -> ConnDB:
     """Return a new writable connection and database."""
-    return create_conn_db(init_db(tmp_path), read_only=False)
+    conn, db = create_conn_db(init_db(tmp_path), read_only=False)
+    try:
+        yield conn, db
+    finally:
+        conn.close()
+        db.close()
 
 
 @pytest.fixture
@@ -271,7 +280,12 @@ def async_connection_readwrite(tmp_path: Path) -> lb.AsyncConnection:
 @pytest.fixture
 def conn_db_empty(tmp_path: Path) -> ConnDB:
     """Return a new empty connection and database."""
-    return create_conn_db(get_db_file_path(tmp_path), read_only=False)
+    conn, db = create_conn_db(get_db_file_path(tmp_path), read_only=False)
+    try:
+        yield conn, db
+    finally:
+        conn.close()
+        db.close()
 
 
 @pytest.fixture
@@ -281,7 +295,11 @@ def conn_db_in_mem() -> ConnDB:
         database_path=":memory:", buffer_pool_size=_POOL_SIZE_, read_only=False
     )
     conn = lb.Connection(db, num_threads=4)
-    return conn, db
+    try:
+        yield conn, db
+    finally:
+        conn.close()
+        db.close()
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
