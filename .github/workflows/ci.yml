@@ -121,6 +121,13 @@ jobs:
         run: |
           .venv/bin/ruff check src_py test
 
+      - name: Smoke test JSON extension install
+        working-directory: ladybug/tools/python_api
+        env:
+          LBUG_PYTHON_BACKEND: capi
+        run: |
+          .venv/bin/python -c 'import shutil, tempfile; from pathlib import Path; import ladybug as lb; tmp = Path(tempfile.mkdtemp()); db = lb.Database(tmp / "db.lbdb"); conn = lb.Connection(db); conn.execute("INSTALL json; LOAD json;"); shutil.rmtree(tmp)'
+
       - name: Run pytest (C API backend)
         working-directory: ladybug/tools/python_api
         env:
