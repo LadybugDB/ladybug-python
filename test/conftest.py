@@ -255,13 +255,15 @@ def conn_db_readwrite(tmp_path: Path) -> ConnDB:
 
 @pytest.fixture
 def async_connection_readonly(tmp_path: Path) -> lb.AsyncConnection:
-    """Return a cached read-only async connection."""
-    global _READONLY_ASYNC_CONNECTION_
-    if _READONLY_ASYNC_CONNECTION_ is None:
-        conn, db = create_conn_db(init_db(tmp_path), read_only=True)
-        conn.close()
-        _READONLY_ASYNC_CONNECTION_ = lb.AsyncConnection(db, max_threads_per_query=4)
-    return _READONLY_ASYNC_CONNECTION_
+    """Return a read-only async connection."""
+    conn, db = create_conn_db(init_db(tmp_path), read_only=True)
+    conn.close()
+    async_conn = lb.AsyncConnection(db, max_threads_per_query=4)
+    try:
+        yield async_conn
+    finally:
+        async_conn.close()
+        db.close()
 
 
 @pytest.fixture
