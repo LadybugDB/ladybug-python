@@ -401,7 +401,63 @@ def test_arrow_memory_backed_csr_arrow_rel_table(conn_db_empty: ConnDB) -> None:
     conn.drop_arrow_table("arrow_csr_people")
 
 
-def test_arrow_memory_backed_native_node_and_arrow_rel_table(
+def test_arrow_memory_backed_csr_rel_table_custom_dst_col(
+    conn_db_empty: ConnDB,
+) -> None:
+    """Test Arrow CSR relationship table with a custom destination column name."""
+    conn, _ = conn_db_empty
+
+    import ladybug as lb
+
+    pa = pytest.importorskip("pyarrow")
+
+    people = pa.Table.from_arrays(
+        [pa.array([1, 2, 3], type=pa.int64())],
+        names=["id"],
+    )
+    conn.create_arrow_table("csr_custom_dst_people", people)
+
+    # Use "destination" instead of the default "to"
+    indices = pa.Table.from_arrays(
+        [
+            pa.array([1, 2, 2], type=pa.uint64()),
+            pa.array([10, 20, 30], type=pa.int64()),
+        ],
+        names=["destination", "weight"],
+    )
+    indptr = pa.Table.from_arrays(
+        [pa.array([0, 2, 3, 3], type=pa.uint64())],
+        names=["indptr"],
+    )
+    conn.create_arrow_rel_table(
+        "csr_custom_dst_knows",
+        indices,
+        "csr_custom_dst_people",
+        "csr_custom_dst_people",
+        layout=lb.ArrowRelTableLayout.CSR,
+        indptr_dataframe=indptr,
+        dst_col_name="destination",
+    )
+
+    result = conn.execute(
+        "MATCH (a:csr_custom_dst_people)-[r:csr_custom_dst_knows]->(b:csr_custom_dst_people) "
+        "RETURN a.id, b.id, r.weight ORDER BY a.id, b.id"
+    )
+    rows = []
+    while result.has_next():
+        rows.append(result.get_next())
+
+    assert rows == [
+        [1, 2, 10],
+        [1, 3, 20],
+        [2, 3, 30],
+    ]
+
+    conn.drop_arrow_table("csr_custom_dst_knows")
+    conn.drop_arrow_table("csr_custom_dst_people")
+
+
+def test_arrow_memory_backed_rel_table_over_native_node_tables(
     conn_db_empty: ConnDB,
 ) -> None:
     """Test an Arrow memory-backed relationship over native node tables."""

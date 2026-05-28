@@ -57,7 +57,7 @@ public:
         py::object arrowTable);
     std::unique_ptr<PyQueryResult> createArrowRelTable(const std::string& tableName,
         py::object arrowTable, const std::string& srcTableName, const std::string& dstTableName,
-        const std::string& layout, py::object indptrTable);
+        const std::string& layout, py::object indptrTable, const std::string& dstColName = "to");
     std::unique_ptr<PyQueryResult> dropArrowTable(const std::string& tableName);
 
     static Value transformPythonValue(const py::handle& val);

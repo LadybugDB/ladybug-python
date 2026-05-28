@@ -55,7 +55,8 @@ void PyConnection::initialize(py::handle& m) {
             py::arg("arrow_table"))
         .def("create_arrow_rel_table", &PyConnection::createArrowRelTable, py::arg("table_name"),
             py::arg("arrow_table"), py::arg("src_table_name"), py::arg("dst_table_name"),
-            py::arg("layout") = "FLAT", py::arg("indptr_table") = py::none())
+            py::arg("layout") = "FLAT", py::arg("indptr_table") = py::none(),
+            py::arg("dst_col_name") = "to")
         .def("drop_arrow_table", &PyConnection::dropArrowTable, py::arg("table_name"));
     PyDateTime_IMPORT;
 }
@@ -1070,7 +1071,7 @@ std::unique_ptr<PyQueryResult> PyConnection::createArrowTable(const std::string&
 
 std::unique_ptr<PyQueryResult> PyConnection::createArrowRelTable(const std::string& tableName,
     py::object arrowTable, const std::string& srcTableName, const std::string& dstTableName,
-    const std::string& layout, py::object indptrTable) {
+    const std::string& layout, py::object indptrTable, const std::string& dstColName) {
     auto& stateRef = refState();
     py::gil_scoped_acquire acquire;
 
@@ -1097,7 +1098,7 @@ std::unique_ptr<PyQueryResult> PyConnection::createArrowRelTable(const std::stri
         keepAlive.append(exportedIndptr.keepAlive);
         result = ArrowTableSupport::createRelTableFromArrowCSR(stateRef.ref(), tableName,
             srcTableName, dstTableName, std::move(exported.schema), std::move(exported.arrays),
-            std::move(exportedIndptr.schema), std::move(exportedIndptr.arrays));
+            std::move(exportedIndptr.schema), std::move(exportedIndptr.arrays), dstColName);
     } else {
         throw RuntimeException("Arrow relationship table layout must be FLAT or CSR");
     }

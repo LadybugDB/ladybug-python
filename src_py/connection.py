@@ -887,6 +887,7 @@ class Connection:
         dst_table_name: str,
         layout: ArrowRelTableLayout | str = ArrowRelTableLayout.FLAT,
         indptr_dataframe: Any | None = None,
+        dst_col_name: str = "to",
     ) -> QueryResult:
         """
         Create an Arrow memory-backed relationship table from a DataFrame.
@@ -908,12 +909,16 @@ class Connection:
         layout : ArrowRelTableLayout | str
             Relationship layout. FLAT expects ``dataframe`` to contain ``from``
             and ``to`` endpoint columns. CSR expects ``dataframe`` to contain a
-            ``to`` destination offset column plus properties, and
-            ``indptr_dataframe`` to contain source offsets.
+            destination offset column (named by ``dst_col_name``) plus
+            properties, and ``indptr_dataframe`` to contain source offsets.
 
         indptr_dataframe : Any | None
             A pandas DataFrame, polars DataFrame, or PyArrow table containing
             CSR source offsets. Required when ``layout`` is CSR.
+
+        dst_col_name : str
+            Name of the destination offset column in the CSR indices table.
+            Defaults to ``"to"``. Only used when ``layout`` is CSR.
 
         Returns
         -------
@@ -936,6 +941,7 @@ class Connection:
                 dst_table_name,
                 layout_value,
                 indptr_dataframe,
+                dst_col_name,
             )
         except NotImplementedError:
             py_connection = self._get_pybind_connection()
@@ -949,6 +955,7 @@ class Connection:
                 dst_table_name,
                 layout_value,
                 indptr_dataframe,
+                dst_col_name,
             )
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())

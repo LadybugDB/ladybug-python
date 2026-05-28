@@ -343,6 +343,7 @@ def _setup_signatures() -> None:
         ctypes.POINTER(_ArrowSchema),
         ctypes.POINTER(_ArrowArray),
         ctypes.c_uint64,
+        ctypes.c_char_p,
         ctypes.POINTER(_LbugQueryResult),
     ]
     _LIB.lbug_connection_create_arrow_rel_table_csr.restype = ctypes.c_int
@@ -2341,6 +2342,7 @@ class Connection:
         dst_table_name: str,
         layout: Any = "FLAT",
         indptr_dataframe: Any | None = None,
+        dst_col_name: str = "to",
     ) -> QueryResult:
         layout_value = getattr(layout, "value", layout)
         layout_value = str(layout_value).upper()
@@ -2385,6 +2387,7 @@ class Connection:
                 ctypes.byref(indptr_schema),
                 indptr_arrays,
                 len(indptr_arrays),
+                dst_col_name.encode("utf-8"),
                 ctypes.byref(result),
             )
         if state != _LBUG_SUCCESS and not result._query_result:
