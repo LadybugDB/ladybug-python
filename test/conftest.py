@@ -181,6 +181,9 @@ def init_movie_serial(conn: lb.Connection) -> None:
 
 
 _POOL_SIZE_: int = 256 * 1024 * 1024
+# Use 1GB max DB size for tests to avoid exhausting virtual address space
+# when many databases are open simultaneously (CI runners may have tight VA limits)
+_MAX_DB_SIZE_: int = 1 << 30
 
 
 def get_db_file_path(tmp_path: Path) -> Path:
@@ -228,7 +231,12 @@ def _close_cached_readonly_state() -> None:
 
 def create_conn_db(path: Path, *, read_only: bool) -> ConnDB:
     """Return a new connection and database."""
-    db = lb.Database(path, buffer_pool_size=_POOL_SIZE_, read_only=read_only)
+    db = lb.Database(
+        path,
+        buffer_pool_size=_POOL_SIZE_,
+        read_only=read_only,
+        max_db_size=_MAX_DB_SIZE_,
+    )
     conn = lb.Connection(db, num_threads=4)
     return conn, db
 

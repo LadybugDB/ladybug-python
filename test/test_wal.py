@@ -15,7 +15,7 @@ def run_query_in_new_process(tmp_path: Path, build_dir: Path, queries: str):
         sys.path.append(r"{build_dir!s}")
 
         import ladybug as lb
-        db = lb.Database(r"{db_path!s}")
+        db = lb.Database(r"{db_path!s}", max_db_size=1 << 30)
         """) + queries
     return subprocess.Popen([sys.executable, "-c", code])
 
@@ -40,7 +40,7 @@ def test_replay_after_kill(tmp_path: Path, build_dir: Path) -> None:
     """)
     run_query_then_kill(tmp_path, build_dir, queries)
     db_path = get_db_file_path(tmp_path)
-    with lb.Database(db_path) as db, lb.Connection(db) as conn:
+    with lb.Database(db_path, max_db_size=1 << 30) as db, lb.Connection(db) as conn:
         # previously committed queries should be valid after replaying WAL
         result = conn.execute("CALL show_tables() RETURN *")
         assert result.has_next()
@@ -64,7 +64,7 @@ def test_replay_with_exception(tmp_path: Path, build_dir: Path) -> None:
     """)
     run_query_then_kill(tmp_path, build_dir, queries)
     db_path = get_db_file_path(tmp_path)
-    with lb.Database(db_path) as db, lb.Connection(db) as conn:
+    with lb.Database(db_path, max_db_size=1 << 30) as db, lb.Connection(db) as conn:
         # previously committed queries should be valid after replaying WAL
         result = conn.execute("match (t:tab) where t.id <= 5 return t.id")
         assert result.get_num_tuples() == 5

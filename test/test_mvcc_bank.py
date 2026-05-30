@@ -246,10 +246,12 @@ def run_bank_test(
     edges = build_edges(N_ACCOUNTS, EDGE_PROB, rng)
 
     try:
-        db = lb.Database(str(db_path), enable_multi_writes=enable_multi_writes)
+        db = lb.Database(
+            str(db_path), enable_multi_writes=enable_multi_writes, max_db_size=1 << 30
+        )
     except TypeError:
         # Fallback if binding patch is not applied
-        db = lb.Database(str(db_path))
+        db = lb.Database(str(db_path), max_db_size=1 << 30)
 
     setup_db(db, N_ACCOUNTS, edges)
 
