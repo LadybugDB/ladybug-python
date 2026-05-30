@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import json
 from typing import TYPE_CHECKING
 
@@ -82,6 +83,62 @@ def test_to_json_python_param_with_empty_nested_list(conn_db_empty: ConnDB) -> N
 
     response_data = json.loads(response.rows_as_dict().get_all()[0]["meta"])
     assert response_data == data
+
+
+def test_to_json_python_param_with_mixed_nested_list(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    conn.execute("""
+        INSTALL json;
+        LOAD json;
+        CREATE NODE TABLE User (id SERIAL PRIMARY KEY, meta JSON);
+        """)
+
+    data = {
+        "@context": [
+            "entry1",
+            "entry2",
+            {"key": "value"},
+        ],
+    }
+
+    response = conn.execute(
+        """
+        CREATE (n:User {meta: to_json($meta)})
+        RETURN n.id as id, cast(n.meta AS STRING) as meta;
+        """,
+        parameters={"meta": data},
+    )
+
+    response_data = json.loads(response.rows_as_dict().get_all()[0]["meta"])
+    assert response_data == data
+
+
+def test_to_json_mixed_nested_list_normalization_does_not_import_numpy(
+    conn_db_empty: ConnDB,
+    monkeypatch,
+) -> None:
+    conn, _ = conn_db_empty
+    query = "CREATE (n:User {meta: to_json($meta)})"
+    data = {"@context": ["entry1", "entry2", {"key": "value"}]}
+    parameters = {"meta": data}
+
+    real_import = builtins.__import__
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "numpy" or name.startswith("numpy."):
+            msg = "JSON parameter normalization should not import NumPy"
+            raise AssertionError(msg)
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+
+    normalized_query, normalized_parameters = conn._normalize_parameters_for_pybind(
+        query,
+        parameters,
+    )
+    assert normalized_query.startswith("CREATE (n:User {meta: CAST(")
+    assert normalized_query.endswith(" AS JSON)})")
+    assert normalized_parameters == {}
 
 
 def test_to_json_python_param_with_homogeneous_list_uses_typed_binding(

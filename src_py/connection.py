@@ -188,8 +188,16 @@ class Connection:
         if value is None:
             return True
         if isinstance(value, (list, tuple)):
-            return len(value) == 0 or any(
-                cls._contains_unresolved_json_type(item) for item in value
+            if len(value) == 0:
+                return True
+            has_nested_child = any(
+                isinstance(item, (list, tuple, dict)) for item in value
+            )
+            has_scalar_child = any(
+                not isinstance(item, (list, tuple, dict)) for item in value
+            )
+            return any(cls._contains_unresolved_json_type(item) for item in value) or (
+                has_nested_child and has_scalar_child
             )
         if isinstance(value, dict):
             return len(value) == 0 or any(
