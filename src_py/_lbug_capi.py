@@ -971,12 +971,21 @@ def _numpy_module() -> Any | None:
     return np
 
 
+def _has_numpy_type_module(value: Any) -> bool:
+    module = type(value).__module__
+    return module == "numpy" or module.startswith("numpy.")
+
+
 def _is_numpy_scalar(value: Any) -> bool:
+    if not _has_numpy_type_module(value):
+        return False
     np = _numpy_module()
     return bool(np is not None and isinstance(value, np.generic))
 
 
 def _is_numpy_array(value: Any) -> bool:
+    if not _has_numpy_type_module(value):
+        return False
     np = _numpy_module()
     return bool(np is not None and isinstance(value, np.ndarray))
 

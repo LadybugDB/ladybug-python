@@ -434,6 +434,15 @@ static LogicalType pyNumpyArrayLogicalType(const py::array& arr) {
     return type;
 }
 
+static bool hasNumpyTypeModule(const py::handle& val) {
+    auto module = py::str(val.get_type().attr("__module__")).cast<std::string>();
+    return module == "numpy" || module.starts_with("numpy.");
+}
+
+static bool isNumpyArray(const py::handle& val) {
+    return hasNumpyTypeModule(val) && py::isinstance<py::array>(val);
+}
+
 static LogicalType pyLogicalType(const py::handle& val) {
     auto datetime_datetime = importCache->datetime.datetime();
     auto time_delta = importCache->datetime.timedelta();
@@ -514,7 +523,7 @@ static LogicalType pyLogicalType(const py::handle& val) {
             childValueType = std::move(resultValue);
         }
         return LogicalType::MAP(std::move(childKeyType), std::move(childValueType));
-    } else if (py::isinstance<py::array>(val)) {
+    } else if (isNumpyArray(val)) {
         return pyNumpyArrayLogicalType(py::reinterpret_borrow<py::array>(val));
     } else if (py::isinstance<py::list>(val)) {
         py::list lst = py::reinterpret_borrow<py::list>(val);
@@ -620,7 +629,7 @@ static LogicalType pyLogicalTypeFromParameter(const py::handle& val) {
             structFields.emplace_back(std::move(keyName), std::move(keyType));
         }
         return LogicalType::STRUCT(std::move(structFields));
-    } else if (py::isinstance<py::array>(val)) {
+    } else if (isNumpyArray(val)) {
         return pyNumpyArrayLogicalType(py::reinterpret_borrow<py::array>(val));
     } else if (py::isinstance<py::list>(val)) {
         py::list lst = py::reinterpret_borrow<py::list>(val);
@@ -852,7 +861,7 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
         return Value{uuidToAppend};
     }
     case LogicalTypeID::LIST: {
-        if (py::isinstance<py::array>(val)) {
+        if (isNumpyArray(val)) {
             return transformNumpyArrayAs(py::reinterpret_borrow<py::array>(val), type);
         }
         py::list lst = py::reinterpret_borrow<py::list>(val);
@@ -910,7 +919,7 @@ Value PyConnection::transformPythonValueFromParameterAs(const py::handle& val,
             auto jsonStr = pythonObjectToJsonString(val);
             return Value::createValue<std::string>(jsonStr);
         }
-        if (py::isinstance<py::array>(val)) {
+        if (isNumpyArray(val)) {
             return transformNumpyArrayAs(py::reinterpret_borrow<py::array>(val), type);
         }
         py::list lst = py::reinterpret_borrow<py::list>(val);
