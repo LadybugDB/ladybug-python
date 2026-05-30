@@ -39,7 +39,7 @@ class Database:
         compression: bool = True,
         lazy_init: bool = False,
         read_only: bool = False,
-        max_db_size: int = (1 << 30),
+        max_db_size: int = 0xFFFFFFFF,
         auto_checkpoint: bool = True,
         checkpoint_threshold: int = -1,
         throw_on_wal_replay_failure: bool = True,
