@@ -240,6 +240,7 @@ def run_bank_test(
     n_readers: int,
     duration: int,
     enable_multi_writes: bool,
+    max_db_size: int,
     seed: int = 42,
 ) -> Stats:
     rng = random.Random(seed)
@@ -247,11 +248,13 @@ def run_bank_test(
 
     try:
         db = lb.Database(
-            str(db_path), enable_multi_writes=enable_multi_writes, max_db_size=1 << 30
+            str(db_path),
+            enable_multi_writes=enable_multi_writes,
+            max_db_size=max_db_size,
         )
     except TypeError:
         # Fallback if binding patch is not applied
-        db = lb.Database(str(db_path), max_db_size=1 << 30)
+        db = lb.Database(str(db_path), max_db_size=max_db_size)
 
     setup_db(db, N_ACCOUNTS, edges)
 
@@ -289,7 +292,7 @@ def run_bank_test(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
-def test_single_writer_no_anomalies(tmp_path: Path) -> None:
+def test_single_writer_no_anomalies(tmp_path: Path, max_db_size: int) -> None:
     """Baseline: single writer, no concurrent write transactions."""
     stats = run_bank_test(
         tmp_path / "bank_single.lbdb",
@@ -297,12 +300,13 @@ def test_single_writer_no_anomalies(tmp_path: Path) -> None:
         n_readers=2,
         duration=DURATION_SINGLE_WRITER,
         enable_multi_writes=False,
+        max_db_size=max_db_size,
     )
     assert stats.anomalies == [], f"MVCC anomalies detected: {stats.anomalies}"
     assert stats.reads_failed == 0, f"Reader errors: {stats.reads_failed}"
 
 
-def test_multi_writer_no_anomalies(tmp_path: Path) -> None:
+def test_multi_writer_no_anomalies(tmp_path: Path, max_db_size: int) -> None:
     """
     Four concurrent writers with enable_multi_writes=True.
 
@@ -315,6 +319,7 @@ def test_multi_writer_no_anomalies(tmp_path: Path) -> None:
         n_readers=2,
         duration=DURATION_MULTI_WRITER,
         enable_multi_writes=True,
+        max_db_size=max_db_size,
     )
     assert stats.anomalies == [], f"MVCC anomalies detected: {stats.anomalies}"
     assert stats.reads_failed == 0, f"Reader errors: {stats.reads_failed}"
@@ -323,7 +328,7 @@ def test_multi_writer_no_anomalies(tmp_path: Path) -> None:
 
 
 @pytest.mark.slow
-def test_multi_writer_stress_no_anomalies(tmp_path: Path) -> None:
+def test_multi_writer_stress_no_anomalies(tmp_path: Path, max_db_size: int) -> None:
     """
     Stress: 8 writers / 4 readers for 60 s (matches adsharma README example).
 
@@ -335,5 +340,6 @@ def test_multi_writer_stress_no_anomalies(tmp_path: Path) -> None:
         n_readers=4,
         duration=60,
         enable_multi_writes=True,
+        max_db_size=max_db_size,
     )
     assert stats.anomalies == [], f"MVCC anomalies detected: {stats.anomalies}"

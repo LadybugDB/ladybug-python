@@ -39,7 +39,7 @@ class Database:
         compression: bool = True,
         lazy_init: bool = False,
         read_only: bool = False,
-        max_db_size: int = 0xFFFFFFFF,
+        max_db_size: int | None = None,
         auto_checkpoint: bool = True,
         checkpoint_threshold: int = -1,
         throw_on_wal_replay_failure: bool = True,
@@ -77,12 +77,11 @@ class Database:
             database path.
             Default to False.
 
-        max_db_size : int
+        max_db_size : int, optional
             The maximum size of the database in bytes. Note that this is introduced
             temporarily for now to get around with the default 8TB mmap address
-             space limit some environment. This will be removed once we implemente
-             a better solution later. The value is default to 1 << 43 (8TB) under 64-bit
-             environment and 1GB under 32-bit one.
+             space limit some environment. This will be removed once we implement
+             a better solution later. If not specified, the backend's default is used.
 
         auto_checkpoint: bool
             If true, the database will automatically checkpoint when the size of
@@ -242,19 +241,24 @@ class Database:
         if pybind_module is None:
             return None
         if self._pybind_database is None:
-            self._pybind_database = pybind_module.Database(
-                self.database_path,
-                self.buffer_pool_size,
-                self.max_num_threads,
-                self.compression,
-                self.read_only,
-                self.max_db_size,
-                self.auto_checkpoint,
-                self.checkpoint_threshold,
-                self.throw_on_wal_replay_failure,
-                self.enable_checksums,
-                self.enable_multi_writes,
-            )
+            kwargs = {
+                "database_path": self.database_path,
+                "buffer_pool_size": self.buffer_pool_size,
+                "max_num_threads": self.max_num_threads,
+                "compression": self.compression,
+                "read_only": self.read_only,
+                "auto_checkpoint": self.auto_checkpoint,
+                "checkpoint_threshold": self.checkpoint_threshold,
+                "throw_on_wal_replay_failure": self.throw_on_wal_replay_failure,
+                "enable_checksums": self.enable_checksums,
+                "enable_multi_writes": self.enable_multi_writes,
+            }
+
+            if self.max_db_size is not None:
+                kwargs["max_db_size"] = self.max_db_size
+
+            self._pybind_database = pybind_module.Database(**kwargs)
+
         return self._pybind_database
 
     def get_torch_geometric_remote_backend(

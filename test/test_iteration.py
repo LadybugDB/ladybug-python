@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ladybug as lb
 from type_aliases import ConnDB
 
 
@@ -35,11 +34,7 @@ def test_iteration_loop(conn_db_in_mem: ConnDB) -> None:
 
 def test_get_all(conn_db_in_mem: ConnDB) -> None:
     conn, _ = conn_db_in_mem
-    db = lb.Database(database_path=":memory:")
-    assert not db.is_closed
-    assert db._database is not None
 
-    conn = lb.Connection(db)
     conn.execute("CREATE NODE TABLE person(name STRING, age INT64, PRIMARY KEY(name));")
     conn.execute("CREATE (:person {name: 'Alice', age: 30});")
     conn.execute("CREATE (:person {name: 'Bob', age: 40});")
@@ -54,11 +49,7 @@ def test_get_all(conn_db_in_mem: ConnDB) -> None:
 
 def test_get_n(conn_db_in_mem: ConnDB) -> None:
     conn, _ = conn_db_in_mem
-    db = lb.Database(database_path=":memory:")
-    assert not db.is_closed
-    assert db._database is not None
 
-    conn = lb.Connection(db)
     conn.execute("CREATE NODE TABLE person(name STRING, age INT64, PRIMARY KEY(name));")
     conn.execute("CREATE (:person {name: 'Alice', age: 30});")
     conn.execute("CREATE (:person {name: 'Bob', age: 40});")

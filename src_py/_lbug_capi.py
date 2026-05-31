@@ -1195,7 +1195,7 @@ class Database:
         max_num_threads: int = 0,
         compression: bool = True,
         read_only: bool = False,
-        max_db_size: int = 0xFFFFFFFF,
+        max_db_size: int | None = None,
         auto_checkpoint: bool = True,
         checkpoint_threshold: int = -1,
         throw_on_wal_replay_failure: bool = True,
@@ -1208,7 +1208,10 @@ class Database:
         config.max_num_threads = max_num_threads
         config.enable_compression = compression
         config.read_only = read_only
-        config.max_db_size = max_db_size
+
+        if max_db_size is not None:
+            config.max_db_size = max_db_size
+
         config.auto_checkpoint = auto_checkpoint
         if checkpoint_threshold >= 0:
             config.checkpoint_threshold = checkpoint_threshold

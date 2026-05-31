@@ -8,20 +8,24 @@ import ladybug as lb
 from conftest import get_db_file_path
 
 
-def run_query_in_new_process(tmp_path: Path, build_dir: Path, queries: str):
+def run_query_in_new_process(
+    tmp_path: Path, build_dir: Path, queries: str, max_db_size: int
+):
     db_path = get_db_file_path(tmp_path)
     code = dedent(f"""
         import sys
         sys.path.append(r"{build_dir!s}")
 
         import ladybug as lb
-        db = lb.Database(r"{db_path!s}", max_db_size=1 << 30)
+        db = lb.Database(r"{db_path!s}", max_db_size={max_db_size})
         """) + queries
     return subprocess.Popen([sys.executable, "-c", code])
 
 
-def run_query_then_kill(tmp_path: Path, build_dir: Path, queries: str):
-    proc = run_query_in_new_process(tmp_path, build_dir, queries)
+def run_query_then_kill(
+    tmp_path: Path, build_dir: Path, queries: str, max_db_size: int
+):
+    proc = run_query_in_new_process(tmp_path, build_dir, queries, max_db_size)
     time.sleep(5)
     proc.kill()
     proc.wait(5)
@@ -32,15 +36,15 @@ def run_query_then_kill(tmp_path: Path, build_dir: Path, queries: str):
 
 # Kill the database while it's in the middle of executing a long persistent query
 # When we reload the database we will replay from the WAL (which will be incomplete)
-def test_replay_after_kill(tmp_path: Path, build_dir: Path) -> None:
+def test_replay_after_kill(tmp_path: Path, build_dir: Path, max_db_size: int) -> None:
     queries = dedent("""
     conn = lb.Connection(db)
     conn.execute("CREATE NODE TABLE tab (id INT64, PRIMARY KEY (id));")
     conn.execute("UNWIND RANGE(1,100000) AS x UNWIND RANGE(1, 100000) AS y CREATE (:tab {id: x * 100000 + y});")
     """)
-    run_query_then_kill(tmp_path, build_dir, queries)
+    run_query_then_kill(tmp_path, build_dir, queries, max_db_size)
     db_path = get_db_file_path(tmp_path)
-    with lb.Database(db_path, max_db_size=1 << 30) as db, lb.Connection(db) as conn:
+    with lb.Database(db_path, max_db_size=max_db_size) as db, lb.Connection(db) as conn:
         # previously committed queries should be valid after replaying WAL
         result = conn.execute("CALL show_tables() RETURN *")
         assert result.has_next()
@@ -49,7 +53,9 @@ def test_replay_after_kill(tmp_path: Path, build_dir: Path) -> None:
         result.close()
 
 
-def test_replay_with_exception(tmp_path: Path, build_dir: Path) -> None:
+def test_replay_with_exception(
+    tmp_path: Path, build_dir: Path, max_db_size: int
+) -> None:
     queries = dedent("""
     conn = lb.Connection(db)
     conn.execute("CREATE NODE TABLE tab (id INT64, PRIMARY KEY (id));")
@@ -62,9 +68,9 @@ def test_replay_with_exception(tmp_path: Path, build_dir: Path) -> None:
             assert i % 2 == 1
     conn.execute("UNWIND RANGE(1,100000) AS x UNWIND RANGE(1, 100000) AS y CREATE (:tab {id: x * 100000 + y});")
     """)
-    run_query_then_kill(tmp_path, build_dir, queries)
+    run_query_then_kill(tmp_path, build_dir, queries, max_db_size)
     db_path = get_db_file_path(tmp_path)
-    with lb.Database(db_path, max_db_size=1 << 30) as db, lb.Connection(db) as conn:
+    with lb.Database(db_path, max_db_size=max_db_size) as db, lb.Connection(db) as conn:
         # previously committed queries should be valid after replaying WAL
         result = conn.execute("match (t:tab) where t.id <= 5 return t.id")
         assert result.get_num_tuples() == 5

@@ -16,7 +16,7 @@ void PyDatabase::initialize(py::handle& m) {
                  bool, bool, bool>(),
             py::arg("database_path"), py::arg("buffer_pool_size") = 0,
             py::arg("max_num_threads") = 0, py::arg("compression") = true,
-            py::arg("read_only") = false, py::arg("max_db_size") = (uint64_t)1 << 43,
+            py::arg("read_only") = false, py::arg("max_db_size") = -1u,
             py::arg("auto_checkpoint") = true, py::arg("checkpoint_threshold") = -1,
             py::arg("throw_on_wal_replay_failure") = true, py::arg("enable_checksums") = true,
             py::arg("enable_multi_writes") = false)

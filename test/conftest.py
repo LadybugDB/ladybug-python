@@ -298,11 +298,20 @@ def conn_db_empty(tmp_path: Path) -> ConnDB:
         db.close()
 
 
+@pytest.fixture(scope="session")
+def max_db_size() -> int:
+    """Return the maximum database size used across tests."""
+    return _MAX_DB_SIZE_
+
+
 @pytest.fixture
 def conn_db_in_mem() -> ConnDB:
     """Return a new in-memory connection and database."""
     db = lb.Database(
-        database_path=":memory:", buffer_pool_size=_POOL_SIZE_, read_only=False
+        database_path=":memory:",
+        buffer_pool_size=_POOL_SIZE_,
+        read_only=False,
+        max_db_size=_MAX_DB_SIZE_,
     )
     conn = lb.Connection(db, num_threads=4)
     try:
