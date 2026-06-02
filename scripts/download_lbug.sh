@@ -19,7 +19,7 @@ if [ ! -f "$UPSTREAM_SCRIPT" ]; then
   chmod +x "$UPSTREAM_SCRIPT"
 fi
 
-LBUG_TARGET_DIR="$CACHE_LIB_DIR" LBUG_LIB_KIND="$LIB_KIND" bash "$UPSTREAM_SCRIPT"
+LBUG_TARGET_DIR="$CACHE_LIB_DIR" LBUG_LIB_KIND="$LIB_KIND" LBUG_ARCH="${LBUG_ARCH:-}" bash "$UPSTREAM_SCRIPT"
 
 OS="$(uname -s)"
 if [ "$LIB_KIND" = "shared" ]; then
