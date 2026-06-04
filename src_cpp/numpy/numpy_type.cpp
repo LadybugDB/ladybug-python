@@ -80,7 +80,7 @@ static NumpyNullableType convertNumpyTypeInternal(const std::string& colTypeStr)
         return NumpyNullableType::DATETIME_NS;
     }
     // LCOV_EXCL_STOP
-    if (colTypeStr == "object" || colTypeStr == "string") {
+    if (colTypeStr == "object" || colTypeStr == "string" || colTypeStr == "str") {
         return NumpyNullableType::OBJECT;
     }
     UNREACHABLE_CODE;

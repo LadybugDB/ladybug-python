@@ -441,6 +441,24 @@ def test_copy_from_pandas_object(conn_db_empty: ConnDB) -> None:
     assert result.has_next() is False
 
 
+def test_copy_from_pandas_str_dtype(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    df = pd.DataFrame(
+        [
+            {"id": "a", "name": "x", "n": 1, "v": 1.5},
+            {"id": "b", "name": "y", "n": 2, "v": None},
+        ]
+    )
+    conn.execute(
+        "CREATE NODE TABLE T(id STRING PRIMARY KEY, name STRING, n INT64, v DOUBLE)"
+    )
+    conn.execute("COPY T FROM df")
+    result = conn.execute("MATCH (t:T) RETURN t.id, t.name, t.n, t.v ORDER BY t.id")
+    assert result.get_next() == ["a", "x", 1, 1.5]
+    assert result.get_next() == ["b", "y", 2, None]
+    assert result.has_next() is False
+
+
 def test_copy_from_pandas_object_skip(conn_db_empty: ConnDB) -> None:
     conn, _ = conn_db_empty
     df = pd.DataFrame(
