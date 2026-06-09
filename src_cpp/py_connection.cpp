@@ -984,20 +984,6 @@ Value PyConnection::transformPythonValue(const py::handle& val) {
 }
 
 Value PyConnection::transformPythonValueFromParameter(const py::handle& val) {
-    if (py::isinstance<py::str>(val)) {
-        auto strVal = py::cast<std::string>(val);
-        if (!strVal.empty() && (strVal.front() == '{' || strVal.front() == '[')) {
-            auto jsonModule = py::module_::import("json");
-            try {
-                auto parsed = jsonModule.attr("loads")(val);
-                auto parsedType = pyLogicalTypeFromParameter(parsed);
-                if (parsedType.containsAny()) {
-                    return Value(LogicalType::JSON(), strVal);
-                }
-                return transformPythonValueFromParameterAs(parsed, parsedType);
-            } catch (...) {}
-        }
-    }
     auto type = pyLogicalTypeFromParameter(val);
     return transformPythonValueFromParameterAs(val, type);
 }

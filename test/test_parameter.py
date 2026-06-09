@@ -117,6 +117,25 @@ def test_str_param(conn_db_readonly: ConnDB) -> None:
     result.close()
 
 
+def test_json_like_string_param_round_trips_as_string(conn_db_empty: ConnDB) -> None:
+    conn, _ = conn_db_empty
+    conn.execute("CREATE NODE TABLE T(id STRING PRIMARY KEY, cfg STRING)")
+
+    value = '{"curator_enabled": false, "x": [1, 2, null]}'
+    result = conn.execute(
+        """
+        CREATE (t:T {id: "a"})
+        SET t.cfg = $cfg
+        RETURN t.cfg
+        """,
+        {"cfg": value},
+    )
+
+    assert result.get_next() == [value]
+    assert not result.has_next()
+    result.close()
+
+
 def test_date_param(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
     result = conn.execute(
