@@ -13,7 +13,13 @@ This downloads the latest shared `liblbug` binary (via upstream
 The Python package is installed directly from `src_py/`, so the standalone
 workflow no longer depends on `./build/ladybug`.
 
-Run tests with:
+In order to run tests you'll need to pull data first with:
+
+```bash
+git submodule update --init --recursive
+```
+
+Then run tests with:
 
 ```bash
 uv run pytest
