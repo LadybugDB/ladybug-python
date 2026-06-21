@@ -155,3 +155,87 @@ def test_to_json_python_param_with_homogeneous_list_uses_typed_binding(
 
     assert normalized_query == query
     assert normalized_parameters == parameters
+
+
+def test_get_as_df_json_scalar(conn_db_empty: ConnDB) -> None:
+    """
+    Scalar JSON values convert through get_as_df() as Python strings.
+
+    Covers non-null values, typed JSON nulls, and a mixed column in a single query.
+    """
+    conn, _ = conn_db_empty
+    df = conn.execute(
+        "UNWIND ["
+        'CAST(\'{"a": 1, "b": [2, 3]}\' AS JSON), '
+        "CAST(NULL AS JSON), "
+        "CAST('[1, 2, 3]' AS JSON)"
+        "] AS j RETURN j"
+    ).get_as_df()
+
+    assert str(df["j"].dtype) == "object"
+    assert df["j"].isna().tolist() == [False, True, False]
+
+    first = df["j"].iloc[0]
+    assert isinstance(first, str)
+    assert json.loads(first) == {"a": 1, "b": [2, 3]}
+
+    third = df["j"].iloc[2]
+    assert isinstance(third, str)
+    assert json.loads(third) == [1, 2, 3]
+
+
+def test_get_as_df_json_empty_result(conn_db_empty: ConnDB) -> None:
+    """
+    An empty result over a JSON column builds the column without crashing.
+
+    convertToArrayType() runs during NPArrayWrapper construction, before any
+    rows are iterated, so a zero-row JSON result is the minimal reproduction
+    for the original dtype-selection crash.
+    """
+    conn, _ = conn_db_empty
+    conn.execute("CREATE NODE TABLE t (id SERIAL PRIMARY KEY, data JSON)")
+
+    df = conn.execute("MATCH (n:t) RETURN n.data AS data").get_as_df()
+
+    assert len(df) == 0
+    assert str(df["data"].dtype) == "object"
+
+
+def test_get_as_df_json_extract(conn_db_empty: ConnDB) -> None:
+    """json_extract() produces a scalar JSON result that converts via get_as_df()."""
+    conn, _ = conn_db_empty
+    conn.execute("INSTALL json; LOAD json;")
+    conn.execute("CREATE NODE TABLE t (id SERIAL PRIMARY KEY, data JSON)")
+
+    data = {"name": {"first": "Alice", "last": "Smith"}}
+    conn.execute(
+        "CREATE (n:t {data: to_json($data)})",
+        parameters={"data": json.dumps(data)},
+    )
+
+    df = conn.execute(
+        "MATCH (n:t) RETURN json_extract(n.data, '$.name') AS name"
+    ).get_as_df()
+
+    assert str(df["name"].dtype) == "object"
+    val = df["name"].iloc[0]
+    assert isinstance(val, str)
+    assert json.loads(val) == {"first": "Alice", "last": "Smith"}
+
+
+def test_get_as_df_json_list(conn_db_empty: ConnDB) -> None:
+    """JSON[] (LIST of JSON) columns keep their existing pandas behavior."""
+    conn, _ = conn_db_empty
+    conn.execute("INSTALL json; LOAD json;")
+    conn.execute("CREATE NODE TABLE t (id SERIAL PRIMARY KEY, data JSON[])")
+
+    data = [{"x": 1}, {"x": 2}, {"x": 3}]
+    conn.execute("CREATE (n:t {data: $d})", parameters={"d": data})
+
+    df = conn.execute("MATCH (n:t) RETURN n.data AS data").get_as_df()
+
+    assert str(df["data"].dtype) == "object"
+    val = df["data"].iloc[0]
+    assert isinstance(val, list)
+    assert len(val) == 3
+    assert all(isinstance(e, str) for e in val)
