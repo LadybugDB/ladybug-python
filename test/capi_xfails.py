@@ -69,6 +69,12 @@ CAPI_XFAILS = frozenset(
         "test/test_udf.py::test_udf_null",
         "test/test_udf.py::test_udf_except",
         "test/test_udf.py::test_udf_remove",
+        # C API Arrow export for JSON types is not yet implemented.  get_as_df()
+        # tests that need the pybind NPArrayWrapper path are xfailed.
+        "test/test_json.py::test_get_as_df_json_scalar",
+        "test/test_json.py::test_get_as_df_json_empty_result",
+        "test/test_json.py::test_get_as_df_json_extract",
+        "test/test_json.py::test_get_as_df_json_list",
         # C API temporal conversion still differs from pybind for torch geometric export.
         "test/test_torch_geometric.py::test_to_torch_geometric_homogeneous_graph",
         "test/test_torch_geometric.py::test_to_torch_geometric_heterogeneous_graph",
