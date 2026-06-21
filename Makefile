@@ -37,15 +37,15 @@ endif
 	$(VENV_BIN)/python -m pytest -vv ./test
 
 lint: requirements  ## Apply autoformatting and linting rules
+	$(VENV_BIN)/black src_py test
 	$(VENV_BIN)/ruff check src_py test
-	$(VENV_BIN)/ruff format src_py test
 	-$(VENV_BIN)/mypy src_py test
 
 check: requirements
 	$(VENV_BIN)/ruff check src_py test --verbose
 
 format: requirements
-	$(VENV_BIN)/ruff format src_py test
+	$(VENV_BIN)/black src_py test
 
 CAPI_ENV_FILE=.cache/lbug-capi.env
 

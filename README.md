@@ -53,3 +53,19 @@ Override the source tree location when needed:
 ```bash
 make build-pybind-subdir LBUG_SOURCE_DIR=/path/to/ladybug
 ```
+
+## Formatting
+
+Code is formatted with **black** and linted with **ruff**:
+
+```bash
+make lint        # black + ruff check + mypy
+make format      # black only
+make check       # ruff check only (verbose)
+```
+
+We also have a pre-commit hook for formatting and linting:
+
+```bash
+uv run --no-sync pre-commit install
+```
