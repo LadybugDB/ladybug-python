@@ -78,6 +78,7 @@ void NPArrayWrapper::appendElement(Value* value) {
             ((int64_t*)dataBuffer)[numElements] =
                 Interval::getNanoseconds(value->getValue<interval_t>());
         } break;
+        case LogicalTypeID::JSON:
         case LogicalTypeID::STRING: {
             auto val = value->getValue<std::string>();
             py::str result(val);
@@ -167,6 +168,7 @@ py::dtype NPArrayWrapper::convertToArrayType(const LogicalType& type) {
     case LogicalTypeID::INTERVAL: {
         dtype = "timedelta64[ns]";
     } break;
+    case LogicalTypeID::JSON:
     case LogicalTypeID::DECIMAL:
     case LogicalTypeID::UNION:
     case LogicalTypeID::BLOB:
