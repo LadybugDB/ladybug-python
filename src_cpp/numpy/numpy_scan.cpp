@@ -1,5 +1,7 @@
 #include "numpy/numpy_scan.h"
 
+#include <limits>
+
 #include "common/exception/runtime.h"
 #include "common/type_utils.h"
 #include "common/types/timestamp_t.h"
@@ -121,8 +123,13 @@ void NumpyScan::scan(PandasColumnBindData* bindData, uint64_t count, uint64_t of
         auto dstData = reinterpret_cast<timestamp_t*>(outputVector->getData());
         for (auto i = 0u; i < count; i++) {
             auto pos = offset + i;
-            dstData[i].value = sourceData[pos];
-            outputVector->setNull(i, false /* isNull */);
+            // Pandas represents NaT as the sentinel value INT64_MIN
+            if (sourceData[pos] == std::numeric_limits<int64_t>::min()) {
+                outputVector->setNull(i, true);
+            } else {
+                dstData[i].value = sourceData[pos];
+                outputVector->setNull(i, false /* isNull */);
+            }
         }
         break;
     }
@@ -131,6 +138,11 @@ void NumpyScan::scan(PandasColumnBindData* bindData, uint64_t count, uint64_t of
         auto dstData = reinterpret_cast<interval_t*>(outputVector->getData());
         for (auto i = 0u; i < count; i++) {
             auto pos = offset + i;
+            // Pandas represents NaT as the sentinel value INT64_MIN
+            if (sourceData[pos] == std::numeric_limits<int64_t>::min()) {
+                outputVector->setNull(i, true);
+                continue;
+            }
             auto micro = sourceData[pos] / 1000;
             auto days = micro / Interval::MICROS_PER_DAY;
             micro = micro % Interval::MICROS_PER_DAY;
