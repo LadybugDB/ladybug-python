@@ -776,20 +776,40 @@ def test_scan_pandas_datetime_nat(conn_db_empty: ConnDB) -> None:
     df = pd.DataFrame(
         {
             "dt_s": np.array(
-                [valid_ts, np.datetime64("NaT", "s"), np.datetime64("NaT", "s"),
-                 valid_ts2], dtype="datetime64[s]"
+                [
+                    valid_ts,
+                    np.datetime64("NaT", "s"),
+                    np.datetime64("NaT", "s"),
+                    valid_ts2,
+                ],
+                dtype="datetime64[s]",
             ),
             "dt_ms": np.array(
-                [valid_ts, np.datetime64("NaT", "ms"), np.datetime64("NaT", "ms"),
-                 valid_ts2], dtype="datetime64[ms]"
+                [
+                    valid_ts,
+                    np.datetime64("NaT", "ms"),
+                    np.datetime64("NaT", "ms"),
+                    valid_ts2,
+                ],
+                dtype="datetime64[ms]",
             ),
             "dt_us": np.array(
-                [valid_ts, np.datetime64("NaT", "us"), np.datetime64("NaT", "us"),
-                 valid_ts2], dtype="datetime64[us]"
+                [
+                    valid_ts,
+                    np.datetime64("NaT", "us"),
+                    np.datetime64("NaT", "us"),
+                    valid_ts2,
+                ],
+                dtype="datetime64[us]",
             ),
             "dt_ns": np.array(
-                [valid_ts, np.datetime64("NaT", "ns"), np.datetime64("NaT", "ns"),
-                 valid_ts2], dtype="datetime64[ns]"
+                [
+                    valid_ts,
+                    np.datetime64("NaT", "ns"),
+                    np.datetime64("NaT", "ns"),
+                    valid_ts2,
+                ],
+                dtype="datetime64[ns]",
             ),
         }
     )
@@ -818,9 +838,7 @@ def test_scan_pandas_timedelta_nat(conn_db_empty: ConnDB) -> None:
     valid_td2 = np.timedelta64(5000000000, "ns")  # 5 seconds
     df = pd.DataFrame(
         {
-            "td": np.array(
-                [valid_td, nat, nat, valid_td2], dtype="timedelta64[ns]"
-            ),
+            "td": np.array([valid_td, nat, nat, valid_td2], dtype="timedelta64[ns]"),
         }
     )
     res = conn.execute("LOAD FROM df RETURN *")
@@ -838,9 +856,7 @@ def test_scan_pandas_timedelta_nat(conn_db_empty: ConnDB) -> None:
 def test_copy_from_datetime_nat(conn_db_empty: ConnDB) -> None:
     """Test that COPY FROM with NaT datetime stores NULL in the table."""
     conn, _ = conn_db_empty
-    conn.execute(
-        "CREATE NODE TABLE Test (id INT64, ts TIMESTAMP, PRIMARY KEY (id))"
-    )
+    conn.execute("CREATE NODE TABLE Test (id INT64, ts TIMESTAMP, PRIMARY KEY (id))")
     valid_ts = np.datetime64("2024-01-15T10:30:00")
     nat = np.datetime64("NaT", "ns")
     df = pd.DataFrame(
@@ -868,9 +884,7 @@ def test_copy_from_datetime_nat(conn_db_empty: ConnDB) -> None:
 def test_copy_from_timedelta_nat(conn_db_empty: ConnDB) -> None:
     """Test that COPY FROM with NaT timedelta stores NULL in the table."""
     conn, _ = conn_db_empty
-    conn.execute(
-        "CREATE NODE TABLE Test (id INT64, dur INTERVAL, PRIMARY KEY (id))"
-    )
+    conn.execute("CREATE NODE TABLE Test (id INT64, dur INTERVAL, PRIMARY KEY (id))")
     nat = np.timedelta64("NaT", "ns")
     valid_td = np.timedelta64(3600000000000, "ns")  # 1 hour
     df = pd.DataFrame(
@@ -896,13 +910,13 @@ def test_copy_from_timedelta_nat(conn_db_empty: ConnDB) -> None:
 
 
 def test_copy_from_datetime_none(conn_db_empty: ConnDB) -> None:
-    """Test that COPY FROM with None in a datetime column stores NULL.
+    """
+    Test that COPY FROM with None in a datetime column stores NULL.
+
     Pandas auto-infers the column as datetime64[ns] and converts None to NaT
     """
     conn, _ = conn_db_empty
-    conn.execute(
-        "CREATE NODE TABLE Test (id INT64, ts TIMESTAMP, PRIMARY KEY (id))"
-    )
+    conn.execute("CREATE NODE TABLE Test (id INT64, ts TIMESTAMP, PRIMARY KEY (id))")
     df = pd.DataFrame(
         {
             "id": [1, 2],
