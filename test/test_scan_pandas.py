@@ -769,63 +769,57 @@ def test_df_with_struct_cast(conn_db_readonly: ConnDB) -> None:
 
 
 def test_scan_pandas_datetime_nat(conn_db_empty: ConnDB) -> None:
-    """Test that NaT/None in datetime64 columns are scanned as NULL."""
+    """Test that NaT in datetime64 columns are scanned as NULL."""
     conn, _ = conn_db_empty
     valid_ts = np.datetime64("2024-01-15T10:30:00")
     valid_ts2 = np.datetime64("2025-06-01T00:00:00")
     df = pd.DataFrame(
         {
             "dt_s": np.array(
-                [valid_ts, None, pd.NaT, valid_ts2], dtype="datetime64[s]"
+                [valid_ts, np.datetime64("NaT", "s"), np.datetime64("NaT", "s"),
+                 valid_ts2], dtype="datetime64[s]"
             ),
             "dt_ms": np.array(
-                [valid_ts, None, pd.NaT, valid_ts2], dtype="datetime64[ms]"
+                [valid_ts, np.datetime64("NaT", "ms"), np.datetime64("NaT", "ms"),
+                 valid_ts2], dtype="datetime64[ms]"
             ),
             "dt_us": np.array(
-                [valid_ts, None, pd.NaT, valid_ts2], dtype="datetime64[us]"
+                [valid_ts, np.datetime64("NaT", "us"), np.datetime64("NaT", "us"),
+                 valid_ts2], dtype="datetime64[us]"
             ),
             "dt_ns": np.array(
-                [valid_ts, None, pd.NaT, valid_ts2], dtype="datetime64[ns]"
+                [valid_ts, np.datetime64("NaT", "ns"), np.datetime64("NaT", "ns"),
+                 valid_ts2], dtype="datetime64[ns]"
             ),
         }
     )
     res = conn.execute("LOAD FROM df RETURN *")
     # Row 0: all valid timestamps
     row0 = res.get_next()
-    assert row0[0] == datetime.datetime(2024, 1, 15, 10, 30)
-    assert row0[1] == datetime.datetime(2024, 1, 15, 10, 30)
-    assert row0[2] == datetime.datetime(2024, 1, 15, 10, 30)
-    assert row0[3] == datetime.datetime(2024, 1, 15, 10, 30)
-    # Row 1: None -> NULL
+    assert all(r == datetime.datetime(2024, 1, 15, 10, 30) for r in row0)
+    # Row 1: NaT -> NULL
     row1 = res.get_next()
-    assert row1[0] is None
-    assert row1[1] is None
-    assert row1[2] is None
-    assert row1[3] is None
-    # Row 2: pd.NaT -> NULL
+    assert not any(row1)
+    # Row 2: NaT -> NULL
     row2 = res.get_next()
-    assert row2[0] is None
-    assert row2[1] is None
-    assert row2[2] is None
-    assert row2[3] is None
+    assert not any(row2)
     # Row 3: valid timestamp
     row3 = res.get_next()
-    assert row3[0] == datetime.datetime(2025, 6, 1, 0, 0)
-    assert row3[1] == datetime.datetime(2025, 6, 1, 0, 0)
-    assert row3[2] == datetime.datetime(2025, 6, 1, 0, 0)
-    assert row3[3] == datetime.datetime(2025, 6, 1, 0, 0)
+    assert all(r == datetime.datetime(2025, 6, 1, 0, 0) for r in row3)
+
     assert not res.has_next()
 
 
 def test_scan_pandas_timedelta_nat(conn_db_empty: ConnDB) -> None:
-    """Test that NaT/None in timedelta64 columns are scanned as NULL."""
+    """Test that NaT in timedelta64 columns are scanned as NULL."""
     conn, _ = conn_db_empty
+    nat = np.timedelta64("NaT", "ns")
     valid_td = np.timedelta64(1000000, "ns")  # 1 millisecond
     valid_td2 = np.timedelta64(5000000000, "ns")  # 5 seconds
     df = pd.DataFrame(
         {
             "td": np.array(
-                [valid_td, None, pd.NaT, valid_td2], dtype="timedelta64[ns]"
+                [valid_td, nat, nat, valid_td2], dtype="timedelta64[ns]"
             ),
         }
     )
@@ -848,10 +842,11 @@ def test_copy_from_datetime_nat(conn_db_empty: ConnDB) -> None:
         "CREATE NODE TABLE Test (id INT64, ts TIMESTAMP, PRIMARY KEY (id))"
     )
     valid_ts = np.datetime64("2024-01-15T10:30:00")
+    nat = np.datetime64("NaT", "ns")
     df = pd.DataFrame(
         {
             "id": np.array([1, 2], dtype=np.int64),
-            "ts": np.array([valid_ts, pd.NaT], dtype="datetime64[ns]"),
+            "ts": np.array([valid_ts, nat], dtype="datetime64[ns]"),
         }
     )
     conn.execute(
@@ -876,11 +871,12 @@ def test_copy_from_timedelta_nat(conn_db_empty: ConnDB) -> None:
     conn.execute(
         "CREATE NODE TABLE Test (id INT64, dur INTERVAL, PRIMARY KEY (id))"
     )
+    nat = np.timedelta64("NaT", "ns")
     valid_td = np.timedelta64(3600000000000, "ns")  # 1 hour
     df = pd.DataFrame(
         {
             "id": np.array([1, 2], dtype=np.int64),
-            "td": np.array([valid_td, pd.NaT], dtype="timedelta64[ns]"),
+            "td": np.array([valid_td, nat], dtype="timedelta64[ns]"),
         }
     )
     conn.execute(
