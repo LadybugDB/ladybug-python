@@ -893,3 +893,36 @@ def test_copy_from_timedelta_nat(conn_db_empty: ConnDB) -> None:
     assert row2[0] == 2
     assert row2[1] is None
     assert not result.has_next()
+
+
+def test_copy_from_datetime_none(conn_db_empty: ConnDB) -> None:
+    """Test that COPY FROM with None in a datetime column stores NULL.
+    Pandas auto-infers the column as datetime64[ns] and converts None to NaT
+    """
+    conn, _ = conn_db_empty
+    conn.execute(
+        "CREATE NODE TABLE Test (id INT64, ts TIMESTAMP, PRIMARY KEY (id))"
+    )
+    df = pd.DataFrame(
+        {
+            "id": [1, 2],
+            "ts": [datetime.datetime(2024, 1, 15, 10, 30), None],
+        }
+    )
+    # Sanity check: pandas should infer a nullable datetime64[ns] column
+    assert df["ts"].dtype == "datetime64[ns]"
+
+    conn.execute(
+        "COPY Test FROM (LOAD FROM $df RETURN "
+        "CAST(`id` AS INT64) AS `id`, "
+        "CAST(`ts` AS TIMESTAMP) AS `ts`)",
+        {"df": df},
+    )
+    result = conn.execute("MATCH (t:Test) RETURN t.id, t.ts ORDER BY t.id")
+    row1 = result.get_next()
+    assert row1[0] == 1
+    assert row1[1] == datetime.datetime(2024, 1, 15, 10, 30)
+    row2 = result.get_next()
+    assert row2[0] == 2
+    assert row2[1] is None
+    assert not result.has_next()
