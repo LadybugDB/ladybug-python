@@ -336,6 +336,8 @@ def test_to_torch_geometric_heterogeneous_graph(conn_db_readonly: ConnDB) -> Non
         torch_geometric_data, pos_to_idx, unconverted_properties, edge_properties = (
             res.get_as_torch_geometric()
         )
+    # Filter torch.script.jit deprecation warnings in pytorch > 2.10-ish
+    ws = [w for w in ws if "deprecated" not in str(w.message)]
 
     assert len(ws) == 13
     warnings_ground_truth = {
@@ -667,6 +669,8 @@ def test_to_torch_geometric_multi_dimensional_lists(
         torch_geometric_data, pos_to_idx, unconverted_properties, _ = (
             res.get_as_torch_geometric()
         )
+    # Filter torch.script.jit deprecation warnings in pytorch > 2.10-ish
+    ws = [w for w in ws if "deprecated" not in str(w.message)]
     assert len(ws) == 1
     assert (
         str(ws[0].message)
@@ -721,6 +725,8 @@ def test_to_torch_geometric_no_properties_converted(
         torch_geometric_data, pos_to_idx, unconverted_properties, _ = (
             res.get_as_torch_geometric()
         )
+    # Filter torch.script.jit deprecation warnings in pytorch > 2.10-ish
+    ws = [w for w in ws if "deprecated" not in str(w.message)]
     assert len(ws) == 3
     warnings_ground_truth = {
         "Property personLongString.name of type STRING is not supported by torch_geometric. The property is marked as unconverted.",
