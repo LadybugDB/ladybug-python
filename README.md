@@ -22,7 +22,7 @@ git submodule update --init --recursive
 Then run tests with:
 
 ```bash
-uv run pytest
+uv run pytest -n $(nproc)
 ```
 
 ### Pybind backend from inverted layout
