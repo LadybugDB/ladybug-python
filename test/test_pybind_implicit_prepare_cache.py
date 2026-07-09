@@ -14,6 +14,9 @@ class _FakeResult:
     def hasNextQueryResult(self) -> bool:
         return False
 
+    def close(self) -> None:
+        return
+
 
 class _FakePreparedStatement:
     def __init__(self, query: str, parameters: dict[str, object]):
@@ -83,9 +86,13 @@ def fake_pybind_connection(monkeypatch: pytest.MonkeyPatch) -> _FakePybindConnec
         "init_connection",
         lambda self: setattr(self, "_connection", _FakeBackendConnection()),
     )
-    monkeypatch.setattr(
-        lb.Connection, "_get_pybind_connection", lambda self: fake_pybind
-    )
+
+    def _get_pybind_connection(self: lb.Connection) -> _FakePybindConnection:
+        if self._py_connection is None:
+            self._py_connection = fake_pybind
+        return self._py_connection
+
+    monkeypatch.setattr(lb.Connection, "_get_pybind_connection", _get_pybind_connection)
     return fake_pybind
 
 
