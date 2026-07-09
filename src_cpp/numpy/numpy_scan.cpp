@@ -172,7 +172,7 @@ void NumpyScan::scan(PandasColumnBindData* bindData, uint64_t count, uint64_t of
                 !py::isinstance<py::str>(val)) {
                 if (val == Py_None ||
                     (py::isinstance<py::float_>(val) && std::isnan(PyFloat_AsDouble(val)))) {
-                    outputVector->setNull(pos, true /* isNull */);
+                    outputVector->setNull(i, true /* isNull */);
                     continue;
                 }
                 if (!py::isinstance<py::str>(val)) {
