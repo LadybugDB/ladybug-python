@@ -52,6 +52,7 @@ class Connection:
         self._query_timeout_ms = 0
         self._query_results: WeakSet[QueryResult] = WeakSet()
         self._capi_scan_tables: set[str] = set()
+        self._pybind_implicit_prepared_cache: dict[str, Any] = {}
         self.database._register_connection(self)
         self.init_connection()
 
@@ -116,6 +117,7 @@ class Connection:
         for query_result in list(self._query_results):
             query_result.close()
         self._query_results.clear()
+        self._pybind_implicit_prepared_cache.clear()
 
         if self._connection is not None and not self.database.is_closed:
             self._connection.close()
@@ -460,8 +462,22 @@ class Connection:
             return py_connection.query(query)
 
         query, parameters = self._normalize_parameters_for_pybind(query, parameters)
-        prepared = py_connection.prepare(query, parameters)
+        prepared = self._get_or_prepare_pybind_statement(
+            py_connection, query, parameters
+        )
         return py_connection.execute(prepared, parameters)
+
+    def _get_or_prepare_pybind_statement(
+        self,
+        py_connection: Any,
+        query: str,
+        parameters: dict[str, Any],
+    ) -> Any:
+        prepared = self._pybind_implicit_prepared_cache.get(query)
+        if prepared is None:
+            prepared = py_connection.prepare(query, parameters)
+            self._pybind_implicit_prepared_cache[query] = prepared
+        return prepared
 
     def _maybe_raise_scan_unsupported_object(self, query: str) -> None:
         match = re.search(
