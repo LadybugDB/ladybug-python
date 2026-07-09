@@ -148,9 +148,58 @@ def test_pybind_close_clears_implicit_prepare_cache(
 
     conn.execute("RETURN $value", {"value": 1})
 
-    assert set(conn._pybind_implicit_prepared_cache) == {"RETURN $value"}
+    # Cache key is now (query, parameter-type signature) so that a
+    # single query with different parameter shapes (e.g. MAP vs STRUCT)
+    # does not share a prepared statement.
+    assert len(conn._pybind_implicit_prepared_cache) == 1
+    cached_key = next(iter(conn._pybind_implicit_prepared_cache))
+    assert cached_key[0] == "RETURN $value"
 
     conn.close()
 
     assert conn._pybind_implicit_prepared_cache == {}
     assert fake_pybind_connection.closed is True
+
+
+def test_pybind_implicit_prepare_segregates_by_parameter_shape(
+    fake_pybind_connection: _FakePybindConnection,
+) -> None:
+    """The same query with different parameter shapes must not share a plan."""
+    conn = lb.Connection(_FakeDatabase())
+
+    # Same keys ``key``/``value`` with matching list lengths -> MAP.
+    conn.execute("RETURN $st", {"st": {"key": [1, 2, 3], "value": [3, 7, 98]}})
+    # First key is ``key1`` -> STRUCT.
+    conn.execute("RETURN $st", {"st": {"key1": [1, 2, 3], "value": [3, 7, 98]}})
+    # ``key``/``value`` but mismatched list lengths -> STRUCT (different
+    # signature from the first call AND from the previous STRUCT because
+    # the field names differ).
+    conn.execute("RETURN $st", {"st": {"key": [1, 2], "value": [3, 7, 98, 4]}})
+
+    # 3 distinct structural shapes -> 3 separate prepared statements.
+    # Sharing any of them would either misbind the parameter or reroute
+    # a new shape through a stale plan.
+    assert len(fake_pybind_connection.prepare_calls) == 3
+    assert all(call[0] == "RETURN $st" for call in fake_pybind_connection.prepare_calls)
+    assert [call[1] for call in fake_pybind_connection.execute_calls] == [
+        {"st": {"key": [1, 2, 3], "value": [3, 7, 98]}},
+        {"st": {"key1": [1, 2, 3], "value": [3, 7, 98]}},
+        {"st": {"key": [1, 2], "value": [3, 7, 98, 4]}},
+    ]
+
+
+def test_pybind_implicit_prepare_reuses_same_struct_shape(
+    fake_pybind_connection: _FakePybindConnection,
+) -> None:
+    """Two calls that produce the same structural signature reuse the cache."""
+    conn = lb.Connection(_FakeDatabase())
+
+    # Same fields, different values -> identical signature.
+    conn.execute("RETURN $st", {"st": {"key1": [1, 2, 3], "value": [3, 7, 98]}})
+    conn.execute("RETURN $st", {"st": {"key1": [4, 5, 6], "value": [7, 8, 9]}})
+
+    assert len(fake_pybind_connection.prepare_calls) == 1
+    assert [call[1] for call in fake_pybind_connection.execute_calls] == [
+        {"st": {"key1": [1, 2, 3], "value": [3, 7, 98]}},
+        {"st": {"key1": [4, 5, 6], "value": [7, 8, 9]}},
+    ]
