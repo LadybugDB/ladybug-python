@@ -24,10 +24,16 @@ def generate_primitive(dtype):
     if dtype.startswith("uint64"):
         return random.randrange(0, 18446744073709551615)
     if dtype.startswith("float32"):
-        random_bits = random.getrandbits(32)
-        random_bytes = struct.pack("<I", random_bits)
-        random_float = struct.unpack("<f", random_bytes)[0]
-        return random_float
+        # getrandbits(32) hits the NaN exponent pattern ~0.4% of the time.
+        # pyarrow.Array != pyarrow.Array follows Arrow's NaN != NaN semantics,
+        # which makes tables_equal() fail for columns containing NaN. We still
+        # want to exercise subnormals, +/-Inf, signed zero, etc., just not NaN.
+        while True:
+            random_bits = random.getrandbits(32)
+            random_bytes = struct.pack("<I", random_bits)
+            random_float = struct.unpack("<f", random_bytes)[0]
+            if not math.isnan(random_float):
+                return random_float
     return -1
 
 
@@ -56,7 +62,20 @@ def tables_equal(t1, t2):
     for col_name in t1.schema.names:
         col1 = t1[col_name]
         col2 = t2[col_name]
-        if col1 != col2:
+        # pyarrow.Array == Array returns False for NaN values (Arrow spec:
+        # NaN != NaN), so a plain `!=` would report equal-looking tables as
+        # not-equal whenever either side contains NaN. Build numpy views and
+        # use array_equal(equal_nan=True) so NaN compares equal to NaN.
+        if pa.types.is_floating(col1.type):
+            import numpy as np
+
+            if not np.array_equal(
+                col1.to_numpy(zero_copy_only=False),
+                col2.to_numpy(zero_copy_only=False),
+                equal_nan=True,
+            ):
+                return False
+        elif col1 != col2:
             return False
     return True
 
