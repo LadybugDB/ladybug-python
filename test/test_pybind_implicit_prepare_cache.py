@@ -130,6 +130,23 @@ def test_pybind_implicit_prepare_does_not_share_different_queries(
     ]
 
 
+def test_pybind_implicit_prepare_segregates_by_integer_width(
+    fake_pybind_connection: _FakePybindConnection,
+) -> None:
+    conn = lb.Connection(_FakeDatabase())
+
+    conn.execute("RETURN $value", {"value": 1})
+    conn.execute("RETURN $value", {"value": 1000})
+    conn.execute("RETURN $value", {"value": 2})
+
+    assert len(fake_pybind_connection.prepare_calls) == 2
+    assert [call[1] for call in fake_pybind_connection.execute_calls] == [
+        {"value": 1},
+        {"value": 1000},
+        {"value": 2},
+    ]
+
+
 def test_pybind_no_parameter_query_skips_prepare_cache(
     fake_pybind_connection: _FakePybindConnection,
 ) -> None:

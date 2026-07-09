@@ -117,6 +117,100 @@ def _capi_param_signature(parameters: dict[str, Any]) -> tuple:
     )
 
 
+def _pybind_int_signature(value: int) -> tuple[str]:
+    if -(2**7) <= value <= 2**7 - 1:
+        return ("int8",)
+    if 0 <= value <= 2**8 - 1:
+        return ("uint8",)
+    if -(2**15) <= value <= 2**15 - 1:
+        return ("int16",)
+    if 0 <= value <= 2**16 - 1:
+        return ("uint16",)
+    if -(2**31) <= value <= 2**31 - 1:
+        return ("int32",)
+    if 0 <= value <= 2**32 - 1:
+        return ("uint32",)
+    return ("int64",)
+
+
+def _pybind_homogeneous_list_signature(
+    value: list[Any] | tuple[Any, ...],
+) -> tuple | None:
+    first_non_null = next((item for item in value if item is not None), None)
+    if first_non_null is None:
+        return ("list", ("any",))
+    if not isinstance(first_non_null, (bool, int, float)):
+        return None
+    first_type = type(first_non_null)
+    if any(item is not None and type(item) is not first_type for item in value):
+        return None
+    if isinstance(first_non_null, bool):
+        return ("list", ("bool",))
+    if isinstance(first_non_null, int):
+        return ("list", ("int64",))
+    return ("list", ("double",))
+
+
+def _pybind_value_signature(value: Any) -> tuple:
+    """
+    Compute the parameter type signature used by the pybind binder.
+
+    This intentionally differs from the C-API signature for Python ints:
+    pybind narrows scalar ints to INT8/UINT8/INT16/... based on the value
+    seen during prepare.  Reusing a prepared statement across those
+    widths corrupts later executions because updateParameter() mutates
+    the value without revalidating the logical type.
+    """
+    if value is None:
+        return ("any",)
+    if isinstance(value, bool):
+        return ("bool",)
+    if isinstance(value, int):
+        return _pybind_int_signature(value)
+    if isinstance(value, float):
+        return ("double",)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return ("blob",)
+    if isinstance(value, str):
+        return ("string",)
+    module_name = type(value).__module__
+    if module_name.startswith(("pandas", "polars", "pyarrow")):
+        return ("pointer", module_name, type(value).__name__, id(value))
+    if isinstance(value, dict):
+        items = list(value.items())
+        if (
+            len(items) == 2
+            and items[0][0] == "key"
+            and items[1][0] == "value"
+            and isinstance(items[0][1], list)
+            and isinstance(items[1][1], list)
+            and len(items[0][1]) == len(items[1][1])
+        ):
+            return (
+                "map",
+                _pybind_value_signature(items[0][1])[1],
+                _pybind_value_signature(items[1][1])[1],
+            )
+        return (
+            "struct",
+            tuple((str(k), _pybind_value_signature(v)) for k, v in items),
+        )
+    if isinstance(value, (list, tuple)):
+        homogeneous = _pybind_homogeneous_list_signature(value)
+        if homogeneous is not None:
+            return homogeneous
+        if not value:
+            return ("list", ("any",))
+        return ("list", _pybind_value_signature(value[0]))
+    return ("unknown", type(value).__name__)
+
+
+def _pybind_param_signature(parameters: dict[str, Any]) -> tuple:
+    return tuple(
+        sorted((key, _pybind_value_signature(val)) for key, val in parameters.items())
+    )
+
+
 class Connection:
     """Connection to a database."""
 
@@ -143,12 +237,13 @@ class Connection:
         self._query_results: WeakSet[QueryResult] = WeakSet()
         self._capi_scan_tables: set[str] = set()
         # Implicit prepared-statement cache, shared by the pybind and
-        # C-API paths.  The key is (query, param_signature) so that two
+        # C-API paths.  The key is (query, backend_param_signature) so that two
         # callers passing the same query with *different* parameter
         # shapes (e.g. MAP vs STRUCT, or two STRUCTs with different
-        # field names) get independent prepared statements.  Each cached
-        # entry's plan stays consistent with its bound values, avoiding
-        # the upstream "cached plan vs rebound parameterMap" mismatch.
+        # field names) or pybind-native integer widths get independent
+        # prepared statements.  Each cached entry's plan stays consistent
+        # with its bound values, avoiding the upstream "cached plan vs
+        # rebound parameterMap" mismatch.
         self._pybind_implicit_prepared_cache: dict[tuple[str, tuple], Any] = {}
         # Serializes prepare / bind / execute on a single connection so
         # that the cached entry's mutable bound state cannot be torn by
@@ -593,7 +688,7 @@ class Connection:
         parameters: dict[str, Any],
     ) -> Any:
         # Caller must hold ``self._prepared_cache_lock``.
-        cache_key = (query, _capi_param_signature(parameters))
+        cache_key = (query, _pybind_param_signature(parameters))
         prepared = self._pybind_implicit_prepared_cache.get(cache_key)
         if prepared is None:
             prepared = py_connection.prepare(query, parameters)
