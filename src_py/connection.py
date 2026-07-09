@@ -7,6 +7,7 @@ import re
 import threading
 import uuid
 import warnings
+import weakref
 from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
 
@@ -117,6 +118,16 @@ def _capi_param_signature(parameters: dict[str, Any]) -> tuple:
     )
 
 
+# Maps id(object) to (generation, weakref) for pointer-type parameters
+# (DataFrames, Arrow tables, etc.).  We use weakref to detect when the
+# original object has been garbage-collected.  If the object is gone and
+# its id is recycled, the tracker assigns a new generation so the
+# prepared-statement cache does not return a stale entry compiled for
+# the old (now freed) object.
+_pybind_pointer_gen = 0
+_pybind_pointer_tracker: dict[int, tuple[int, weakref.ref]] = {}
+
+
 def _pybind_int_signature(value: int) -> tuple[str]:
     if -(2**7) <= value <= 2**7 - 1:
         return ("int8",)
@@ -175,7 +186,21 @@ def _pybind_value_signature(value: Any) -> tuple:
         return ("string",)
     module_name = type(value).__module__
     if module_name.startswith(("pandas", "polars", "pyarrow")):
-        return ("pointer", module_name, type(value).__name__, id(value))
+        global _pybind_pointer_gen, _pybind_pointer_tracker
+        obj_id = id(value)
+        entry = _pybind_pointer_tracker.get(obj_id)
+        if entry is not None:
+            gen, weak = entry
+            if weak() is not None:
+                return ("pointer", module_name, type(value).__name__, gen)
+            # Original object was GC'd and a new object now occupies the
+            # same memory address.  Purge the stale entry and fall
+            # through to assign a fresh generation.
+            del _pybind_pointer_tracker[obj_id]
+        _pybind_pointer_gen += 1
+        gen = _pybind_pointer_gen
+        _pybind_pointer_tracker[obj_id] = (gen, weakref.ref(value))
+        return ("pointer", module_name, type(value).__name__, gen)
     if isinstance(value, dict):
         items = list(value.items())
         if (
