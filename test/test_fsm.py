@@ -24,6 +24,24 @@ def get_used_page_ranges(conn, table, column=None):
     return used_pages
 
 
+def get_used_node_data_page_ranges(conn, table):
+    """
+    Like get_used_page_ranges, but excludes INDEX pages.
+
+    Useful for `match ... delete` scenarios where the table and its indexes persist
+    while only the data pages are reclaimed.
+    """
+    used_pages = []
+    storage_info = conn.execute(
+        f'call storage_info("{table}") where table_type = "NODE" return start_page_idx, num_pages'
+    )
+    while storage_info.has_next():
+        cur_tuple = storage_info.get_next()
+        if cur_tuple[1] > 0:
+            used_pages.append(cur_tuple)
+    return used_pages
+
+
 def get_total_used_pages(conn):
     return conn.execute("call file_info() return num_pages").get_next()[0]
 
@@ -181,7 +199,7 @@ def test_fsm_reclaim_node_table_recopy(fsm_node_table_setup) -> None:
 
 def test_fsm_reclaim_node_table_delete(fsm_node_table_setup) -> None:
     _, conn = fsm_node_table_setup
-    used_pages = get_used_page_ranges(conn, "person")
+    used_pages = get_used_node_data_page_ranges(conn, "person")
     conn.execute("match (p:person) delete p")
     prevent_data_file_truncation(conn)
     conn.execute("checkpoint")
@@ -201,7 +219,7 @@ def test_fsm_reclaim_rel_table(fsm_rel_table_setup) -> None:
 
 def test_fsm_reclaim_rel_table_delete(fsm_node_table_setup) -> None:
     _, conn = fsm_node_table_setup
-    used_pages = get_used_page_ranges(conn, "person")
+    used_pages = get_used_node_data_page_ranges(conn, "person")
     conn.execute("match (p:person) delete p")
     prevent_data_file_truncation(conn)
     conn.execute("checkpoint")
