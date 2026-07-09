@@ -35,7 +35,10 @@ import pytest
 )
 def test_shared_connection_concurrent_same_query(num_threads: int, iters: int) -> None:
     """Many threads on a single connection must each see its own bound value."""
-    db = lb.Database(":memory:", buffer_pool_size=2**28)
+    # Use an explicit max_db_size (1 GB) so the C-API backend does not default
+    # to the library's 8 TB mmap region, which fails on CI runners with tight
+    # virtual-address limits.
+    db = lb.Database(":memory:", buffer_pool_size=2**28, max_db_size=2**30)
     conn = lb.Connection(db)
 
     errors: list[tuple[int, list]] = []
