@@ -128,6 +128,31 @@ _pybind_pointer_gen = 0
 _pybind_pointer_tracker: dict[int, tuple[int, weakref.ref]] = {}
 
 
+def _get_pointer_schema_fingerprint(value: Any) -> int:
+    """
+    Compute a hash of the schema for a pandas/pyarrow/polars object.
+
+    Two objects with the same shape, column names, and column dtypes
+    produce the same fingerprint.  If the object is mutated in place
+    (e.g. columns dropped, renamed, or dtypes changed) the fingerprint
+    changes, causing a cache miss so a fresh prepared statement is
+    compiled for the new schema.
+    """
+    module_name = type(value).__module__
+    if module_name == "pandas.core.frame":
+        cols = list(value.columns)
+        return hash(
+            (value.shape, tuple(cols), tuple(str(value[col].dtype) for col in cols))
+        )
+    if module_name.startswith("pyarrow"):
+        schema = value.schema
+        return hash(tuple((f.name, str(f.type)) for f in schema))
+    if module_name.startswith("polars"):
+        schema = value.schema
+        return hash(tuple(sorted((name, str(dtype)) for name, dtype in schema.items())))
+    return 0
+
+
 def _pybind_int_signature(value: int) -> tuple[str]:
     if -(2**7) <= value <= 2**7 - 1:
         return ("int8",)
@@ -188,11 +213,12 @@ def _pybind_value_signature(value: Any) -> tuple:
     if module_name.startswith(("pandas", "polars", "pyarrow")):
         global _pybind_pointer_gen, _pybind_pointer_tracker
         obj_id = id(value)
+        fp = _get_pointer_schema_fingerprint(value)
         entry = _pybind_pointer_tracker.get(obj_id)
         if entry is not None:
             gen, weak = entry
             if weak() is not None:
-                return ("pointer", module_name, type(value).__name__, gen)
+                return ("pointer", module_name, type(value).__name__, gen, fp)
             # Original object was GC'd and a new object now occupies the
             # same memory address.  Purge the stale entry and fall
             # through to assign a fresh generation.
@@ -200,7 +226,7 @@ def _pybind_value_signature(value: Any) -> tuple:
         _pybind_pointer_gen += 1
         gen = _pybind_pointer_gen
         _pybind_pointer_tracker[obj_id] = (gen, weakref.ref(value))
-        return ("pointer", module_name, type(value).__name__, gen)
+        return ("pointer", module_name, type(value).__name__, gen, fp)
     if isinstance(value, dict):
         items = list(value.items())
         if (
