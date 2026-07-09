@@ -77,11 +77,17 @@ def main() -> None:
     db = lb.Database(":memory:")
     conn = db.connect()
     if args.layout == "flat":
-        register_flat(conn, args.data_dir, args.node_table, args.rel_table, src_table, dst_table)
+        register_flat(
+            conn, args.data_dir, args.node_table, args.rel_table, src_table, dst_table
+        )
     else:
-        register_csr(conn, args.data_dir, args.node_table, args.rel_table, src_table, dst_table)
+        register_csr(
+            conn, args.data_dir, args.node_table, args.rel_table, src_table, dst_table
+        )
 
-    result = conn.execute(f"MATCH (a:{src_table})-[r:{args.rel_table}]->(b:{dst_table}) RETURN COUNT(*)")
+    result = conn.execute(
+        f"MATCH (a:{src_table})-[r:{args.rel_table}]->(b:{dst_table}) RETURN COUNT(*)"
+    )
     print(result.get_next()[0])
 
 
