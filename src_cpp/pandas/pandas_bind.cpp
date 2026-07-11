@@ -7,6 +7,18 @@ namespace lbug {
 
 using namespace lbug::common;
 
+// Ensure a numpy array is C-contiguous so that the scan code can safely use
+// memcpy on the raw data pointer. Non-contiguous arrays can arise from
+// DataFrame columns backed by views into larger 2D arrays (e.g. after
+// transpose, concat, or slicing).
+static py::array ensureContiguous(py::object obj) {
+    auto arr = py::array(obj);
+    if (!arr.attr("flags").attr("c_contiguous").cast<bool>()) {
+        arr = py::module_::import("numpy").attr("ascontiguousarray")(arr);
+    }
+    return arr;
+}
+
 struct PandasBindColumn {
 public:
     PandasBindColumn(py::handle name, py::handle type, py::object column)
@@ -54,9 +66,8 @@ static common::LogicalType bindColumn(PandasBindColumn& bindColumn,
     }
 
     if (bindData->npType.type == NumpyNullableType::FLOAT_16) {
-        auto pandasArray = column.attr("array");
         bindData->pandasCol =
-            std::make_unique<PandasNumpyColumn>(py::array(column.attr("to_numpy")("float32")));
+            std::make_unique<PandasNumpyColumn>(ensureContiguous(column.attr("to_numpy")("float32")));
         bindData->npType.type = NumpyNullableType::FLOAT_32;
         columnType = NumpyTypeUtils::numpyToLogicalType(bindData->npType);
     } else {
@@ -64,15 +75,15 @@ static common::LogicalType bindColumn(PandasBindColumn& bindColumn,
         if (py::hasattr(pandasArray, "_data")) {
             // This means we can access the numpy array directly.
             bindData->pandasCol =
-                std::make_unique<PandasNumpyColumn>(column.attr("array").attr("_data"));
+                std::make_unique<PandasNumpyColumn>(ensureContiguous(column.attr("array").attr("_data")));
         } else if (py::hasattr(pandasArray, "asi8")) {
             // This is a datetime object, has the option to get the array as int64_t's.
             bindData->pandasCol =
-                std::make_unique<PandasNumpyColumn>(py::array(pandasArray.attr("asi8")));
+                std::make_unique<PandasNumpyColumn>(ensureContiguous(pandasArray.attr("asi8")));
         } else {
             // Otherwise we have to get it through 'to_numpy()'.
             bindData->pandasCol =
-                std::make_unique<PandasNumpyColumn>(py::array(column.attr("to_numpy")()));
+                std::make_unique<PandasNumpyColumn>(ensureContiguous(column.attr("to_numpy")()));
         }
         columnType = NumpyTypeUtils::numpyToLogicalType(bindData->npType);
     }
