@@ -1853,7 +1853,11 @@ class QueryResult:
                     ),
                     "Failed to read interval",
                 )
-                total_days = int(out.days) + int(out.months) * 30
+                total_days = (
+                    int(out.days)
+                    + (int(out.months) // 12) * 365
+                    + (int(out.months) % 12) * 30
+                )
                 return dt.timedelta(days=total_days, microseconds=int(out.micros))
             if type_id in (_LBUG_LIST, _LBUG_ARRAY):
                 size = ctypes.c_uint64(0)
@@ -1937,7 +1941,8 @@ class QueryResult:
                         ):
                             total_days = (
                                 int(interval_probe.days)
-                                + int(interval_probe.months) * 30
+                                + (int(interval_probe.months) // 12) * 365
+                                + (int(interval_probe.months) % 12) * 30
                             )
                             out_obj[key] = dt.timedelta(
                                 days=total_days,
@@ -2042,7 +2047,8 @@ class QueryResult:
                         ):
                             total_days = (
                                 int(interval_probe.days)
-                                + int(interval_probe.months) * 30
+                                + (int(interval_probe.months) // 12) * 365
+                                + (int(interval_probe.months) % 12) * 30
                             )
                             out_obj[key] = dt.timedelta(
                                 days=total_days,
@@ -2095,7 +2101,9 @@ class QueryResult:
                     == _LBUG_SUCCESS
                 ):
                     total_days = (
-                        int(interval_probe.days) + int(interval_probe.months) * 30
+                        int(interval_probe.days)
+                        + (int(interval_probe.months) // 12) * 365
+                        + (int(interval_probe.months) % 12) * 30
                     )
                     return dt.timedelta(
                         days=total_days, microseconds=int(interval_probe.micros)
