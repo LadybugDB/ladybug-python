@@ -235,7 +235,12 @@ py::object PyQueryResult::convertValueToPyObject(const Value& value) {
     }
     case LogicalTypeID::INTERVAL: {
         auto intervalVal = value.getValue<interval_t>();
-        auto days = Interval::DAYS_PER_MONTH * intervalVal.months + intervalVal.days;
+        // Use DAYS_PER_YEAR for whole years instead of DAYS_PER_MONTH * 12,
+        // giving 365 days/year + 30 days/month for the remainder.
+        auto years = intervalVal.months / Interval::MONTHS_PER_YEAR;
+        auto months = intervalVal.months % Interval::MONTHS_PER_YEAR;
+        auto days = years * Interval::DAYS_PER_YEAR + months * Interval::DAYS_PER_MONTH +
+                    intervalVal.days;
 
         return py::cast<py::object>(importCache->datetime.timedelta()(py::arg("days") = days,
             py::arg("microseconds") = intervalVal.micros));
