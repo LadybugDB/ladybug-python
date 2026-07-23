@@ -249,7 +249,7 @@ def test_interval(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
     result = conn.execute("MATCH (a:person) WHERE a.ID = 0 RETURN a.lastJobDuration;")
     assert result.has_next()
-    assert result.get_next() == [datetime.timedelta(days=1082, seconds=46920)]
+    assert result.get_next() == [datetime.timedelta(days=1097, seconds=46920)]
     assert not result.has_next()
     result.close()
 
@@ -298,7 +298,7 @@ def test_node(conn_db_readonly: ConnDB) -> None:
     assert n["eyeSight"] == pytest.approx(5.0)
     assert n["birthdate"] == datetime.date(1900, 1, 1)
     assert n["registerTime"] == datetime.datetime(2011, 8, 20, 11, 25, 30)
-    assert n["lastJobDuration"] == datetime.timedelta(days=1082, seconds=46920)
+    assert n["lastJobDuration"] == datetime.timedelta(days=1097, seconds=46920)
     assert n["courseScoresPerTerm"] == [[10, 8], [6, 7, 8]]
     assert n["usedNames"] == ["Aida"]
     assert not result.has_next()

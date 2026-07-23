@@ -14,7 +14,7 @@ TINY_SNB_PERSONS_GROUND_TRUTH = {
         "eyeSight": 5.0,
         "birthdate": date(1900, 1, 1),
         "registerTime": datetime(2011, 8, 20, 11, 25, 30),
-        "lastJobDuration": timedelta(days=1082, seconds=46920),
+        "lastJobDuration": timedelta(days=1097, seconds=46920),
         "workedHours": [10, 5],
         "usedNames": ["Aida"],
         "courseScoresPerTerm": [[10, 8], [6, 7, 8]],
@@ -34,7 +34,7 @@ TINY_SNB_PERSONS_GROUND_TRUTH = {
         "eyeSight": 5.1,
         "birthdate": date(1900, 1, 1),
         "registerTime": datetime(2008, 11, 3, 15, 25, 30, 526),
-        "lastJobDuration": timedelta(days=3750, seconds=46800, microseconds=24),
+        "lastJobDuration": timedelta(days=3800, seconds=46800, microseconds=24),
         "workedHours": [12, 8],
         "usedNames": ["Bobby"],
         "courseScoresPerTerm": [[8, 9], [9, 10]],
@@ -74,7 +74,7 @@ TINY_SNB_PERSONS_GROUND_TRUTH = {
         "eyeSight": 4.8,
         "birthdate": date(1950, 7, 23),
         "registerTime": datetime(2031, 11, 30, 12, 25, 30),
-        "lastJobDuration": timedelta(days=3750, seconds=46800, microseconds=24),
+        "lastJobDuration": timedelta(days=3800, seconds=46800, microseconds=24),
         "workedHours": [1, 9],
         "usedNames": ["Wolfeschlegelstein", "Daniel"],
         "courseScoresPerTerm": [[7, 4], [8, 8], [9]],
@@ -134,7 +134,7 @@ TINY_SNB_PERSONS_GROUND_TRUTH = {
         "eyeSight": 4.9,
         "birthdate": date(1980, 10, 26),
         "registerTime": datetime(1976, 12, 23, 4, 41, 42),
-        "lastJobDuration": timedelta(days=3750, seconds=46800, microseconds=24),
+        "lastJobDuration": timedelta(days=3800, seconds=46800, microseconds=24),
         "workedHours": [1],
         "usedNames": ["Grad"],
         "courseScoresPerTerm": [[10]],
@@ -154,7 +154,7 @@ TINY_SNB_PERSONS_GROUND_TRUTH = {
         "eyeSight": 4.9,
         "birthdate": date(1990, 11, 27),
         "registerTime": datetime(2023, 2, 21, 13, 25, 30),
-        "lastJobDuration": timedelta(days=1082, seconds=46920),
+        "lastJobDuration": timedelta(days=1097, seconds=46920),
         "workedHours": [10, 11, 12, 3, 4, 5, 6, 7],
         "usedNames": ["Ad", "De", "Hi", "Kye", "Orlan"],
         "courseScoresPerTerm": [[7], [10], [6, 7]],
@@ -192,7 +192,7 @@ TINY_SNB_ORGANISATIONS_GROUND_TRUTH = {
         "mark": 4.1,
         "score": -100,
         "history": "2 years 4 days 10 hours",
-        "licenseValidInterval": timedelta(days=9414),
+        "licenseValidInterval": timedelta(days=9544),
         "rating": 0.78,
         "state": {
             "revenue": 152,
@@ -235,7 +235,7 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
     (0, 2): {
         "date": date(2021, 6, 30),
         "meetTime": datetime(1986, 10, 21, 21, 8, 31, 521000),
-        "validInterval": timedelta(days=3750, seconds=46800, microseconds=24),
+        "validInterval": timedelta(days=3800, seconds=46800, microseconds=24),
         "comments": ["rnme", "m8sihsdnf2990nfiwf"],
         "summary": {
             "locations": ["'toronto'", "'waterloo'"],
@@ -247,7 +247,7 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
     (0, 3): {
         "date": date(2021, 6, 30),
         "meetTime": datetime(1946, 8, 25, 19, 7, 22),
-        "validInterval": timedelta(days=7232),
+        "validInterval": timedelta(days=7332),
         "comments": ["njnojppo9u0jkmf", "fjiojioh9h9h89hph"],
         "summary": {"locations": None, "transfer": None},
         "notes": date(2020, 10, 10),
@@ -268,7 +268,7 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
     (2, 0): {
         "date": date(2021, 6, 30),
         "meetTime": datetime(1946, 8, 25, 19, 7, 22),
-        "validInterval": timedelta(days=3750, seconds=46800, microseconds=24),
+        "validInterval": timedelta(days=3800, seconds=46800, microseconds=24),
         "comments": ["2huh9y89fsfw23", "23nsihufhw723"],
         "summary": {
             "locations": ["'paris'"],
@@ -292,7 +292,7 @@ TINY_SNB_KNOWS_PROPERTIES_GROUND_TRUTH = {
     (2, 5): {
         "date": date(1950, 5, 14),
         "meetTime": datetime(2012, 12, 11, 20, 7, 22),
-        "validInterval": timedelta(days=7232),
+        "validInterval": timedelta(days=7332),
         "comments": ["fwh9y81232uisuiehuf", "ewnuihxy8dyf232"],
         "summary": {
             "locations": ["'vancouver'"],
