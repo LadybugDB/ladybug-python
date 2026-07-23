@@ -229,14 +229,14 @@ def test_to_arrow(conn_db_readonly: ConnDB) -> None:
             col_name="a.lastJobDuration",
             return_type=return_type,
             expected_values=[
-                timedelta(days=1082, seconds=46920),
-                timedelta(days=3750, seconds=46800, microseconds=24),
+                timedelta(days=1097, seconds=46920),
+                timedelta(days=3800, seconds=46800, microseconds=24),
                 timedelta(days=2, seconds=1451),
-                timedelta(days=3750, seconds=46800, microseconds=24),
+                timedelta(days=3800, seconds=46800, microseconds=24),
                 timedelta(days=2, seconds=1451),
                 timedelta(seconds=1080, microseconds=24000),
-                timedelta(days=3750, seconds=46800, microseconds=24),
-                timedelta(days=1082, seconds=46920),
+                timedelta(days=3800, seconds=46800, microseconds=24),
+                timedelta(days=1097, seconds=46920),
             ],
         )
 

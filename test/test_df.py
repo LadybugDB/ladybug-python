@@ -70,14 +70,14 @@ def test_to_df(conn_db_readonly: ConnDB) -> None:
         ]
         assert str(pd["p.registerTime"].dtype) == "datetime64[us]"
         assert pd["p.lastJobDuration"].tolist() == [
-            Timedelta("1082 days 13:02:00"),
-            Timedelta("3750 days 13:00:00.000024"),
+            Timedelta("1097 days 13:02:00"),
+            Timedelta("3800 days 13:00:00.000024"),
             Timedelta("2 days 00:24:11"),
-            Timedelta("3750 days 13:00:00.000024"),
+            Timedelta("3800 days 13:00:00.000024"),
             Timedelta("2 days 00:24:11"),
             Timedelta("0 days 00:18:00.024000"),
-            Timedelta("3750 days 13:00:00.000024"),
-            Timedelta("1082 days 13:02:00"),
+            Timedelta("3800 days 13:00:00.000024"),
+            Timedelta("1097 days 13:02:00"),
         ]
         assert str(pd["p.lastJobDuration"].dtype) == "timedelta64[ns]"
         assert pd["p.workedHours"].tolist() == [
@@ -319,14 +319,14 @@ def test_df_get_node(conn_db_readonly: ConnDB) -> None:
             Timestamp("2023-02-21 13:25:30"),
         ],
         "lastJobDuration": [
-            Timedelta("1082 days 13:02:00"),
-            Timedelta("3750 days 13:00:00.000024"),
+            Timedelta("1097 days 13:02:00"),
+            Timedelta("3800 days 13:00:00.000024"),
             Timedelta("2 days 00:24:11"),
-            Timedelta("3750 days 13:00:00.000024"),
+            Timedelta("3800 days 13:00:00.000024"),
             Timedelta("2 days 00:24:11"),
             Timedelta("0 days 00:18:00.024000"),
-            Timedelta("3750 days 13:00:00.000024"),
-            Timedelta("1082 days 13:02:00"),
+            Timedelta("3800 days 13:00:00.000024"),
+            Timedelta("1097 days 13:02:00"),
         ],
         "workedHours": [
             [10, 5],
@@ -406,7 +406,7 @@ def test_df_get_node_rel(conn_db_readonly: ConnDB) -> None:
         ],
         "lastJobDuration": [
             Timedelta("48 hours 24 minutes 11 seconds"),
-            Timedelta("3750 days 13:00:00.000024"),
+            Timedelta("3800 days 13:00:00.000024"),
             Timedelta("2 days 00:24:11"),
         ],
         "workedHours": [[4, 5], [1, 9], [2]],
@@ -431,7 +431,7 @@ def test_df_get_node_rel(conn_db_readonly: ConnDB) -> None:
             "2 years 4 hours 22 us 34 minutes",
         ],
         "licenseValidInterval": [
-            Timedelta(days=9414),
+            Timedelta(days=9544),
             Timedelta(days=3, seconds=36000, microseconds=100000),
             Timedelta(days=3, seconds=36000, microseconds=100000),
         ],
@@ -476,7 +476,7 @@ def test_df_get_recursive_join(conn_db_readonly: ConnDB) -> None:
                 "isStudent": True,
                 "isWorker": False,
                 "lastJobDuration": datetime.timedelta(
-                    days=3750, seconds=46800, microseconds=24
+                    days=3800, seconds=46800, microseconds=24
                 ),
                 "registerTime": datetime.datetime(2008, 11, 3, 15, 25, 30, 526),
                 "usedNames": ["Bobby"],
@@ -505,7 +505,7 @@ def test_df_get_recursive_join(conn_db_readonly: ConnDB) -> None:
                 },
                 "someMap": {"a": "b"},
                 "validInterval": datetime.timedelta(
-                    days=3750, seconds=46800, microseconds=24
+                    days=3800, seconds=46800, microseconds=24
                 ),
             },
             {
@@ -529,7 +529,7 @@ def test_df_get_recursive_join(conn_db_readonly: ConnDB) -> None:
                 },
                 "someMap": {"a": "b"},
                 "validInterval": datetime.timedelta(
-                    days=3750, seconds=46800, microseconds=24
+                    days=3800, seconds=46800, microseconds=24
                 ),
             },
         ],
