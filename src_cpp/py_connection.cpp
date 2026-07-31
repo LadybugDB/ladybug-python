@@ -913,6 +913,9 @@ Value PyConnection::transformPythonValueAs(const py::handle& val, const LogicalT
 
 Value PyConnection::transformPythonValueFromParameterAs(const py::handle& val,
     const LogicalType& type) {
+    if (val.is_none()) {
+        return Value::createNullValue(type);
+    }
     switch (type.getLogicalTypeID()) {
     case LogicalTypeID::LIST: {
         if (ListType::getChildType(type).getLogicalTypeID() == LogicalTypeID::JSON) {
