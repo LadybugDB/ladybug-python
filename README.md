@@ -42,6 +42,12 @@ This uses `LBUG_SOURCE_DIR` (default: `../ladybug`) to configure this repo's
 CMake build against the Ladybug source checkout and writes `_lbug*` into
 `./build/ladybug`.
 
+> **Note:** with a multi-config generator (e.g. MSVC Visual Studio on Windows),
+> CMake appends the configuration name to the output directory, so `_lbug` is
+> written to `build/ladybug/Release/` (or `Debug/`). Scripts that locate the
+> artifact should glob `build/ladybug/**` or account for the `<CONFIG>`
+> subdirectory.
+
 Run tests against that pybind build with:
 
 ```bash
