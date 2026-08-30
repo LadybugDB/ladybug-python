@@ -152,6 +152,49 @@ def test_issue_483_numpy_ndarray_parameter(conn_db_readwrite: ConnDB) -> None:
     result.close()
 
 
+def test_issue_866_repeated_parameterized_write_then_vector_read(
+    conn_db_readwrite: ConnDB,
+) -> None:
+    # https://github.com/LadybugDB/ladybug/issues/866
+    # Re-executing the same parameterized write query string through the implicit
+    # prepared-statement cache takes the cached-physical-plan fast path, whose
+    # prepareForReuse() calls FactorizedTable::clear() on the root ResultCollector of
+    # the write. Write statements return no columns, so that FactorizedTable has an
+    # empty schema and never allocates its block collections; clear() dereferenced
+    # the null collection (SIGSEGV on 0.20.0). The vector similarity query in the
+    # original report was unrelated to the crash.
+    conn, _ = conn_db_readwrite
+    conn.execute(
+        "CREATE NODE TABLE Contribution(id STRING, embedding FLOAT[4], PRIMARY KEY(id))"
+    )
+    embeddings = {
+        "c1": [1.0, 0.0, 0.2, 0.0],
+        "c2": [0.0, 1.0, 0.0, 0.2],
+        "c3": [0.8, 0.0, 0.1, 0.0],
+    }
+    # Same parameterized query string executed repeatedly (fast path on every run
+    # but the first).
+    for node_id, embedding in embeddings.items():
+        result = conn.execute(
+            "CREATE (:Contribution {id: $id, embedding: $embedding})",
+            {"id": node_id, "embedding": embedding},
+        )
+        result.close()
+
+    result = conn.execute(
+        "MATCH (c:Contribution) RETURN c.id, ARRAY_COSINE_SIMILARITY(c.embedding, [1.0, 0.0, 0.2, 0.0])"
+        " AS sim ORDER BY c.id"
+    )
+    assert result.has_next()
+    assert result.get_next() == ["c1", pytest.approx(1.0)]
+    assert result.has_next()
+    assert result.get_next() == ["c2", pytest.approx(0.0)]
+    assert result.has_next()
+    assert 0.0 < result.get_next()[1] < 1.0
+    assert not result.has_next()
+    result.close()
+
+
 # TODO(Maxwell): check if we should change getCastCost() for the following test
 # def test_issue_3248(conn_db_readwrite: ConnDB) -> None:
 #     conn, _ = conn_db_readwrite
