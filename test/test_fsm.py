@@ -100,6 +100,10 @@ def fsm_node_table_setup(tmp_path: Path):
     conn.execute(
         f"COPY person FROM ['{LBUG_ROOT}/dataset/tinysnb/vPerson.csv', '{LBUG_ROOT}/dataset/tinysnb/vPerson2.csv'](ignore_errors=true, header=false)"
     )
+    # COPY no longer force-checkpoints when auto_checkpoint=false (fix for #755).
+    # Checkpoint explicitly so the data pages are on disk and storage_info()
+    # reports real page indices for the reclaim assertions below.
+    conn.execute("checkpoint")
     return db, conn
 
 
@@ -112,6 +116,7 @@ def fsm_rel_table_setup(fsm_node_table_setup):
     conn.execute(
         f"COPY knows FROM ['{LBUG_ROOT}/dataset/tinysnb/eKnows.csv', '{LBUG_ROOT}/dataset/tinysnb/eKnows_2.csv']"
     )
+    conn.execute("checkpoint")
     return fsm_node_table_setup
 
 
@@ -138,6 +143,7 @@ def fsm_rel_group_setup(tmp_path: Path):
     conn.execute(
         f'COPY likes FROM "{LBUG_ROOT}/dataset/rel-group/edge.csv" (FROM="personB", TO="personA");'
     )
+    conn.execute("checkpoint")
     return db, conn
 
 
@@ -193,6 +199,7 @@ def test_fsm_reclaim_node_table_recopy(fsm_node_table_setup) -> None:
     conn.execute(
         f"COPY person FROM ['{LBUG_ROOT}/dataset/tinysnb/vPerson.csv', '{LBUG_ROOT}/dataset/tinysnb/vPerson2.csv'](ignore_errors=true, header=false)"
     )
+    conn.execute("checkpoint")
     new_num_pages = get_total_used_pages(conn)
     assert prev_num_pages == new_num_pages
 
