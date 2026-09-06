@@ -26,6 +26,11 @@ struct PyArrowTableScanSharedState final : public function::TableFuncSharedState
         : TableFuncSharedState{numRows}, chunks{std::move(chunks)}, currentChunk{0} {}
 
     ArrowArrayWrapper* getNextChunk();
+
+    // TableFunctionCall::copy() (used by the physical-plan cache on prepared
+    // statement re-execution) shares the same sharedState instance, so the
+    // chunk cursor must be rewound here or a re-executed scan yields 0 rows.
+    void resetState() override { currentChunk = 0; }
 };
 
 struct PyArrowTableScanFunctionData final : public function::TableFuncBindData {
