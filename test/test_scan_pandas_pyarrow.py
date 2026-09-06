@@ -141,6 +141,18 @@ def test_pyarrow_primitive(conn_db_empty: ConnDB) -> None:
             pyarrow_test_helper(establish_connection, sf, thread)
 
 
+def test_pyarrow_scan_repeated_execution(conn_db_in_mem: ConnDB) -> None:
+    # Regression test: re-executing the same (implicitly cached) prepared
+    # statement that scans a python object returned 0 rows on the second run.
+    # The cached physical plan shares the scan's shared state, whose chunk
+    # cursor was never rewound between executions.
+    conn, _ = conn_db_in_mem
+    df = pd.DataFrame({"a": pd.Series([1, 2, 3, None], dtype="int32[pyarrow]")})
+    for _ in range(3):
+        result = conn.execute("LOAD FROM df RETURN count(*)")
+        assert result.get_next()[0] == 4
+
+
 def test_pyarrow_time(conn_db_readonly: ConnDB) -> None:
     conn, _ = conn_db_readonly
     col1 = pa.array([1000123, 2000123, 3000123], type=pa.duration("s"))
