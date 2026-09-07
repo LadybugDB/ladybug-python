@@ -81,18 +81,25 @@ target_link_options(_lbug PRIVATE
 )
 
 # --- Cross-Platform Symbol Separation ---
+# NOTE: build-time splitting must be OFF for wheel builds
+# (-DLBUG_SPLIT_DEBUG_SYMBOLS=OFF, set by scripts/pip-package/setup.py).
+# Raw .debug/dSYM artifacts packaged inside the wheel break auditwheel
+# repair, and the split instead happens on the final repaired wheel via
+# scripts/pip-package/split_debug_symbols.py, which needs the debug info
+# to still be present in the shipped binary.
+option(LBUG_SPLIT_DEBUG_SYMBOLS "Split _lbug debug symbols into separate files at build time." ON)
 if(APPLE)
     # macOS: Extract symbols into a .dSYM bundle and strip the binary.
     find_program(DSYMUTIL dsymutil)
     find_program(STRIP strip)
-    if(DSYMUTIL AND STRIP)
+    if(DSYMUTIL AND STRIP AND LBUG_SPLIT_DEBUG_SYMBOLS)
         add_custom_command(TARGET _lbug POST_BUILD
             COMMAND ${DSYMUTIL} $<TARGET_FILE:_lbug> -o $<TARGET_FILE:_lbug>.dSYM
             COMMAND ${STRIP} -S $<TARGET_FILE:_lbug>
             COMMENT "macOS: Creating dSYM bundle and stripping debug symbols..."
         )
     else()
-        message(STATUS "dsymutil/strip not found; _lbug debug symbols will not be split.")
+        message(STATUS "_lbug debug symbols will not be split at build time.")
     endif()
 elseif(WIN32)
     # Windows: MSVC natively outputs a separate .pdb file if /DEBUG is set.
@@ -111,7 +118,7 @@ elseif(UNIX)
     # Linux: Use GNU objcopy to split symbols. The .debug file travels next to
     # the extension so wheel builds can publish it as a separate artifact.
     find_program(OBJCOPY objcopy)
-    if(OBJCOPY)
+    if(OBJCOPY AND LBUG_SPLIT_DEBUG_SYMBOLS)
         add_custom_command(TARGET _lbug POST_BUILD
             COMMAND ${OBJCOPY} --only-keep-debug $<TARGET_FILE:_lbug> _lbug.debug
             COMMAND ${OBJCOPY} --strip-debug $<TARGET_FILE:_lbug>
@@ -123,7 +130,7 @@ elseif(UNIX)
             COMMENT "Linux: Splitting debug symbols into .debug file..."
         )
     else()
-        message(STATUS "objcopy not found; _lbug debug symbols will not be split.")
+        message(STATUS "_lbug debug symbols will not be split at build time.")
     endif()
 endif()
 
