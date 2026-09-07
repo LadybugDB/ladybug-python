@@ -6,6 +6,17 @@ project(_lbug LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(LBUG_SOURCE_DIR "" CACHE PATH "Path to the Ladybug source tree used for pybind builds")
 
+option(LBUG_SPLIT_DEBUG_SYMBOLS "Split _lbug debug symbols into separate files at build time." ON)
+
+# pybind11_add_module() auto-attaches a POST_BUILD ${CMAKE_STRIP} step, which
+# on Linux is a plain `strip` that removes both the symbol table and DWARF --
+# and it would run before our own split below, leaving nothing to separate
+# (this produced empty ~3KB .debug stubs in wheel builds). Neutralize it:
+# stripping is owned by the LBUG_SPLIT_DEBUG_SYMBOLS pipeline (in-build
+# objcopy split, or host-side split_debug_symbols.py for wheels), both of
+# which preserve .symtab so addresses stay mappable to function names.
+set(CMAKE_STRIP "")
+
 if(NOT TARGET pybind11::module)
     if(LBUG_SOURCE_DIR)
         add_subdirectory("${LBUG_SOURCE_DIR}/third_party/pybind11" "${CMAKE_BINARY_DIR}/third_party/pybind11" EXCLUDE_FROM_ALL)
@@ -87,7 +98,6 @@ target_link_options(_lbug PRIVATE
 # repair, and the split instead happens on the final repaired wheel via
 # scripts/pip-package/split_debug_symbols.py, which needs the debug info
 # to still be present in the shipped binary.
-option(LBUG_SPLIT_DEBUG_SYMBOLS "Split _lbug debug symbols into separate files at build time." ON)
 if(APPLE)
     # macOS: Extract symbols into a .dSYM bundle and strip the binary.
     find_program(DSYMUTIL dsymutil)
