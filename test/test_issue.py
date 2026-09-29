@@ -10,6 +10,27 @@ except ImportError:
 # required by python-lint
 
 
+def test_issue_1067_order_by_string_then_numeric(conn_db_readwrite: ConnDB) -> None:
+    # https://github.com/LadybugDB/ladybug/issues/1067
+    # KeyBlockMerger::compareTuplePtrWithStringCol ignored trailing keys once all
+    # STRING keys tied, misordering e.g. ORDER BY <STRING>, <numeric> when merging
+    # sorted key blocks (deterministic once the sort spills to multiple key blocks).
+    conn, _ = conn_db_readwrite
+    conn.execute(
+        "CREATE NODE TABLE Obs(id INT64, name STRING, value DOUBLE, PRIMARY KEY(id))"
+    )
+    conn.execute(
+        "COPY Obs FROM (UNWIND range(0, 19999) AS o RETURN o, "
+        "'item' + CAST(o % 3 AS STRING), CAST((o * 7919) % 100003 AS DOUBLE))"
+    )
+    result = conn.execute(
+        "MATCH (o:Obs) RETURN o.name, o.value ORDER BY o.name, o.value"
+    )
+    rows = result.get_all()
+    result.close()
+    assert rows == sorted(rows)
+
+
 def test_param_empty(conn_db_readwrite: ConnDB) -> None:
     conn, _ = conn_db_readwrite
     lst = [[]]
