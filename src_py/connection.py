@@ -247,12 +247,58 @@ def _pybind_value_signature(value: Any) -> tuple:
             tuple((str(k), _pybind_value_signature(v)) for k, v in items),
         )
     if isinstance(value, (list, tuple)):
-        homogeneous = _pybind_homogeneous_list_signature(value)
-        if homogeneous is not None:
-            return homogeneous
-        if not value:
+        int_width_order = {
+            "int8": 0,
+            "uint8": 1,
+            "int16": 2,
+            "uint16": 3,
+            "int32": 4,
+            "uint32": 5,
+            "int64": 6,
+        }
+
+        def _merge(a: tuple, b: tuple) -> tuple:
+            # Any/unknown poisoning: fall back to first-seen (keeps old key).
+            if a == b:
+                return a
+            if a == ("any",) or b == ("any",):
+                return ("any",)
+            if (
+                len(a) == 1
+                and len(b) == 1
+                and a[0] in int_width_order
+                and b[0] in int_width_order
+            ):
+                # Mirror C++ tryGetMaxLogicalType over list children: the
+                # prepared type is the max over ALL elements, so the cache key
+                # must reflect the widest int, not the first element's width.
+                return a if int_width_order[a[0]] >= int_width_order[b[0]] else b
+            if a[0] == "list" and b[0] == "list" and len(a) == 2 and len(b) == 2:
+                return ("list", _merge(a[1], b[1]))
+            if a[0] == "struct" and b[0] == "struct":
+                fa, fb = dict(a[1]), dict(b[1])
+                if set(fa) != set(fb):
+                    return ("struct", tuple(sorted(set(fa) | set(fb))))
+                return ("struct", tuple((k, _merge(fa[k], fb[k])) for k in fa))
+            if a[0] == "map" and b[0] == "map":
+                return ("map", _merge(a[1], b[1]), _merge(a[2], b[2]))
+            # Heterogeneous / unmergeable: keep first-seen (old behaviour).
+            return a
+
+        merged: tuple | None = None
+        for item in value:
+            if item is None:
+                continue
+            sig = _pybind_value_signature(item)
+            merged = sig if merged is None else _merge(merged, sig)
+        if merged is None:
             return ("list", ("any",))
-        return ("list", _pybind_value_signature(value[0]))
+        # Mirror C++ pyHomogeneousListType: a homogeneous int/bool/float list
+        # prepares as LIST(INT64)/LIST(BOOL)/LIST(DOUBLE) regardless of value
+        # widths, so normalise the key the same way to avoid duplicate prepares.
+        if len(merged) == 1 and merged[0] in int_width_order:
+            return ("list", ("int64",))
+        return ("list", merged)
     return ("unknown", type(value).__name__)
 
 
