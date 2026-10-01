@@ -220,3 +220,24 @@ def test_pybind_implicit_prepare_reuses_same_struct_shape(
         {"st": {"key1": [1, 2, 3], "value": [3, 7, 98]}},
         {"st": {"key1": [4, 5, 6], "value": [7, 8, 9]}},
     ]
+
+
+def test_pybind_implicit_prepare_segregates_struct_list_by_int_width(
+    fake_pybind_connection: _FakePybindConnection,
+) -> None:
+    """
+    Regression test for issue #57.
+
+    A list-of-struct parameter whose later rows need a wider int type than
+    the first call's must not reuse the narrower cached statement (values
+    were silently dropped/truncated through the stale plan).
+    """
+    conn = lb.Connection(_FakeDatabase())
+
+    conn.execute("UNWIND $rows AS r RETURN r.d", {"rows": [{"d": 0}]})
+    conn.execute("UNWIND $rows AS r RETURN r.d", {"rows": [{"d": 1}, {"d": 128}]})
+    conn.execute("UNWIND $rows AS r RETURN r.d", {"rows": [{"d": 2}, {"d": 128}]})
+    conn.execute("UNWIND $rows AS r RETURN r.d", {"rows": [{"d": 4}, {"d": 300}]})
+
+    # int8 -> uint8 -> uint8 (reuse) -> int16 : 3 prepared statements.
+    assert len(fake_pybind_connection.prepare_calls) == 3
