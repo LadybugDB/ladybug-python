@@ -37,10 +37,11 @@ void PyConnection::initialize(py::handle& m) {
         .def("query_as_arrow", &PyConnection::queryAsArrow, py::arg("statement"),
             py::arg("chunk_size"))
         .def("set_max_threads_for_exec", &PyConnection::setMaxNumThreadForExec,
-            py::arg("num_threads"))
+            py::arg("num_threads"), py::call_guard<py::gil_scoped_release>())
         .def("prepare", &PyConnection::prepare, py::arg("query"),
             py::arg("parameters") = py::dict())
-        .def("set_query_timeout", &PyConnection::setQueryTimeout, py::arg("timeout_in_ms"))
+        .def("set_query_timeout", &PyConnection::setQueryTimeout, py::arg("timeout_in_ms"),
+            py::call_guard<py::gil_scoped_release>())
         .def("interrupt", &PyConnection::interrupt)
         .def("get_num_nodes", &PyConnection::getNumNodes, py::arg("node_name"))
         .def("get_num_rels", &PyConnection::getNumRels, py::arg("rel_name"))

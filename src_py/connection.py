@@ -331,6 +331,10 @@ class Connection:
         self.is_closed = False
         self._prefer_pybind = False
         self._query_timeout_ms = 0
+        # Native setter name -> value, applied before the next query.
+        self._pending_settings: dict[str, int] = {}
+        self._pending_settings_lock = threading.Lock()
+        self._apply_settings_lock = threading.Lock()
         self._query_results: WeakSet[QueryResult] = WeakSet()
         self._capi_scan_tables: set[str] = set()
         # Implicit prepared-statement cache, shared by the pybind and
@@ -383,6 +387,9 @@ class Connection:
         """
         Set the maximum number of threads for executing queries.
 
+        The setting applies from the next query on this connection; this call
+        does not wait for a running query.
+
         Parameters
         ----------
         num_threads : int
@@ -390,7 +397,17 @@ class Connection:
 
         """
         self.init_connection()
-        self._connection.set_max_threads_for_exec(num_threads)
+        with self._pending_settings_lock:
+            self._pending_settings["set_max_threads_for_exec"] = int(num_threads)
+
+    def _apply_pending_settings(self) -> None:
+        # The engine applies settings under the lock a running query holds, so
+        # they are applied here, before a query, rather than in the setters.
+        with self._apply_settings_lock:
+            with self._pending_settings_lock:
+                pending, self._pending_settings = self._pending_settings, {}
+            for setter, value in pending.items():
+                getattr(self._connection, setter)(value)
 
     def _register_query_result(self, query_result: QueryResult) -> None:
         self._query_results.add(query_result)
@@ -865,6 +882,7 @@ class Connection:
             parameters = {}
 
         self.init_connection()
+        self._apply_pending_settings()
         if not isinstance(parameters, dict):
             msg = f"Parameters must be a dict; found {type(parameters)}."
             raise RuntimeError(msg)  # noqa: TRY004
@@ -957,6 +975,7 @@ class Connection:
         This is the efficient path for CSR-aware Arrow export.
         """
         self.init_connection()
+        self._apply_pending_settings()
         if not self._using_pybind_backend():
             query_result_internal = self._connection.query(query)
         else:
@@ -1073,6 +1092,9 @@ class Connection:
         """
         Set the query timeout value in ms for executing queries.
 
+        The timeout applies from the next query on this connection; this call
+        does not wait for a running query.
+
         Parameters
         ----------
         timeout_in_ms : int
@@ -1081,7 +1103,8 @@ class Connection:
         """
         self.init_connection()
         self._query_timeout_ms = int(timeout_in_ms)
-        self._connection.set_query_timeout(timeout_in_ms)
+        with self._pending_settings_lock:
+            self._pending_settings["set_query_timeout"] = self._query_timeout_ms
 
     def interrupt(self) -> None:
         """
@@ -1195,6 +1218,7 @@ class Connection:
 
         """
         self.init_connection()
+        self._apply_pending_settings()
         try:
             query_result_internal = self._connection.create_arrow_table(
                 table_name, dataframe
@@ -1227,6 +1251,7 @@ class Connection:
 
         """
         self.init_connection()
+        self._apply_pending_settings()
         try:
             query_result_internal = self._connection.drop_arrow_table(table_name)
         except NotImplementedError:
@@ -1287,6 +1312,7 @@ class Connection:
 
         """
         self.init_connection()
+        self._apply_pending_settings()
         layout_value = (
             layout.value if isinstance(layout, ArrowRelTableLayout) else str(layout)
         ).upper()
