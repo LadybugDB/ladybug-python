@@ -225,6 +225,8 @@ class AsyncConnection:
         """
         Close all connections and shutdown the thread pool.
 
+        Queries still running are interrupted and fail with "Interrupted.".
+
         Note: Call to this method is optional. The connections and thread pool
         will be closed automatically when the instance is garbage collected.
         """
