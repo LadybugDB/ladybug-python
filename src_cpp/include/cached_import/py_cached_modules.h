@@ -154,6 +154,24 @@ public:
     LibCachedItem lib;
 };
 
+class SignalCachedItem : public PythonCachedItem {
+public:
+    SignalCachedItem()
+        : PythonCachedItem("signal"), getsignal("getsignal", this), sigint("SIGINT", this),
+          default_int_handler("default_int_handler", this) {}
+
+    PythonCachedItem getsignal;
+    PythonCachedItem sigint;
+    PythonCachedItem default_int_handler;
+};
+
+class ThreadingCachedItem : public PythonCachedItem {
+public:
+    ThreadingCachedItem() : PythonCachedItem("threading"), main_thread("main_thread", this) {}
+
+    PythonCachedItem main_thread;
+};
+
 class UUIDCachedItem : public PythonCachedItem {
 public:
     UUIDCachedItem() : PythonCachedItem("uuid"), UUID("UUID", this) {}
