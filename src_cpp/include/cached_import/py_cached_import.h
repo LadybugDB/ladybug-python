@@ -28,6 +28,8 @@ public:
     PandasCachedItem pandas;
     PolarsCachedItem polars;
     PyarrowCachedItem pyarrow;
+    SignalCachedItem signal;
+    ThreadingCachedItem threading;
     UUIDCachedItem uuid;
 
 private:
