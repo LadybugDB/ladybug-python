@@ -7,16 +7,18 @@ namespace lbug {
 
 py::handle PythonCachedItem::operator()() {
     assert((bool)PyGILState_Check());
-    // load if unloaded, return cached object if already loaded
-    if (loaded) {
+    if (isLoaded()) {
         return object;
     }
-    if (parent == nullptr) {
-        object = importCache->addToCache(std::move(py::module::import(name.c_str())));
-    } else {
-        object = importCache->addToCache(std::move((*parent)().attr(name.c_str())));
+    // The parent takes the same lock, so load it before locking.
+    py::handle parentObject = parent == nullptr ? py::handle() : (*parent)();
+    auto lock = importCache->lockForLoading();
+    if (!isLoaded()) {
+        auto obj = parent == nullptr ? py::object(py::module::import(name.c_str())) :
+                                       py::object(parentObject.attr(name.c_str()));
+        object = importCache->addToCache(std::move(obj));
+        loaded.store(true, std::memory_order_release);
     }
-    loaded = true;
     return object;
 }
 

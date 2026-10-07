@@ -193,7 +193,7 @@ static py::object findFirstNonNull(const py::handle& row, uint64_t numRows) {
 
 common::LogicalType PandasAnalyzer::innerAnalyze(py::object column, bool& canConvert) {
     auto numRows = py::len(column);
-    auto pandasModule = importCache->pandas;
+    auto& pandasModule = importCache->pandas;
     auto pandasSeries = pandasModule.core.series.Series();
 
     if (py::isinstance(column, pandasSeries)) {
