@@ -1,6 +1,7 @@
 #include "include/py_database.h"
 
 #include <memory>
+#include <mutex>
 
 #include "common/exception/runtime.h"
 #include "extension/extension.h"
@@ -65,6 +66,9 @@ PyDatabase::PyDatabase(const std::string& databasePath, uint64_t bufferPoolSize,
     lbug::extension::ExtensionUtils::addTableFunc<lbug::PandasScanFunction>(*state->database);
     state->storageDriver = std::make_unique<StorageDriver>(state->database.get());
     py::gil_scoped_acquire acquire;
+    // Taken with the GIL held: nothing inside may call into Python.
+    static std::mutex importCacheMutex;
+    std::lock_guard<std::mutex> lock(importCacheMutex);
     if (lbug::importCache.get() == nullptr) {
         lbug::importCache = std::make_shared<lbug::PythonCachedImport>();
     }

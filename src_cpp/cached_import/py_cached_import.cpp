@@ -11,6 +11,13 @@ PythonCachedImport::~PythonCachedImport() {
     allObjects.clear();
 }
 
+std::unique_lock<std::mutex> PythonCachedImport::lockForLoading() {
+    // Wait with the GIL released (detached on free-threaded builds): the holder needs the GIL to
+    // finish its import, and a detached waiter does not stall stop-the-world pauses.
+    py::gil_scoped_release release;
+    return std::unique_lock<std::mutex>(loadMutex);
+}
+
 py::handle PythonCachedImport::addToCache(py::object obj) {
     auto ptr = obj.ptr();
     allObjects.push_back(obj);
