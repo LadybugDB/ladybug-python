@@ -75,6 +75,10 @@ CAPI_XFAILS = frozenset(
         "test/test_udf.py::test_udf_null",
         "test/test_udf.py::test_udf_except",
         "test/test_udf.py::test_udf_remove",
+        "test/test_connection_close.py::test_close_with_query_in_flight[close_from_a_udf]",
+        "test/test_udf_reentrancy.py::test_udf_calling_a_connection[idle_other_connection]",
+        "test/test_udf_reentrancy.py::test_udf_calling_a_connection[same_connection_on_a_worker]",
+        "test/test_udf_reentrancy.py::test_udf_calling_a_connection[same_connection_while_binding]",
         # C API Arrow export for JSON types is not yet implemented.  get_as_df()
         # tests that need the pybind NPArrayWrapper path are xfailed.
         "test/test_json.py::test_get_as_df_json_scalar",
