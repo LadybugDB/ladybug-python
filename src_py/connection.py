@@ -4,6 +4,7 @@ import contextlib
 import functools
 import inspect
 import json
+import operator
 import re
 import threading
 import uuid
@@ -385,6 +386,15 @@ def _marks_udf_call(udf: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
+def _setting_value(name: str, value: int) -> int:
+    """Validate a connection setting before it is queued; the engine takes a uint64."""
+    value = operator.index(value)
+    if not 0 <= value < 2**64:
+        msg = f"{name} must be between 0 and 2**64 - 1; found {value}."
+        raise ValueError(msg)
+    return value
+
+
 class Connection:
     """Connection to a database."""
 
@@ -410,7 +420,6 @@ class Connection:
         self._calls = threading.Condition()
         self._calls_in_flight = 0
         self._prefer_pybind = False
-        self._query_timeout_ms = 0
         # Native setter name -> value, applied before the next query.
         self._pending_settings: dict[str, int] = {}
         self._pending_settings_lock = threading.Lock()
@@ -474,12 +483,21 @@ class Connection:
         Parameters
         ----------
         num_threads : int
-            Maximum number of threads to use for executing queries.
+            Maximum number of threads to use for executing queries; 0 uses the
+            database's limit.
+
+        Raises
+        ------
+        TypeError
+            If `num_threads` is not an integer.
+        ValueError
+            If `num_threads` is negative or does not fit in 64 bits.
 
         """
+        num_threads = _setting_value("num_threads", num_threads)
         self.init_connection()
         with self._pending_settings_lock:
-            self._pending_settings["set_max_threads_for_exec"] = int(num_threads)
+            self._pending_settings["set_max_threads_for_exec"] = num_threads
 
     def _apply_pending_settings(self) -> None:
         # The engine applies settings under the lock a running query holds, so
@@ -1005,7 +1023,7 @@ class Connection:
 
         if (
             not self._using_pybind_backend()
-            and self._query_timeout_ms > 0
+            and self._connection._query_timeout_ms > 0
             and isinstance(query, str)
             and len(re.findall(r"(?i)\bUNWIND\s+RANGE\s*\(", query)) >= 2
         ):
@@ -1213,11 +1231,18 @@ class Connection:
         timeout_in_ms : int
             query timeout value in ms for executing queries.
 
+        Raises
+        ------
+        TypeError
+            If `timeout_in_ms` is not an integer.
+        ValueError
+            If `timeout_in_ms` is negative or does not fit in 64 bits.
+
         """
+        timeout_in_ms = _setting_value("timeout_in_ms", timeout_in_ms)
         self.init_connection()
-        self._query_timeout_ms = int(timeout_in_ms)
         with self._pending_settings_lock:
-            self._pending_settings["set_query_timeout"] = self._query_timeout_ms
+            self._pending_settings["set_query_timeout"] = timeout_in_ms
 
     def interrupt(self) -> None:
         """
