@@ -490,26 +490,34 @@ class Connection:
         and close() returns once it has left the engine. Called from a UDF
         while the connection runs a query, close() raises instead.
         """
-        if self.is_closed:
-            return
-
-        if self in _active_stack():
+        if any(x is self for x in _active_stack()):
             msg = "close() cannot be called from a call on the same connection."
             raise RuntimeError(msg)
 
         with self._calls:
+            # Idempotent under concurrent close(): check-and-set inside the
+            # lock so two threads cannot both run the teardown tail.
+            if self.is_closed or self._closing:
+                return
             if self._calls_in_flight and _called_from_udf(self):
                 # UDFs run inside the query in flight, so waiting for it would
                 # never end.
                 msg = "close() cannot be called from a UDF while the connection runs a query."
                 raise RuntimeError(msg)
             self._closing = True
-            while self._calls_in_flight:
-                # An interrupt that arrives while the query is still compiling is
-                # cleared when execution starts, so repeat it until the call returns.
-                with contextlib.suppress(RuntimeError):
-                    self.interrupt()
-                self._calls.wait(timeout=0.05)
+            try:
+                while self._calls_in_flight:
+                    # An interrupt that arrives while the query is still compiling is
+                    # cleared when execution starts, so repeat it until the call returns.
+                    with contextlib.suppress(RuntimeError):
+                        self.interrupt()
+                    self._calls.wait(timeout=0.05)
+            except BaseException:
+                # Don't brick the connection if the wait is aborted
+                # (KeyboardInterrupt, ...): teardown never ran, so allow reuse.
+                self._closing = False
+                self._calls.notify_all()
+                raise
 
         for query_result in list(self._query_results):
             query_result.close()
