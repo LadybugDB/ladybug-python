@@ -1,5 +1,6 @@
 import asyncio
 import time
+from typing import Any
 
 import ladybug as lb
 import pyarrow as pa
@@ -159,12 +160,102 @@ def test_acquire_connection(async_connection_readonly):
         assert i == 0
 
 
+# range() is bound once and the two UNWINDs multiply it, so these run for long
+# enough to cancel mid-flight without materializing large lists.
+LONG_QUERY = "WITH range(1, 30000) AS r UNWIND r AS x UNWIND r AS y RETURN sum(x * y)"
+
+
+async def _wait_until_idle(
+    async_connection: lb.AsyncConnection, timeout: float = 5.0
+) -> None:
+    deadline = time.monotonic() + timeout
+    while any(async_connection.connections_counter):
+        assert time.monotonic() < deadline, async_connection.connections_counter
+        await asyncio.sleep(0.01)
+
+
 @pytest.mark.asyncio
-async def test_async_connection_interrupt(async_connection_readonly) -> None:
-    query = "UNWIND RANGE(1,1000000) AS x UNWIND RANGE(1, 1000000) AS y RETURN COUNT(x + y);"
-    async_connection_readonly.set_query_timeout(100 * 1000)
-    task = asyncio.create_task(async_connection_readonly.execute(query))
-    time.sleep(5)
+async def test_async_cancel_running_query_raises(
+    async_connection_readonly: lb.AsyncConnection,
+) -> None:
+    task = asyncio.create_task(async_connection_readonly.execute(LONG_QUERY))
+    await asyncio.sleep(0.3)
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
+    assert task.cancelled()
+    # The query was interrupted, so its connection frees up long before the
+    # query could have finished on its own.
+    await _wait_until_idle(async_connection_readonly)
+
+
+@pytest.mark.asyncio
+async def test_async_wait_for_timeout_raises(
+    async_connection_readonly: lb.AsyncConnection,
+) -> None:
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(async_connection_readonly.execute(LONG_QUERY), 0.3)
+    await _wait_until_idle(async_connection_readonly)
+
+
+@pytest.mark.asyncio
+async def test_async_cancel_queued_query_spares_running_query(
+    async_connection_readonly: lb.AsyncConnection,
+) -> None:
+    async_connection = lb.AsyncConnection(
+        async_connection_readonly.database,
+        max_concurrent_queries=1,
+        max_threads_per_query=4,
+    )
+    try:
+        running = asyncio.create_task(async_connection.execute(LONG_QUERY))
+        queued = asyncio.create_task(async_connection.execute("RETURN 1;"))
+        await asyncio.sleep(0.1)
+        queued.cancel()
+        await asyncio.sleep(0.1)
+        running_alive = not running.done()
+        running.cancel()
+        outcomes = await asyncio.gather(queued, running, return_exceptions=True)
+        assert all(isinstance(o, asyncio.CancelledError) for o in outcomes), outcomes
+        assert running_alive
+        await _wait_until_idle(async_connection)
+    finally:
+        async_connection.close()
+
+
+@pytest.mark.asyncio
+async def test_async_cancel_during_compile_still_interrupts(
+    async_connection_readonly: lb.AsyncConnection,
+) -> None:
+    # An interrupt sent before execution starts is cleared by the engine, so a
+    # cancel that lands in that window must be repeated.
+    conn = async_connection_readonly.connections[0]
+    execute = conn.execute
+
+    def slow_start(*args: Any, **kwargs: Any) -> Any:
+        time.sleep(0.2)
+        return execute(*args, **kwargs)
+
+    conn.execute = slow_start
+    task = asyncio.create_task(async_connection_readonly.execute(LONG_QUERY))
+    await asyncio.sleep(0.1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    started = time.monotonic()
+    await _wait_until_idle(async_connection_readonly)
+    assert time.monotonic() - started < 2
+
+
+@pytest.mark.asyncio
+async def test_async_execute_prepared_statement_from_other_connection(
+    async_connection_readonly: lb.AsyncConnection,
+) -> None:
+    conn = lb.Connection(async_connection_readonly.database)
+    prepared_statement = conn._prepare("RETURN $x;")
+    result = await async_connection_readonly.execute(prepared_statement, {"x": 7})
+    assert result.get_next() == [7]
+    result.close()
+    for i in async_connection_readonly.connections_counter:
+        assert i == 0
+    conn.close()

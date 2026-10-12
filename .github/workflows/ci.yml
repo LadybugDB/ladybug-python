@@ -113,7 +113,7 @@ jobs:
       - name: Check formatting (black)
         working-directory: ladybug/tools/python_api
         run: |
-          uv pip install black==26.3.0
+          uv pip install black==26.10.0
           .venv/bin/black --check src_py test
 
       - name: Run ruff check
@@ -184,7 +184,7 @@ jobs:
       - name: Check formatting (black)
         working-directory: ladybug/tools/python_api
         run: |
-          uv pip install black==26.3.0
+          uv pip install black==26.10.0
           .venv/bin/black --check src_py test
 
       - name: Run ruff check

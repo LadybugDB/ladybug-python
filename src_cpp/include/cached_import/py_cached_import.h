@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -15,7 +16,9 @@ public:
     PythonCachedImport() = default;
     ~PythonCachedImport();
 
+    // Call with the lock from lockForLoading() held.
     py::handle addToCache(py::object obj);
+    std::unique_lock<std::mutex> lockForLoading();
 
     DateTimeCachedItem datetime;
     DecimalCachedItem decimal;
@@ -28,6 +31,7 @@ public:
     UUIDCachedItem uuid;
 
 private:
+    std::mutex loadMutex;
     std::vector<py::object> allObjects;
 };
 
