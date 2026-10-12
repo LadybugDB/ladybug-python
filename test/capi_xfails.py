@@ -73,6 +73,8 @@ CAPI_XFAILS = frozenset(
         "test/test_keyboard_interrupt.py::test_keyboard_interrupt_stops_the_query[execute_with_parameters]",
         "test/test_keyboard_interrupt.py::test_keyboard_interrupt_stops_the_query[query]",
         "test/test_keyboard_interrupt.py::test_keyboard_interrupt_stops_the_query[query_as_arrow]",
+        "test/test_keyboard_interrupt.py::test_keyboard_interrupt_after_close_from_another_thread",
+        "test/test_keyboard_interrupt.py::test_failed_handler_check_is_reported_not_raised",
         # UDF registration is still routed through pybind.
         "test/test_blob_parameter.py::test_bytes_param_udf",
         "test/test_udf.py::test_udf",
