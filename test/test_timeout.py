@@ -80,3 +80,25 @@ def test_applying_settings_lets_other_threads_run(conn: lb.Connection) -> None:
     elapsed = time.monotonic() - started
     _interrupt_until_done(conn, running, waiting)
     assert elapsed < 1, elapsed
+
+
+@pytest.mark.parametrize("setter", ["set_query_timeout", "set_max_threads_for_exec"])
+@pytest.mark.parametrize(
+    ("value", "error"),
+    [("1", TypeError), (1.5, TypeError), (-1, ValueError), (2**64, ValueError)],
+)
+def test_settings_reject_invalid_values_at_once(
+    conn: lb.Connection, setter: str, value: object, error: type[Exception]
+) -> None:
+    with pytest.raises(error):
+        getattr(conn, setter)(value)
+    assert conn.execute("RETURN 1").get_all() == [[1]]
+
+
+def test_cleared_timeout_applies_to_next_query(conn: lb.Connection) -> None:
+    query = "UNWIND range(1, 10) AS x UNWIND range(1, 10) AS y RETURN count(*)"
+    conn.set_query_timeout(1000)
+    with contextlib.suppress(RuntimeError):
+        conn.execute(query)
+    conn.set_query_timeout(0)
+    assert conn.execute(query).get_all() == [[100]]
