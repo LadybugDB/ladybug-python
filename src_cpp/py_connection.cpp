@@ -1,8 +1,17 @@
 #include "include/py_connection.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <utility>
+
+#ifndef _WIN32
+#include <csignal>
+#endif
+
+#if PY_VERSION_HEX < 0x030D0000
+#define Py_IsFinalizing _Py_IsFinalizing
+#endif
 
 #include "cached_import/py_cached_import.h"
 #include "common/constants.h"
@@ -183,6 +192,106 @@ void PyConnection::interrupt() {
 static std::unordered_map<std::string, std::unique_ptr<Value>> transformPythonParameters(
     const py::dict& params, Connection* conn);
 
+namespace {
+
+// Python runs its SIGINT handler only between bytecodes, so not while the main thread waits in
+// the engine. During such a wait, SIGINT interrupts the connection's query and then calls
+// Python's handler. This is only done on the main thread while Python's default handler
+// (KeyboardInterrupt) is active, so custom handlers keep their behaviour. Only query(),
+// execute() and query_as_arrow() install it.
+//
+// target is set before the handler is installed and cleared after the previous one is
+// restored, so a SIGINT in between reaches Python's handler, as without this guard. A signal
+// mask would not help: masks are per thread, and a process-directed SIGINT runs the handler on
+// whichever thread does not block it. The statics are per process; this single-phase-init
+// module cannot be imported into subinterpreters.
+class SigintInterruptsQuery {
+public:
+    explicit SigintInterruptsQuery([[maybe_unused]] main::ClientContext* context) {
+#ifndef _WIN32
+        if (target.load() != nullptr || !onMainThreadWithDefaultHandler()) {
+            return;
+        }
+        if (sigaction(SIGINT, nullptr, &previous) != 0) {
+            return;
+        }
+        struct sigaction action {};
+        action.sa_sigaction = handle;
+        action.sa_flags = SA_SIGINFO | (previous.sa_flags & SA_ONSTACK);
+        sigemptyset(&action.sa_mask);
+        received = false;
+        target = context;
+        installed = sigaction(SIGINT, &action, nullptr) == 0;
+        if (!installed) {
+            target = nullptr;
+        }
+#endif
+    }
+
+    ~SigintInterruptsQuery() {
+#ifndef _WIN32
+        if (installed) {
+            sigaction(SIGINT, &previous, nullptr);
+            target = nullptr;
+        }
+#endif
+    }
+
+    // Call with the GIL held once the query has returned.
+    void raiseIfInterrupted() const {
+#ifndef _WIN32
+        if (installed && received && PyErr_CheckSignals() != 0) {
+            throw py::error_already_set();
+        }
+#endif
+    }
+
+private:
+#ifndef _WIN32
+    static bool onMainThreadWithDefaultHandler() {
+        // The check must never fail a query, e.g. once imports stop working at shutdown.
+        try {
+            auto mainThread = importCache->threading.main_thread()();
+            if (mainThread.attr("ident").cast<unsigned long>() != PyThread_get_thread_ident()) {
+                return false;
+            }
+            auto& signal = importCache->signal;
+            return signal.getsignal()(signal.sigint()).is(signal.default_int_handler());
+        } catch (py::error_already_set& e) {
+            if (!Py_IsFinalizing()) {
+                e.discard_as_unraisable("checking the SIGINT handler before a query");
+            }
+            return false;
+        }
+    }
+
+    // Runs in signal context, so it may only use async-signal-safe operations: lock-free atomics
+    // and Python's own handler, which is written for signal context. ClientContext::interrupt()
+    // is a store to an std::atomic<bool> in the engine and must stay one.
+    static void handle(int signum, siginfo_t* info, void* ucontext) {
+        if (auto* context = target.load()) {
+            context->interrupt();
+        }
+        received = true;
+        // Python's handler only records the signal; KeyboardInterrupt is raised later.
+        if (previous.sa_flags & SA_SIGINFO) {
+            previous.sa_sigaction(signum, info, ucontext);
+        } else if (previous.sa_handler != SIG_DFL && previous.sa_handler != SIG_IGN) {
+            previous.sa_handler(signum);
+        }
+    }
+
+    static inline std::atomic<main::ClientContext*> target{nullptr};
+    static inline std::atomic<bool> received{false};
+    static_assert(std::atomic<main::ClientContext*>::is_always_lock_free);
+    static_assert(std::atomic<bool>::is_always_lock_free);
+    static inline struct sigaction previous {};
+    bool installed = false;
+#endif
+};
+
+} // namespace
+
 std::unique_ptr<PyQueryResult> PyConnection::execute(PyPreparedStatement* preparedStatement,
     const py::dict& params) {
     auto& stateRef = refState();
@@ -190,34 +299,47 @@ std::unique_ptr<PyQueryResult> PyConnection::execute(PyPreparedStatement* prepar
         throw RuntimeException("Prepared statement is closed.");
     }
     auto parameters = transformPythonParameters(params, &stateRef.ref());
+    // Keeps the ClientContext alive past the guard, even if another thread closes this
+    // connection while the GIL is released.
+    auto keepAlive = state;
+    SigintInterruptsQuery sigint(stateRef.ref().getClientContext());
     py::gil_scoped_release release;
     auto queryResult =
         stateRef.ref().executeWithParams(&preparedStatement->state->ref(), std::move(parameters));
     py::gil_scoped_acquire acquire;
-    return checkAndWrapQueryResult(queryResult, state);
+    sigint.raiseIfInterrupted();
+    return checkAndWrapQueryResult(queryResult, keepAlive);
 }
 
 std::unique_ptr<PyQueryResult> PyConnection::query(const std::string& statement) {
     auto& stateRef = refState();
+    auto keepAlive = state;
+    SigintInterruptsQuery sigint(stateRef.ref().getClientContext());
     py::gil_scoped_release release;
     auto queryResult = stateRef.ref().query(statement);
     py::gil_scoped_acquire acquire;
-    return checkAndWrapQueryResult(queryResult, state);
+    sigint.raiseIfInterrupted();
+    return checkAndWrapQueryResult(queryResult, keepAlive);
 }
 
 std::unique_ptr<PyQueryResult> PyConnection::queryAsArrow(const std::string& statement,
     int64_t chunkSize) {
     auto& stateRef = refState();
+    auto keepAlive = state;
+    SigintInterruptsQuery sigint(stateRef.ref().getClientContext());
     py::gil_scoped_release release;
     auto queryResult = stateRef.ref().queryAsArrow(statement, chunkSize);
     py::gil_scoped_acquire acquire;
-    return checkAndWrapQueryResult(queryResult, state);
+    sigint.raiseIfInterrupted();
+    return checkAndWrapQueryResult(queryResult, keepAlive);
 }
 
 void PyConnection::setMaxNumThreadForExec(uint64_t numThreads) {
     refState().ref().setMaxNumThreadForExec(numThreads);
 }
 
+// Not guarded by SigintInterruptsQuery: a Ctrl-C while the statement compiles takes effect when
+// prepare() returns.
 PyPreparedStatement PyConnection::prepare(const std::string& query, const py::dict& parameters) {
     auto& stateRef = refState();
     auto params = transformPythonParameters(parameters, &stateRef.ref());
