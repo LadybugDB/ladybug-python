@@ -491,7 +491,12 @@ class Connection:
         while the connection runs a query, close() raises instead.
         """
         if any(x is self for x in _active_stack()):
-            msg = "close() cannot be called from a call on the same connection."
+            # The engine may run a UDF on the thread that issued the query, so a
+            # UDF can find its own connection's call on this thread's stack.
+            if _called_from_udf(self):
+                msg = "close() cannot be called from a UDF while the connection runs a query."
+            else:
+                msg = "close() cannot be called from a call on the same connection."
             raise RuntimeError(msg)
 
         with self._calls:

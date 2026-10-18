@@ -55,11 +55,31 @@ def closer(x: int) -> int:
         conn.close()
     return x
 
-# UDFs run on engine threads, so this is not caught as a call on the same thread.
+# The UDF runs inside the query in flight, on an engine thread or on the one that
+# issued the query, so close() must name the UDF either way.
 conn.create_function("closer", closer)
 started = time.monotonic()
 try:
     conn.execute("UNWIND range(1, 5) AS i RETURN closer(i)").get_all()
+    outcome = "finished"
+except RuntimeError as e:
+    outcome = str(e)
+print("CLOSE", time.monotonic() - started)
+print("OUTCOME", outcome)
+""",
+    "close_from_a_folded_udf": """
+conn = lb.Connection(db)
+
+def closer(x: int) -> int:
+    conn.close()
+    return x
+
+# A constant argument is folded while binding, so the UDF runs on the thread that
+# issued the query, below the connection's own call.
+conn.create_function("closer", closer)
+started = time.monotonic()
+try:
+    conn.execute("RETURN closer(1)").get_all()
     outcome = "finished"
 except RuntimeError as e:
     outcome = str(e)
@@ -163,7 +183,7 @@ def test_close_with_query_in_flight(tmp_path: Path, scenario: str) -> None:
     assert "OUTCOME" in proc.stdout
     if scenario == "close_from_inside_a_call":
         assert "same connection" in proc.stdout, proc.stdout
-    if scenario == "close_from_a_udf":
+    if scenario in ("close_from_a_udf", "close_from_a_folded_udf"):
         assert "from a UDF" in proc.stdout, proc.stdout
     if scenario != "write":
         # A running read is interrupted rather than waited for. A write is
