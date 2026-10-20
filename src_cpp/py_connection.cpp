@@ -7,6 +7,7 @@
 
 #ifndef _WIN32
 #include <csignal>
+#include <thread>
 #endif
 
 #if PY_VERSION_HEX < 0x030D0000
@@ -232,7 +233,13 @@ public:
 #ifndef _WIN32
         if (installed) {
             sigaction(SIGINT, &previous, nullptr);
-            target = nullptr;
+            target.store(nullptr, std::memory_order_seq_cst);
+            // The caller may release the context once this returns, so wait for every handler on
+            // another thread that has counted itself in; one that counts in later sees nullptr. A
+            // handler on this thread runs to completion before the loop resumes.
+            while (handlersInFlight.load(std::memory_order_seq_cst) != 0) {
+                std::this_thread::yield();
+            }
         }
 #endif
     }
@@ -268,23 +275,34 @@ private:
     // Runs in signal context, so it may only use async-signal-safe operations: lock-free atomics
     // and Python's own handler, which is written for signal context. ClientContext::interrupt()
     // is a store to an std::atomic<bool> in the engine and must stay one.
+    //
+    // The handler counts itself in before loading target, and the destructor clears target before
+    // reading the count: either the destructor waits for the handler or the handler sees nullptr.
+    // Both sides store one atomic and then load the other, which needs seq_cst; acquire/release
+    // would let both miss. received and previous are also used before counting out, so the wait
+    // covers them; Python's handler is called outside the count, so the wait never depends on it.
     static void handle(int signum, siginfo_t* info, void* ucontext) {
-        if (auto* context = target.load()) {
+        handlersInFlight.fetch_add(1, std::memory_order_seq_cst);
+        if (auto* context = target.load(std::memory_order_seq_cst)) {
             context->interrupt();
         }
         received = true;
+        const auto chained = previous;
+        handlersInFlight.fetch_sub(1, std::memory_order_seq_cst);
         // Python's handler only records the signal; KeyboardInterrupt is raised later.
-        if (previous.sa_flags & SA_SIGINFO) {
-            previous.sa_sigaction(signum, info, ucontext);
-        } else if (previous.sa_handler != SIG_DFL && previous.sa_handler != SIG_IGN) {
-            previous.sa_handler(signum);
+        if (chained.sa_flags & SA_SIGINFO) {
+            chained.sa_sigaction(signum, info, ucontext);
+        } else if (chained.sa_handler != SIG_DFL && chained.sa_handler != SIG_IGN) {
+            chained.sa_handler(signum);
         }
     }
 
     static inline std::atomic<main::ClientContext*> target{nullptr};
     static inline std::atomic<bool> received{false};
+    static inline std::atomic<int> handlersInFlight{0};
     static_assert(std::atomic<main::ClientContext*>::is_always_lock_free);
     static_assert(std::atomic<bool>::is_always_lock_free);
+    static_assert(std::atomic<int>::is_always_lock_free);
     static inline struct sigaction previous {};
     bool installed = false;
 #endif
