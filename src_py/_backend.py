@@ -60,6 +60,8 @@ def missing_capi_library_message() -> str:
     if _PYBIND_IMPORT_ERROR is None:
         return msg
     msg += f" The bundled _lbug extension, which is tried first, failed to load: {_PYBIND_IMPORT_ERROR}"
-    if "libssl" in str(_PYBIND_IMPORT_ERROR) or "libcrypto" in str(_PYBIND_IMPORT_ERROR):
+    if "libssl" in str(_PYBIND_IMPORT_ERROR) or "libcrypto" in str(
+        _PYBIND_IMPORT_ERROR
+    ):
         msg += " Ladybug needs an OpenSSL 3 runtime; on macOS, install it with `brew install openssl@3`."
     return msg
