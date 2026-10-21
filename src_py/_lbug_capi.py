@@ -178,12 +178,9 @@ def _resolve_library_path() -> str:
     if found:
         return found
 
-    msg = (
-        "Could not find lbug C API shared library. "
-        "Set LBUG_C_API_LIB_PATH or download a shared lib (e.g. run "
-        "LBUG_LIB_KIND=shared bash scripts/download_lbug.sh)."
-    )
-    raise RuntimeError(msg)
+    from ._backend import missing_capi_library_message
+
+    raise RuntimeError(missing_capi_library_message())
 
 
 _dlopen_mode = getattr(ctypes, "RTLD_GLOBAL", 0) | getattr(ctypes, "RTLD_NOW", 0)
