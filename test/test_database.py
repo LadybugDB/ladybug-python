@@ -164,6 +164,34 @@ def test_database_throw_on_wal_replay_failure_config(tmp_path: Path) -> None:
             assert result.get_next()[0] == 1
 
 
+def test_database_opens_past_a_torn_wal_tail_by_default(tmp_path: Path) -> None:
+    database_path = get_db_file_path(tmp_path)
+    with (
+        lb.Database(database_path=database_path, auto_checkpoint=False) as db,
+        lb.Connection(db) as conn,
+    ):
+        conn.execute("CALL force_checkpoint_on_close=false")
+        conn.execute("CREATE NODE TABLE T(id INT64 PRIMARY KEY)")
+        conn.execute("CREATE (:T {id: 1})")
+        conn.execute("CREATE (:T {id: 2})")
+    # A crash while the last commit is written leaves its records cut short.
+    wal_file_path = Path(str(database_path) + ".wal")
+    with Path.open(wal_file_path, "r+b") as wal_file:
+        wal_file.truncate(wal_file_path.stat().st_size - 8)
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"Checksum verification failed|Reading past the end of the file",
+    ):
+        lb.Database(database_path=database_path, throw_on_wal_replay_failure=True)
+    with (
+        lb.Database(database_path=database_path) as db,
+        lb.Connection(db) as conn,
+        conn.execute("MATCH (t:T) RETURN t.id") as result,
+    ):
+        assert result.get_all() == [[1]]
+
+
 def test_database_enable_checksums_config(tmp_path: Path) -> None:
     database_path = get_db_file_path(tmp_path)
     # first construct database file with enable_checksums=True
