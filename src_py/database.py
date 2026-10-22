@@ -93,9 +93,10 @@ class Database:
 
         throw_on_wal_replay_failure: bool
             If true, any WAL replaying failure when loading the database will throw an error.
-            Otherwise (the default, as in the engine), Lbug replays the WAL up to the first record
-            it cannot read and drops the rest, such as the torn tail a crash leaves while a commit
-            is being written.
+            Otherwise (the default, as in the engine), Lbug replays the WAL up to the last complete
+            commit before the first record it cannot read and truncates the file there. This drops
+            the torn tail a crash leaves while a commit is being written, and anything recorded
+            after a damaged record.
 
         enable_checksums: bool
             If true, the database will use checksums to detect corruption in the
