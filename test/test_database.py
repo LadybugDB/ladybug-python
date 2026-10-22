@@ -179,7 +179,10 @@ def test_database_opens_past_a_torn_wal_tail_by_default(tmp_path: Path) -> None:
     with Path.open(wal_file_path, "r+b") as wal_file:
         wal_file.truncate(wal_file_path.stat().st_size - 8)
 
-    with pytest.raises(RuntimeError, match=r"Checksum verification failed|Reading past the end of the file"):
+    with pytest.raises(
+        RuntimeError,
+        match=r"Checksum verification failed|Reading past the end of the file",
+    ):
         lb.Database(database_path=database_path, throw_on_wal_replay_failure=True)
     with (
         lb.Database(database_path=database_path) as db,
