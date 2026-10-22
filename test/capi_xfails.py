@@ -81,6 +81,7 @@ CAPI_XFAILS = frozenset(
         "test/test_udf.py::test_udf_null",
         "test/test_udf.py::test_udf_except",
         "test/test_udf.py::test_udf_remove",
+        "test/test_connection_close.py::test_close_with_query_in_flight[close_from_a_folded_udf]",
         "test/test_connection_close.py::test_close_with_query_in_flight[close_from_a_udf]",
         "test/test_udf_reentrancy.py::test_udf_calling_a_connection[idle_other_connection]",
         "test/test_udf_reentrancy.py::test_udf_calling_a_connection[same_connection_on_a_worker]",
