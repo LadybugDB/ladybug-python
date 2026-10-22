@@ -1204,7 +1204,7 @@ class Database:
         max_db_size: int | None = None,
         auto_checkpoint: bool = True,
         checkpoint_threshold: int = -1,
-        throw_on_wal_replay_failure: bool = True,
+        throw_on_wal_replay_failure: bool = False,
         enable_checksums: bool = True,
         enable_multi_writes: bool = False,
     ):

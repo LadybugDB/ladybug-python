@@ -42,7 +42,7 @@ class Database:
         max_db_size: int | None = None,
         auto_checkpoint: bool = True,
         checkpoint_threshold: int = -1,
-        throw_on_wal_replay_failure: bool = True,
+        throw_on_wal_replay_failure: bool = False,
         enable_checksums: bool = True,
         enable_multi_writes: bool = False,
         backend: str = "auto",
@@ -93,8 +93,9 @@ class Database:
 
         throw_on_wal_replay_failure: bool
             If true, any WAL replaying failure when loading the database will throw an error.
-            Otherwise, Lbug will silently ignore the failure and replay up to where the error
-            occured.
+            Otherwise (the default, as in the engine), Lbug replays the WAL up to the first record
+            it cannot read and drops the rest, such as the torn tail a crash leaves while a commit
+            is being written.
 
         enable_checksums: bool
             If true, the database will use checksums to detect corruption in the
