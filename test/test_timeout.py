@@ -40,9 +40,9 @@ def _interrupt_until_done(conn: lb.Connection, *threads: threading.Thread) -> No
 
 
 @pytest.fixture
-def conn() -> Iterator[lb.Connection]:
+def conn(max_db_size: int) -> Iterator[lb.Connection]:
     # A fresh connection: the shared read-only one carries other tests' settings.
-    db = lb.Database(":memory:")
+    db = lb.Database(":memory:", max_db_size=max_db_size)
     conn = lb.Connection(db)
     yield conn
     conn.close()
