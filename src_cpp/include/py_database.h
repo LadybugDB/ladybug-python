@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "main/lbug.h"
 #include "main/storage_driver.h"
@@ -19,10 +20,16 @@ public:
 
     static uint64_t getStorageVersion();
 
-    explicit PyDatabase(const std::string& databasePath, uint64_t bufferPoolSize,
-        uint64_t maxNumThreads, bool compression, bool readOnly, uint64_t maxDBSize,
-        bool autoCheckpoint, int64_t checkpointThreshold, bool throwOnWalReplayFailure = true,
-        bool enableChecksums = true, bool enableMultiWrites = false);
+    explicit PyDatabase(const std::string& databasePath,
+        std::optional<uint64_t> bufferPoolSize = std::nullopt,
+        std::optional<uint64_t> maxNumThreads = std::nullopt,
+        std::optional<bool> compression = std::nullopt, std::optional<bool> readOnly = std::nullopt,
+        std::optional<uint64_t> maxDBSize = std::nullopt,
+        std::optional<bool> autoCheckpoint = std::nullopt,
+        std::optional<int64_t> checkpointThreshold = std::nullopt,
+        std::optional<bool> throwOnWalReplayFailure = std::nullopt,
+        std::optional<bool> enableChecksums = std::nullopt,
+        std::optional<bool> enableMultiWrites = std::nullopt);
 
     ~PyDatabase();
 

@@ -34,17 +34,17 @@ class Database:
         self,
         database_path: str | Path | None = None,
         *,
-        buffer_pool_size: int = 0,
-        max_num_threads: int = 0,
-        compression: bool = True,
+        buffer_pool_size: int | None = None,
+        max_num_threads: int | None = None,
+        compression: bool | None = None,
         lazy_init: bool = False,
-        read_only: bool = False,
+        read_only: bool | None = None,
         max_db_size: int | None = None,
-        auto_checkpoint: bool = True,
-        checkpoint_threshold: int = -1,
-        throw_on_wal_replay_failure: bool = True,
-        enable_checksums: bool = True,
-        enable_multi_writes: bool = False,
+        auto_checkpoint: bool | None = None,
+        checkpoint_threshold: int | None = None,
+        throw_on_wal_replay_failure: bool | None = None,
+        enable_checksums: bool | None = None,
+        enable_multi_writes: bool | None = None,
         backend: str = "auto",
     ):
         """
@@ -54,14 +54,17 @@ class Database:
             The path to database files. If the path is not specified, or empty, or equal to `:memory:`, the database
             will be created in memory.
 
-        buffer_pool_size : int
-            The maximum size of buffer pool in bytes. Defaults to ~80% of system memory.
+        buffer_pool_size : int, optional
+            The maximum size of buffer pool in bytes. If None (default), the
+            engine default (~80% of system memory) is used.
 
-        max_num_threads : int
-            The maximum number of threads to use for executing queries.
+        max_num_threads : int, optional
+            The maximum number of threads to use for executing queries. If None
+            (default), the engine default is used.
 
-        compression : bool
-            Enable database compression.
+        compression : bool, optional
+            Enable database compression. If None (default), the engine default
+            is used.
 
         lazy_init : bool
             If True, the database will not be initialized until the first query.
@@ -69,13 +72,13 @@ class Database:
             when the main process is forked.
             Default to False.
 
-        read_only : bool
+        read_only : bool, optional
             If true, the database is opened read-only. No write transactions is
             allowed on the `Database` object. Multiple read-only `Database`
             objects can be created with the same database path. However, there
             cannot be multiple `Database` objects created with the same
             database path.
-            Default to False.
+            If None (default), the engine default is used.
 
         max_db_size : int, optional
             The maximum size of the database in bytes. Note that this is introduced
@@ -83,25 +86,28 @@ class Database:
              space limit some environment. This will be removed once we implement
              a better solution later. If not specified, the backend's default is used.
 
-        auto_checkpoint: bool
+        auto_checkpoint: bool, optional
             If true, the database will automatically checkpoint when the size of
-            the WAL file exceeds the checkpoint threshold.
+            the WAL file exceeds the checkpoint threshold. If None (default),
+            the engine default is used.
 
-        checkpoint_threshold: int
+        checkpoint_threshold: int, optional
             The threshold of the WAL file size in bytes. When the size of the
             WAL file exceeds this threshold, the database will checkpoint if autoCheckpoint is true.
+            If None (default), the engine default is used.
 
-        throw_on_wal_replay_failure: bool
+        throw_on_wal_replay_failure: bool, optional
             If true, any WAL replaying failure when loading the database will throw an error.
             Otherwise, Lbug will silently ignore the failure and replay up to where the error
-            occured.
+            occured. If None (default), the engine default is used.
 
-        enable_checksums: bool
+        enable_checksums: bool, optional
             If true, the database will use checksums to detect corruption in the
-            WAL file.
+            WAL file. If None (default), the engine default is used.
 
-        enable_multi_writes: bool
-            If true, multiple concurrent write transactions are allowed. Default to False.
+        enable_multi_writes: bool, optional
+            If true, multiple concurrent write transactions are allowed. If None
+            (default), the engine default is used.
 
         backend : {"auto", "capi", "pybind"}
             Backend to use for database/query execution.
@@ -213,6 +219,35 @@ class Database:
         }
         return state
 
+    def _engine_kwargs(self) -> dict[str, Any]:
+        """Return only the explicitly set engine settings.
+
+        Unset (None) settings are omitted so the engine default applies,
+        instead of this binding pinning its own copy of the default.
+        """
+        kwargs: dict[str, Any] = {}
+        if self.buffer_pool_size is not None:
+            kwargs["buffer_pool_size"] = self.buffer_pool_size
+        if self.max_num_threads is not None:
+            kwargs["max_num_threads"] = self.max_num_threads
+        if self.compression is not None:
+            kwargs["compression"] = self.compression
+        if self.read_only is not None:
+            kwargs["read_only"] = self.read_only
+        if self.max_db_size is not None:
+            kwargs["max_db_size"] = self.max_db_size
+        if self.auto_checkpoint is not None:
+            kwargs["auto_checkpoint"] = self.auto_checkpoint
+        if self.checkpoint_threshold is not None:
+            kwargs["checkpoint_threshold"] = self.checkpoint_threshold
+        if self.throw_on_wal_replay_failure is not None:
+            kwargs["throw_on_wal_replay_failure"] = self.throw_on_wal_replay_failure
+        if self.enable_checksums is not None:
+            kwargs["enable_checksums"] = self.enable_checksums
+        if self.enable_multi_writes is not None:
+            kwargs["enable_multi_writes"] = self.enable_multi_writes
+        return kwargs
+
     def init_database(self) -> None:
         """Initialize the database."""
         self.check_for_database_close()
@@ -221,17 +256,7 @@ class Database:
                 self._database = self.init_pybind_database()
             else:
                 self._database = get_capi_module().Database(
-                    self.database_path,
-                    self.buffer_pool_size,
-                    self.max_num_threads,
-                    self.compression,
-                    self.read_only,
-                    self.max_db_size,
-                    self.auto_checkpoint,
-                    self.checkpoint_threshold,
-                    self.throw_on_wal_replay_failure,
-                    self.enable_checksums,
-                    self.enable_multi_writes,
+                    self.database_path, **self._engine_kwargs()
                 )
 
     def init_pybind_database(self) -> Any | None:
@@ -241,21 +266,7 @@ class Database:
         if pybind_module is None:
             return None
         if self._pybind_database is None:
-            kwargs = {
-                "database_path": self.database_path,
-                "buffer_pool_size": self.buffer_pool_size,
-                "max_num_threads": self.max_num_threads,
-                "compression": self.compression,
-                "read_only": self.read_only,
-                "auto_checkpoint": self.auto_checkpoint,
-                "checkpoint_threshold": self.checkpoint_threshold,
-                "throw_on_wal_replay_failure": self.throw_on_wal_replay_failure,
-                "enable_checksums": self.enable_checksums,
-                "enable_multi_writes": self.enable_multi_writes,
-            }
-
-            if self.max_db_size is not None:
-                kwargs["max_db_size"] = self.max_db_size
+            kwargs = {"database_path": self.database_path, **self._engine_kwargs()}
 
             self._pybind_database = pybind_module.Database(**kwargs)
 
