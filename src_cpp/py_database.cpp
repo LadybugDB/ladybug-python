@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #include "common/exception/runtime.h"
 #include "extension/extension.h"
@@ -13,14 +14,17 @@ using namespace lbug::common;
 
 void PyDatabase::initialize(py::handle& m) {
     py::class_<PyDatabase>(m, "Database")
-        .def(py::init<const std::string&, uint64_t, uint64_t, bool, bool, uint64_t, bool, int64_t,
-                 bool, bool, bool>(),
-            py::arg("database_path"), py::arg("buffer_pool_size") = 0,
-            py::arg("max_num_threads") = 0, py::arg("compression") = true,
-            py::arg("read_only") = false, py::arg("max_db_size") = -1u,
-            py::arg("auto_checkpoint") = true, py::arg("checkpoint_threshold") = -1,
-            py::arg("throw_on_wal_replay_failure") = true, py::arg("enable_checksums") = true,
-            py::arg("enable_multi_writes") = false)
+        .def(py::init<const std::string&, std::optional<uint64_t>, std::optional<uint64_t>,
+                 std::optional<bool>, std::optional<bool>, std::optional<uint64_t>,
+                 std::optional<bool>, std::optional<int64_t>, std::optional<bool>,
+                 std::optional<bool>, std::optional<bool>>(),
+            py::arg("database_path"), py::arg("buffer_pool_size") = py::none(),
+            py::arg("max_num_threads") = py::none(), py::arg("compression") = py::none(),
+            py::arg("read_only") = py::none(), py::arg("max_db_size") = py::none(),
+            py::arg("auto_checkpoint") = py::none(), py::arg("checkpoint_threshold") = py::none(),
+            py::arg("throw_on_wal_replay_failure") = py::none(),
+            py::arg("enable_checksums") = py::none(),
+            py::arg("enable_multi_writes") = py::none())
         .def("scan_node_table_as_int64", &PyDatabase::scanNodeTable<std::int64_t>,
             py::arg("table_name"), py::arg("prop_name"), py::arg("indices"), py::arg("np_array"),
             py::arg("num_threads"))
@@ -49,18 +53,46 @@ uint64_t PyDatabase::getStorageVersion() {
     return Version::getStorageVersion();
 }
 
-PyDatabase::PyDatabase(const std::string& databasePath, uint64_t bufferPoolSize,
-    uint64_t maxNumThreads, bool compression, bool readOnly, uint64_t maxDBSize,
-    bool autoCheckpoint, int64_t checkpointThreshold, bool throwOnWalReplayFailure,
-    bool enableChecksums, bool enableMultiWrites) {
-    auto systemConfig = SystemConfig(bufferPoolSize, maxNumThreads, compression, readOnly,
-        maxDBSize, autoCheckpoint);
-    if (checkpointThreshold >= 0) {
-        systemConfig.checkpointThreshold = static_cast<uint64_t>(checkpointThreshold);
+PyDatabase::PyDatabase(const std::string& databasePath, std::optional<uint64_t> bufferPoolSize,
+    std::optional<uint64_t> maxNumThreads, std::optional<bool> compression,
+    std::optional<bool> readOnly, std::optional<uint64_t> maxDBSize,
+    std::optional<bool> autoCheckpoint, std::optional<int64_t> checkpointThreshold,
+    std::optional<bool> throwOnWalReplayFailure, std::optional<bool> enableChecksums,
+    std::optional<bool> enableMultiWrites) {
+    // Start from the engine defaults and only apply explicitly set settings,
+    // so engine-side default changes propagate automatically.
+    auto systemConfig = SystemConfig();
+    if (bufferPoolSize.has_value()) {
+        systemConfig.bufferPoolSize = bufferPoolSize.value();
     }
-    systemConfig.throwOnWalReplayFailure = throwOnWalReplayFailure;
-    systemConfig.enableChecksums = enableChecksums;
-    systemConfig.enableMultiWrites = enableMultiWrites;
+    if (maxNumThreads.has_value()) {
+        systemConfig.maxNumThreads = maxNumThreads.value();
+    }
+    if (compression.has_value()) {
+        systemConfig.enableCompression = compression.value();
+    }
+    if (readOnly.has_value()) {
+        systemConfig.readOnly = readOnly.value();
+    }
+    if (maxDBSize.has_value()) {
+        systemConfig.maxDBSize = maxDBSize.value();
+    }
+    if (autoCheckpoint.has_value()) {
+        systemConfig.autoCheckpoint = autoCheckpoint.value();
+    }
+    if (checkpointThreshold.has_value() && checkpointThreshold.value() >= 0) {
+        systemConfig.checkpointThreshold =
+            static_cast<uint64_t>(checkpointThreshold.value());
+    }
+    if (throwOnWalReplayFailure.has_value()) {
+        systemConfig.throwOnWalReplayFailure = throwOnWalReplayFailure.value();
+    }
+    if (enableChecksums.has_value()) {
+        systemConfig.enableChecksums = enableChecksums.value();
+    }
+    if (enableMultiWrites.has_value()) {
+        systemConfig.enableMultiWrites = enableMultiWrites.value();
+    }
     state = std::make_shared<PyDatabaseState>();
     state->database = std::make_unique<Database>(databasePath, systemConfig);
     lbug::extension::ExtensionUtils::addTableFunc<lbug::PandasScanFunction>(*state->database);
