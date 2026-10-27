@@ -44,7 +44,7 @@ class Database:
         checkpoint_threshold: int = -1,
         throw_on_wal_replay_failure: bool = True,
         enable_checksums: bool = True,
-        enable_multi_writes: bool = False,
+        enable_multi_writes: bool = True,
         backend: str = "auto",
     ):
         """
@@ -101,7 +101,7 @@ class Database:
             WAL file.
 
         enable_multi_writes: bool
-            If true, multiple concurrent write transactions are allowed. Default to False.
+            If true, multiple concurrent write transactions are allowed. Default to True.
 
         backend : {"auto", "capi", "pybind"}
             Backend to use for database/query execution.

@@ -20,7 +20,7 @@ void PyDatabase::initialize(py::handle& m) {
             py::arg("read_only") = false, py::arg("max_db_size") = -1u,
             py::arg("auto_checkpoint") = true, py::arg("checkpoint_threshold") = -1,
             py::arg("throw_on_wal_replay_failure") = true, py::arg("enable_checksums") = true,
-            py::arg("enable_multi_writes") = false)
+            py::arg("enable_multi_writes") = true)
         .def("scan_node_table_as_int64", &PyDatabase::scanNodeTable<std::int64_t>,
             py::arg("table_name"), py::arg("prop_name"), py::arg("indices"), py::arg("np_array"),
             py::arg("num_threads"))

@@ -1206,7 +1206,7 @@ class Database:
         checkpoint_threshold: int = -1,
         throw_on_wal_replay_failure: bool = True,
         enable_checksums: bool = True,
-        enable_multi_writes: bool = False,
+        enable_multi_writes: bool = True,
     ):
         self._database = _LbugDatabase()
         config = _LIB.lbug_default_system_config()
