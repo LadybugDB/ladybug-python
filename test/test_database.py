@@ -177,9 +177,15 @@ def test_database_enable_checksums_config(tmp_path: Path) -> None:
         conn.execute("call force_checkpoint_on_close=false")
         conn.execute("create node table test(id int64 primary key)")
 
-    # running again with enable_checksums=False should give an error
+    # running again with enable_checksums=False should give an error, as long as
+    # WAL replay failures are configured to throw (the engine default is to
+    # silently ignore them, and the binding no longer overrides that default).
     with pytest.raises(RuntimeError) as check:
-        db = lb.Database(database_path=database_path, enable_checksums=False)
+        db = lb.Database(
+            database_path=database_path,
+            enable_checksums=False,
+            throw_on_wal_replay_failure=True,
+        )
 
 
 def test_database_close_order() -> None:
