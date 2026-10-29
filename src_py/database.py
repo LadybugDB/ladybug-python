@@ -98,8 +98,11 @@ class Database:
 
         throw_on_wal_replay_failure: bool, optional
             If true, any WAL replaying failure when loading the database will throw an error.
-            Otherwise, Lbug will silently ignore the failure and replay up to where the error
-            occured. If None (default), the engine default is used.
+            Otherwise (the default, as in the engine), Lbug replays the WAL up to the last
+            complete commit before the first record it cannot read and truncates the file
+            there. This drops the torn tail a crash leaves while a commit is being written,
+            and anything recorded after a damaged record.
+            If None (default), the engine default is used.
 
         enable_checksums: bool, optional
             If true, the database will use checksums to detect corruption in the
@@ -220,7 +223,8 @@ class Database:
         return state
 
     def _engine_kwargs(self) -> dict[str, Any]:
-        """Return only the explicitly set engine settings.
+        """
+        Return only the explicitly set engine settings.
 
         Unset (None) settings are omitted so the engine default applies,
         instead of this binding pinning its own copy of the default.
