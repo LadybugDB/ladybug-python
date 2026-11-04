@@ -118,6 +118,18 @@ py::dict buildCSRResult(lbug::main::ArrowQueryResult::CSRArrowArrays arrays) {
 
 } // namespace
 
+// PyDate_FromDate, PyDateTime_FromDateAndTime and
+// PyDateTimeAPI->DateTime_FromDateAndTime each return a *new* reference.
+// py::cast<py::object>(PyObject*) treats the pointer as borrowed and adds its
+// own reference, leaking the original. Steal the new reference instead, and
+// propagate the Python error if construction failed (returns nullptr). NOLINTNEXTLINE
+static py::object stealNewReference(PyObject* object) {
+    if (object == nullptr) {
+        throw py::error_already_set();
+    }
+    return py::reinterpret_steal<py::object>(object);
+}
+
 static py::object converTimestampToPyObject(timestamp_t& timestamp) {
     int32_t year = 0, month = 0, day = 0, hour = 0, min = 0, sec = 0, micros = 0;
     date_t date;
@@ -125,8 +137,7 @@ static py::object converTimestampToPyObject(timestamp_t& timestamp) {
     Timestamp::convert(timestamp, date, time);
     Date::convert(date, year, month, day);
     Time::convert(time, hour, min, sec, micros);
-    return py::cast<py::object>(
-        PyDateTime_FromDateAndTime(year, month, day, hour, min, sec, micros));
+    return stealNewReference(PyDateTime_FromDateAndTime(year, month, day, hour, min, sec, micros));
 }
 
 py::object PyQueryResult::convertValueToPyObject(const Value& value) {
@@ -200,7 +211,7 @@ py::object PyQueryResult::convertValueToPyObject(const Value& value) {
         auto dateVal = value.getValue<date_t>();
         int32_t year = 0, month = 0, day = 0;
         Date::convert(dateVal, year, month, day);
-        return py::cast<py::object>(PyDate_FromDate(year, month, day));
+        return stealNewReference(PyDate_FromDate(year, month, day));
     }
     case LogicalTypeID::TIMESTAMP: {
         auto timestampVal = value.getValue<timestamp_t>();
@@ -215,7 +226,7 @@ py::object PyQueryResult::convertValueToPyObject(const Value& value) {
         Date::convert(date, year, month, day);
         Time::convert(time, hour, min, sec, micros);
 
-        return py::cast<py::object>(PyDateTimeTZ_FromDateAndTime(year, month, day, hour, min, sec,
+        return stealNewReference(PyDateTimeTZ_FromDateAndTime(year, month, day, hour, min, sec,
             micros, PyDateTime_TimeZone_UTC));
     }
     case LogicalTypeID::TIMESTAMP_NS: {
