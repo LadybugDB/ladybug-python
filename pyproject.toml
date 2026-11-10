@@ -5,7 +5,7 @@ readme = "README.md"
 license = { text = "MIT" }
 keywords = ["graph", "database"]
 version = "0.0.1"
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.11,<3.16"
 
 [project.urls]
 Homepage = "https://ladybugdb.com/"
@@ -20,7 +20,7 @@ dev = [
     "pandas~=2.2",
     "polars~=1.30",
     "pyarrow>=25",
-    "pybind11~=2.13",
+    "pybind11>=2.13",
     "pytest",
     "pytest-asyncio~=1.0",
     "pytest-xdist~=3.0",
