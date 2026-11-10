@@ -911,7 +911,7 @@ def _logical_type_to_str(logical_type: _LbugLogicalType) -> str:
 
 def _to_datetime_from_micros(value: int, *, tz_aware: bool = False) -> dt.datetime:
     seconds = value / 1_000_000
-    utc_dt = dt.datetime.fromtimestamp(seconds, tz=dt.timezone.utc)
+    utc_dt = dt.datetime.fromtimestamp(seconds, tz=dt.UTC)
     if tz_aware:
         return utc_dt
     return utc_dt.replace(tzinfo=None)
@@ -1074,7 +1074,7 @@ def _value_from_python(value: Any) -> ctypes.POINTER(_LbugValue):
         if value.tzinfo is not None:
             micros = int(value.timestamp() * 1_000_000)
             return _LIB.lbug_value_create_timestamp_tz(_LbugTimestamp(value=micros))
-        micros = int(value.replace(tzinfo=dt.timezone.utc).timestamp() * 1_000_000)
+        micros = int(value.replace(tzinfo=dt.UTC).timestamp() * 1_000_000)
         return _LIB.lbug_value_create_timestamp(_LbugTimestamp(value=micros))
     if isinstance(value, dt.timedelta):
         total_seconds = value.days * 86400 + value.seconds
@@ -1828,7 +1828,7 @@ class QueryResult:
                     "Failed to read timestamp_ms",
                 )
                 return dt.datetime.fromtimestamp(
-                    int(out.value) / 1000, tz=dt.timezone.utc
+                    int(out.value) / 1000, tz=dt.UTC
                 ).replace(tzinfo=None)
             if type_id == _LBUG_TIMESTAMP_SEC:
                 out = _LbugTimestamp()
@@ -1838,9 +1838,9 @@ class QueryResult:
                     ),
                     "Failed to read timestamp_sec",
                 )
-                return dt.datetime.fromtimestamp(
-                    int(out.value), tz=dt.timezone.utc
-                ).replace(tzinfo=None)
+                return dt.datetime.fromtimestamp(int(out.value), tz=dt.UTC).replace(
+                    tzinfo=None
+                )
             if type_id == _LBUG_TIMESTAMP_NS:
                 out = _LbugTimestamp()
                 _check_state(
@@ -1850,7 +1850,7 @@ class QueryResult:
                     "Failed to read timestamp_ns",
                 )
                 return dt.datetime.fromtimestamp(
-                    int(out.value) / 1_000_000_000, tz=dt.timezone.utc
+                    int(out.value) / 1_000_000_000, tz=dt.UTC
                 ).replace(tzinfo=None)
             if type_id == _LBUG_INTERVAL:
                 out = _LbugInterval()

@@ -19,17 +19,12 @@ from .query_result import ArrowQueryResult, QueryResult
 from .types import ArrowRelTableLayout
 
 if TYPE_CHECKING:
-    import sys
     from collections.abc import Callable
     from types import TracebackType
+    from typing import Self
 
     from .database import Database
     from .types import Type
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
 
 
 def _capi_value_signature(value: Any) -> tuple:

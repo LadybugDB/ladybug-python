@@ -9,8 +9,8 @@ from ._backend import get_capi_module, get_pybind_module
 from .types import Type
 
 if TYPE_CHECKING:
-    import sys
     from types import TracebackType
+    from typing import Self
 
     from numpy.typing import NDArray
     from torch_geometric.data.feature_store import IndexType
@@ -18,11 +18,6 @@ if TYPE_CHECKING:
     from .connection import Connection
     from .torch_geometric_feature_store import LbugFeatureStore
     from .torch_geometric_graph_store import LbugGraphStore
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
 
 
 class Database:

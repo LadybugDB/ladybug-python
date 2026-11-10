@@ -8,21 +8,15 @@ from .torch_geometric_result_converter import TorchGeometricResultConverter
 from .types import Type
 
 if TYPE_CHECKING:
-    import sys
     from collections.abc import Iterator
     from types import TracebackType
-    from typing import Any
+    from typing import Any, Self
 
     import networkx as nx
     import pandas as pd
     import polars as pl
     import pyarrow as pa
     import torch_geometric.data as geo
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
 
 
 class QueryResult:

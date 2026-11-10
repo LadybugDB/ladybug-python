@@ -11,16 +11,11 @@ from .connection import Connection
 from .prepared_statement import PreparedStatement
 
 if TYPE_CHECKING:
-    import sys
     from types import TracebackType
+    from typing import Self
 
     from .database import Database
     from .query_result import QueryResult
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
 
 
 class AsyncConnection:
